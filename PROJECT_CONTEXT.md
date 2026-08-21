@@ -12,7 +12,33 @@
 
 The current objective is to build and validate the **historical NBA analytics foundation**.
 
-Implementation update (2026-08-15): built the deterministic natural-language
+Implementation update (2026-08-15): added the minimal HTTP API (roadmap item 13,
+first half) as `src/api.py` -- a dependency-free (Python standard library only)
+service that exposes the validated tool layer and natural-language assistant over
+HTTP. Endpoints: `GET /health`, `GET /tools` (registry via `list_tools`),
+`POST /tools/{tool_name}` (routes to `execute_tool`), and `POST /ask` (routes to
+`src.assistant.answer_question`). The routing core is a pure `handle_request`
+function, so all behavior is unit-tested without a socket, plus one real
+`ThreadingHTTPServer` integration test. The API never fabricates answers -- every
+response is produced by `execute_tool` or `answer_question` -- and sets CORS
+headers so a future browser front end can call it directly. No new package was
+installed; this keeps the existing environment stable while still satisfying the
+API portion of the website/API milestone.
+
+Prior implementation update (2026-08-15): added the source-provenanced live-data
+ingestion path (roadmap item 12). The new `src/live_data.py` fetches a schedule
+source from an `http(s)://` URL or a local CSV, validates it structurally and
+row-by-row, and performs a **leakage-safe upsert** into the `games` table by
+`gameId`: it never overwrites an existing `winner`, `homeScore`, `awayScore`,
+`attendance`, or `officials`, so historical results are preserved while upcoming
+games are added. Every run records provenance (source URL/type, fetch timestamp,
+row counts, SHA-256 checksum, validation status) in a new `data_ingestion_log`
+table, and `ensure_schema` adds a unique index on `games.gameId` to make upserts
+deterministic. The module is source-agnostic and fully testable offline (local
+fixtures plus a mocked HTTP fetch), and exposes a `--dry-run` mode that validates
+and plans without writing.
+
+Prior implementation update (2026-08-15): built the deterministic natural-language
 interface (roadmap item 11) on top of the analytical tool layer. The new
 `src/assistant.py` maps a plain-language question to a deterministic tool call,
 dispatches it through `src.tools.execute_tool`, and renders the returned
@@ -89,21 +115,22 @@ lists the full 12-team projected direct-playoff field from the Monte Carlo
 engine; the player-impact question about Steven Adams returns the
 association-only diagnostic with its non-causal warning.
 
-Current state: roadmap items 10 and 11 are meaningfully complete. The
-deterministic tool layer is the stable programmatic surface, and the
-natural-language interface sits on top of it, dispatching every question
-through `execute_tool` and rendering only the values those tools return. The
-frozen `elo_boosted_ensemble` production model, the prediction CLI/interactive
+Current state: roadmap items 10, 11, and 12 are meaningfully complete, and the
+HTTP API portion of item 13 is implemented. The deterministic tool layer is the
+stable programmatic surface; the natural-language interface sits on top of it
+dispatching every question through `execute_tool`; the live-data ingestion path
+can refresh the `games` table from any source-provenanced schedule feed without
+disturbing validated results; and `src/api.py` now exposes all of that over HTTP
+(stdlib only) with CORS enabled for a future front end. The frozen
+`elo_boosted_ensemble` production model, the prediction CLI/interactive
 interface, the season simulator, and the association-only player-impact
 diagnostics are unchanged.
 
-Exact next step: the next milestone (item 12) is to add a live-data ingestion
-path -- a scheduled, source-provenanced refresh of the repository's box-score
-and schedule data (or a documented external feed) that keeps the validated
-feature pipeline, prediction model, simulator, and tool layer operating on
-current data. The natural-language interface is already positioned to expose
-any new live-data capability through the same `execute_tool` envelope
-contract.
+Exact next step: the remaining piece of roadmap item 13 is the browser front-end
+UI that consumes this API (a minimal page with a question box wired to `POST
+/ask`, a tool picker wired to `POST /tools/{name}`, and a "live data" refresh
+control wired to `src/live_data`). The API contract is fixed, so the front end
+can be added incrementally without touching the analytics core.
 
 The immediate objective was to restore the raw CSV to SQLite feature-engineering
 pipeline after `src/build_features.py` loaded 0 team-game rows, establish a
@@ -1504,8 +1531,8 @@ Priority order:
 9. Develop simulations ✅ (Monte Carlo season engine + projected seedings/playoff field/league summary)
 10. Build AI/tool layer ✅ (deterministic tool registry + orchestration routing in src/tools.py)
 11. Build natural-language AI layer ✅ (deterministic question->tool mapping + plain-language rendering in src/assistant.py)
-12. Add live data ⬜
-13. Build website ⬜
+12. Add live data ✅ (source-provenanced, leakage-safe schedule ingestion in src/live_data.py with data_ingestion_log provenance)
+13. Build website / API 🟡 (HTTP API implemented in src/api.py, stdlib-only; browser front end remaining)
 ```
 
 This priority is a current development state, not a permanent project roadmap.
@@ -1688,8 +1715,8 @@ Player impact model:    ⚠️ Historical team-game cutoffs improve slightly, bu
 Simulation engine:      ✅ Monte Carlo season simulator validated (2023-2025 replay MAE 3.7-4.6 wins, playoff field overlap 8-11/12) with projected seedings, playoff field, and league summary wired into both CLIs
 Tool/orchestration:     ✅ deterministic tool registry (predict_matchup, simulate_season, team_projection, player_impact, player_scenario, team_record, head_to_head, resolve_team_name) with structured envelopes in src/tools.py
 AI agent/tool layer:    ✅ deterministic natural-language interface (src/assistant.py) mapping questions to tool calls and rendering envelopes as plain-language answers
-Live data:              ⬜
-Website:                ⬜
+Live data:              ✅ source-provenanced, leakage-safe schedule ingestion (src/live_data.py) with data_ingestion_log provenance
+Website / API:          🟡 HTTP API implemented (src/api.py, stdlib-only, CORS-enabled, exposes execute_tool + assistant); browser front end not yet built
 ```
 
 ## Diagnosed pipeline blocker
