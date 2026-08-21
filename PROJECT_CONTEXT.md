@@ -12,7 +12,20 @@
 
 The current objective is to build and validate the **historical NBA analytics foundation**.
 
-Implementation update (2026-08-15): added the minimal HTTP API (roadmap item 13,
+Implementation update (2026-08-20): completed the website/API milestone (roadmap
+item 13) by adding the browser front-end UI in `web/index.html`, served by the
+existing stdlib API at `GET /`, and wiring it to the validated backend. The page
+has three controls: a question box -> `POST /ask`, a tool picker (populated from
+`GET /tools`) -> `POST /tools/{name}`, and a "live data refresh" control ->
+`POST /ingest` (backed by `src/live_data.ingest_schedule`). The `POST /ingest`
+endpoint defaults to a safe dry-run so the UI cannot mutate the database without
+an explicit opt-in. The front end is a single self-contained HTML file (vanilla
+JS, no build step), CORS-enabled, and fully dependent on the deterministic tool
+envelope contract -- it never fabricates values. Four new tests cover `/ingest`
+routing (with safe default), the required-source error, and static serving of the
+page (both as a file check and over a real `ThreadingHTTPServer`).
+
+Prior implementation update (2026-08-15): added the minimal HTTP API (roadmap item 13,
 first half) as `src/api.py` -- a dependency-free (Python standard library only)
 service that exposes the validated tool layer and natural-language assistant over
 HTTP. Endpoints: `GET /health`, `GET /tools` (registry via `list_tools`),
@@ -115,22 +128,22 @@ lists the full 12-team projected direct-playoff field from the Monte Carlo
 engine; the player-impact question about Steven Adams returns the
 association-only diagnostic with its non-causal warning.
 
-Current state: roadmap items 10, 11, and 12 are meaningfully complete, and the
-HTTP API portion of item 13 is implemented. The deterministic tool layer is the
-stable programmatic surface; the natural-language interface sits on top of it
-dispatching every question through `execute_tool`; the live-data ingestion path
-can refresh the `games` table from any source-provenanced schedule feed without
-disturbing validated results; and `src/api.py` now exposes all of that over HTTP
-(stdlib only) with CORS enabled for a future front end. The frozen
-`elo_boosted_ensemble` production model, the prediction CLI/interactive
-interface, the season simulator, and the association-only player-impact
-diagnostics are unchanged.
+Current state: the full roadmap (items 1-13) is meaningfully complete. The
+deterministic tool layer is the stable programmatic surface; the natural-language
+interface dispatches every question through `execute_tool`; the live-data
+ingestion path can refresh the `games` table from any source-provenanced schedule
+feed without disturbing validated results; and `src/api.py` + `web/index.html`
+expose all of that over HTTP (stdlib only, CORS-enabled) with a usable browser
+front end. The frozen `elo_boosted_ensemble` production model, the prediction
+CLI/interactive interface, the season simulator, and the association-only
+player-impact diagnostics are unchanged.
 
-Exact next step: the remaining piece of roadmap item 13 is the browser front-end
-UI that consumes this API (a minimal page with a question box wired to `POST
-/ask`, a tool picker wired to `POST /tools/{name}`, and a "live data" refresh
-control wired to `src/live_data`). The API contract is fixed, so the front end
-can be added incrementally without touching the analytics core.
+Exact next step: the defined roadmap (items 1-13) is complete, so the project is
+now a usable, validated NBA analytics engine with a web UI. The next optional
+enhancement is to schedule a real live-data refresh (e.g. cron / Task Scheduler
+invoking `python -m src.live_data --source <feed>`) and, before any public
+deployment, add a thin authentication layer to the API. No further quantitative
+milestone is pending.
 
 The immediate objective was to restore the raw CSV to SQLite feature-engineering
 pipeline after `src/build_features.py` loaded 0 team-game rows, establish a
@@ -1532,7 +1545,7 @@ Priority order:
 10. Build AI/tool layer ✅ (deterministic tool registry + orchestration routing in src/tools.py)
 11. Build natural-language AI layer ✅ (deterministic question->tool mapping + plain-language rendering in src/assistant.py)
 12. Add live data ✅ (source-provenanced, leakage-safe schedule ingestion in src/live_data.py with data_ingestion_log provenance)
-13. Build website / API 🟡 (HTTP API implemented in src/api.py, stdlib-only; browser front end remaining)
+13. Build website / API ✅ (HTTP API in src/api.py + browser front end in web/index.html, stdlib-only, CORS-enabled)
 ```
 
 This priority is a current development state, not a permanent project roadmap.
@@ -1716,7 +1729,7 @@ Simulation engine:      ✅ Monte Carlo season simulator validated (2023-2025 re
 Tool/orchestration:     ✅ deterministic tool registry (predict_matchup, simulate_season, team_projection, player_impact, player_scenario, team_record, head_to_head, resolve_team_name) with structured envelopes in src/tools.py
 AI agent/tool layer:    ✅ deterministic natural-language interface (src/assistant.py) mapping questions to tool calls and rendering envelopes as plain-language answers
 Live data:              ✅ source-provenanced, leakage-safe schedule ingestion (src/live_data.py) with data_ingestion_log provenance
-Website / API:          🟡 HTTP API implemented (src/api.py, stdlib-only, CORS-enabled, exposes execute_tool + assistant); browser front end not yet built
+Website / API:          ✅ HTTP API (src/api.py, stdlib-only, CORS-enabled) + browser front end (web/index.html) wired to /ask, /tools/{name}, and /ingest
 ```
 
 ## Diagnosed pipeline blocker

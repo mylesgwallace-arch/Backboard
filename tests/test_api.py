@@ -162,3 +162,71 @@ def test_socket_integration_server():
             assert data["model"] == "elo_boosted_ensemble"
     finally:
         server.shutdown()
+
+
+def test_ingest_routes_to_live_data_with_safe_default(monkeypatch):
+    captured = {}
+
+    def fake_ingest(source, db_path=None, dry_run=False):
+        captured["source"] = source
+        captured["dry_run"] = dry_run
+        return {
+            "source": source,
+            "source_type": "file",
+            "dry_run": dry_run,
+            "rows_loaded": 0,
+            "rows_skipped": 0,
+            "validation_status": "passed",
+            "checksum_sha256": "deadbeef",
+            "notes": "mocked",
+        }
+
+    monkeypatch.setattr("src.api.ingest_schedule", fake_ingest)
+
+    # Default dry_run is True (safe: no DB mutation without opt-in).
+    status, payload = api.handle_request(
+        "POST", "/ingest", json.dumps({"source": "data/raw/x.csv"}).encode("utf-8")
+    )
+    assert status == 200
+    assert captured["source"] == "data/raw/x.csv"
+    assert captured["dry_run"] is True
+    assert payload["validation_status"] == "passed"
+
+    # Explicit dry_run: false is honored.
+    status, _ = api.handle_request(
+        "POST", "/ingest",
+        json.dumps({"source": "data/raw/x.csv", "dry_run": False}).encode("utf-8"),
+    )
+    assert captured["dry_run"] is False
+
+
+def test_ingest_requires_source():
+    status, payload = api.handle_request("POST", "/ingest", b"{}")
+    assert status == 400
+    assert payload["error"] == "missing_field"
+
+
+def test_static_front_end_is_served():
+    # The front-end page must exist and be wired to the API endpoints.
+    assert api.WEB_HTML.exists()
+    html = api.WEB_HTML.read_text(encoding="utf-8")
+    assert "POST /ask" not in html  # JS uses fetch('/ask'), not literal text
+    assert "/ask" in html
+    assert "/tools/" in html
+    assert "/ingest" in html
+
+
+def test_socket_serves_front_end_page():
+    server = api.ThreadingHTTPServer(("127.0.0.1", 0), api._Handler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/") as resp:
+            assert resp.status == 200
+            assert resp.headers.get("Content-Type").startswith("text/html")
+            body = resp.read().decode("utf-8")
+            assert "NBA Sports AI" in body
+            assert "/ask" in body
+    finally:
+        server.shutdown()

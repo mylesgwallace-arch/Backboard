@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NBA Sports AI</title>
+  <style>
+    body { font-family: system-ui, Segoe UI, Roboto, sans-serif; margin: 0;
+           background: #0f172a; color: #e2e8f0; }
+    header { padding: 1.2rem 1.5rem; background: #111827; border-bottom: 1px solid #1f2937; }
+    h1 { margin: 0; font-size: 1.4rem; }
+    header p { margin: 0.3rem 0 0; color: #94a3b8; font-size: 0.85rem; }
+    main { max-width: 880px; margin: 0 auto; padding: 1.5rem; }
+    section { background: #111827; border: 1px solid #1f2937; border-radius: 10px;
+              padding: 1rem 1.2rem; margin-bottom: 1.2rem; }
+    h2 { margin-top: 0; font-size: 1.05rem; color: #93c5fd; }
+    textarea, input[type=text] { width: 100%; box-sizing: border-box; background: #0f172a;
+              color: #e2e8f0; border: 1px solid #334155; border-radius: 6px;
+              padding: 0.5rem; font-family: inherit; font-size: 0.9rem; }
+    textarea { resize: vertical; }
+    button { margin-top: 0.6rem; background: #2563eb; color: white; border: 0;
+             border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.9rem; }
+    button:hover { background: #1d4ed8; }
+    pre { background: #0f172a; border: 1px solid #1f2937; border-radius: 6px;
+          padding: 0.7rem; overflow: auto; max-height: 320px; font-size: 0.82rem; }
+    label { font-size: 0.85rem; color: #cbd5e1; }
+    .hint { color: #64748b; font-size: 0.78rem; margin: 0.3rem 0 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>NBA Sports AI</h1>
+    <p>Powered by the frozen <code>elo_boosted_ensemble</code> model and validated
+       analytics tools. Every answer comes from a deterministic tool envelope.</p>
+  </header>
+
+  <main>
+    <section id="ask">
+      <h2>Ask a question</h2>
+      <textarea id="question" rows="2"
+        placeholder="Who is favored in Celtics vs Lakers?"></textarea>
+      <button id="ask-btn">Ask</button>
+      <pre id="ask-result">// answer appears here</pre>
+    </section>
+
+    <section id="tool">
+      <h2>Run a tool</h2>
+      <label for="tool-name">Tool</label>
+      <select id="tool-name" style="width:100%;padding:0.5rem;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;"></select>
+      <p class="hint">Parameters (JSON). Tools accept team names or numeric teamIds.</p>
+      <textarea id="tool-params" rows="4">{"home_team": "Boston Celtics", "away_team": "Los Angeles Lakers"}</textarea>
+      <button id="tool-btn">Run tool</button>
+      <pre id="tool-result">// tool envelope appears here</pre>
+    </section>
+
+    <section id="live">
+      <h2>Live data refresh</h2>
+      <label for="source">Schedule source (http(s):// URL or local CSV)</label>
+      <input type="text" id="source" value="data/raw/LeagueSchedule25_26.csv" size="60">
+      <p class="hint">
+        <label><input type="checkbox" id="dry-run" checked> dry-run (validate + plan, no database writes)</label>
+      </p>
+      <button id="ingest-btn">Ingest</button>
+      <pre id="ingest-result">// ingestion manifest (provenance) appears here</pre>
+    </section>
+  </main>
+
+  <script>
+    const API = ""; // same-origin when served by the API at http://127.0.0.1:8000/
+
+    async function postJSON(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      try { return JSON.parse(text); } catch { return text; }
+    }
+
+    function render(el, value) {
+      el.textContent = (typeof value === "string")
+        ? value
+        : JSON.stringify(value, null, 2);
+    }
+
+    // Populate the tool picker from the registry.
+    fetch(API + "/tools")
+      .then((r) => r.json())
+      .then((d) => {
+        const sel = document.getElementById("tool-name");
+        (d.tools || []).forEach((t) => {
+          const o = document.createElement("option");
+          o.value = t.name;
+          o.textContent = t.name;
+          sel.appendChild(o);
+        });
+      })
+      .catch((e) => {
+        document.getElementById("tool-result").textContent = "Failed to load tools: " + e;
+      });
+
+    document.getElementById("ask-btn").onclick = async () => {
+      const q = document.getElementById("question").value;
+      const out = document.getElementById("ask-result");
+      out.textContent = "Loading...";
+      try {
+        const r = await postJSON(API + "/ask", { question: q });
+        render(out, r);
+      } catch (e) { out.textContent = "Error: " + e; }
+    };
+
+    document.getElementById("tool-btn").onclick = async () => {
+      const name = document.getElementById("tool-name").value;
+      const paramsText = document.getElementById("tool-params").value;
+      const out = document.getElementById("tool-result");
+      let params;
+      try { params = JSON.parse(paramsText || "{}"); }
+      catch (e) { out.textContent = "Invalid JSON parameters: " + e; return; }
+      out.textContent = "Loading...";
+      try {
+        const r = await postJSON(API + "/tools/" + name, { parameters: params });
+        render(out, r);
+      } catch (e) { out.textContent = "Error: " + e; }
+    };
+
+    document.getElementById("ingest-btn").onclick = async () => {
+      const source = document.getElementById("source").value;
+      const dry = document.getElementById("dry-run").checked;
+      const out = document.getElementById("ingest-result");
+      out.textContent = "Loading...";
+      try {
+        const r = await postJSON(API + "/ingest", { source, dry_run: dry });
+        render(out, r);
+      } catch (e) { out.textContent = "Error: " + e; }
+    };
+  </script>
+</body>
+</html>

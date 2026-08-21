@@ -9,10 +9,14 @@ response is produced by ``src.tools.execute_tool`` or
 
 Endpoints:
 
+* ``GET  /``  (and ``/app``, ``/index.html``) -> the browser front-end page
 * ``GET  /health``            -> server + production model status
 * ``GET  /tools``             -> tool registry (``list_tools``)
 * ``POST /tools/{tool_name}`` -> ``{"parameters": {...}}`` -> tool envelope
 * ``POST /ask``               -> ``{"question": "..."}``   -> assistant answer
+* ``POST /ingest``            -> ``{"source": "...", "dry_run": true}``
+  -> provenanced schedule ingestion (``src.live_data``); defaults to dry-run so
+  the UI cannot mutate the database without an explicit opt-in.
 
 The HTTP parsing is deliberately separated from ``handle_request``, a pure
 function that takes ``(method, path, body)`` and returns ``(status_code, dict)``,
@@ -25,14 +29,20 @@ import argparse
 import json
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 try:
     from src.tools import PRODUCTION_MODEL, execute_tool, list_tools
     from src.assistant import answer_question
+    from src.live_data import ingest_schedule
 except ImportError:  # pragma: no cover - direct-script support
     from tools import PRODUCTION_MODEL, execute_tool, list_tools
     from assistant import answer_question
+    from live_data import ingest_schedule
 
+
+ROOT = Path(__file__).resolve().parents[1]
+WEB_HTML = ROOT / "web" / "index.html"
 
 SERVICE_NAME = "nba-sports-ai"
 
@@ -107,6 +117,20 @@ def handle_request(method, path, body=None):
                          "message": "Provide a JSON body with a 'question'."}
         return 200, answer_question(data["question"])
 
+    # Source-provenanced live-data ingestion (defaults to a safe dry-run).
+    if method == "POST" and route == "/ingest":
+        try:
+            data = _parse_json_body(body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return 400, {"error": "invalid_json",
+                         "message": "Request body must be valid JSON."}
+        if not isinstance(data, dict) or not data.get("source"):
+            return 400, {"error": "missing_field",
+                         "message": "Provide a JSON body with a 'source'."}
+        dry_run = bool(data.get("dry_run", True))
+        manifest = ingest_schedule(data["source"], dry_run=dry_run)
+        return 200, manifest
+
     return 404, {"error": "not_found", "path": route}
 
 
@@ -129,7 +153,25 @@ class _Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._send(204, {})
 
+    def _serve_html(self):
+        if not WEB_HTML.exists():
+            self._send(404, {"error": "not_found",
+                             "message": "web/index.html not found."})
+            return
+        body = WEB_HTML.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        route = parsed.path.rstrip("/") or "/"
+        if route in ("/", "/app", "/index.html"):
+            self._serve_html()
+            return
         status, payload = handle_request("GET", self.path, None)
         self._send(status, payload)
 
@@ -156,8 +198,8 @@ def main(argv=None):
     server = ThreadingHTTPServer((args.host, args.port), _Handler)
     print(f"{SERVICE_NAME} API listening on http://{args.host}:{args.port}")
     print(f"  production model: {PRODUCTION_MODEL}")
-    print("  endpoints: GET /health, GET /tools, "
-          "POST /tools/<name>, POST /ask")
+    print("  endpoints: GET / (front end), GET /health, GET /tools, "
+          "POST /tools/<name>, POST /ask, POST /ingest")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
