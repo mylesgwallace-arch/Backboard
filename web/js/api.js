@@ -103,3 +103,10 @@ export function getTeamProjection({ teamId, season, nSimulations, randomState })
   if (randomState != null) parameters.random_state = randomState;
   return runTool("team_projection", parameters);
 }
+
+export function getSeasonSimulation({ season, nSimulations, randomState }) {
+  const parameters = { season };
+  if (nSimulations != null) parameters.n_simulations = nSimulations;
+  if (randomState != null) parameters.random_state = randomState;
+  return runTool("simulate_season", parameters);
+}

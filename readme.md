@@ -170,11 +170,27 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 - **Dashboard** preserves the original raw "ask a question" / "run any tool" /
   "live data ingest" controls (formerly the entire front end) under an
   **Advanced** collapsible section.
-- **Season Simulator / Player Impact / League Predictions** are still "Coming
-  soon" placeholder pages — the backend tools they'll use (`simulate_season`,
-  `team_projection`, `player_impact`, `player_scenario`) already exist and are
-  callable today via the tool layer above; only the structured UI for them
-  hasn't been built yet. See `PROJECT_CONTEXT.md` for the prioritized roadmap.
+- **Season Simulator** (added 2026-09-07): choose a season (2023-2025, the
+  same seasons `src/simulate_season.py`'s own validation replay covers) and a
+  simulation count (200-2,000), click **Run Season Simulation**, and it calls
+  `POST /tools/simulate_season` and renders a league summary, the projected
+  playoff field (most likely team per seed), and full East/West projected
+  standings tables -- click any team row to expand its median/range win
+  totals and full seed-probability breakdown, or jump straight to Team
+  Explorer for that team. The "what does this do?" explanation and its
+  assumptions/limitations are pulled live from the tool registry
+  (`GET /tools`), not hand-written, so the methodology claims always match
+  the backend. Because the underlying Monte Carlo engine's first call in a
+  server process takes up to ~60s (same cache as Team Explorer's
+  Projections tab; confirmed live at ~59s cold vs ~0.35s warm, and the cache
+  is shared across seasons and simulation counts), the run button shows an
+  explicit "this may take up to a minute the first time" notice and stays
+  disabled with a spinner until the request resolves.
+- **Player Impact / League Predictions** are still "Coming soon" placeholder
+  pages — the backend tools they'll use (`player_impact`, `player_scenario`,
+  `simulate_season` league-wide) already exist and are callable today via
+  the tool layer above; only the structured UI for them hasn't been built
+  yet. See `PROJECT_CONTEXT.md` for the prioritized roadmap.
 - **Writes nothing** beyond what the underlying tools already write (e.g. `/ingest` with `dry_run: false`).
 
 ### Player-impact diagnostics

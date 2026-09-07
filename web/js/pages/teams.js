@@ -13,6 +13,7 @@ import {
 } from "../api.js";
 import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
 import { renderComparisonRow } from "../components/comparisonBar.js";
+import { renderSeedProbabilityBars } from "../components/seedProbabilities.js";
 import { teamColor } from "../teamColors.js";
 
 export const meta = {
@@ -375,15 +376,6 @@ function wireProjectionsTab(body, teamId) {
 }
 
 function renderProjectionResult(projection, nSimulations) {
-  const seedRows = Object.keys(projection)
-    .filter((key) => key.startsWith("p_seed_"))
-    .sort()
-    .map((key) => {
-      const seed = key.replace("p_seed_", "");
-      return { label: `Seed ${seed}`, value: projection[key] };
-    });
-  seedRows.push({ label: "Out of playoffs", value: projection.out_of_playoffs_probability });
-
   return `
     <div class="stat-grid">
       <div class="stat-tile">
@@ -404,18 +396,7 @@ function renderProjectionResult(projection, nSimulations) {
       </div>
     </div>
     <div class="section-title mt-2">Projected conference seed probability</div>
-    ${seedRows
-      .map(
-        (row) => `
-          <div class="compare-row">
-            <div class="compare-row-head"><span class="metric-name">${row.label}</span><span>${(row.value * 100).toFixed(1)}%</span></div>
-            <div class="compare-track">
-              <div class="compare-fill home" style="width:${row.value * 100}%; background:var(--accent);"></div>
-            </div>
-          </div>
-        `
-      )
-      .join("")}
+    ${renderSeedProbabilityBars(projection)}
     <p class="text-muted mt-2" style="font-size:0.76rem;">
       Based on ${nSimulations} Monte Carlo simulations of the ${CURRENT_SEASON} schedule
       using the validated production model. Descriptive projection, not a guarantee.

@@ -12,7 +12,167 @@
 
 The current objective is to build and validate the **historical NBA analytics foundation**.
 
-Implementation update (2026-09-07): built the **Team Explorer** page -- the
+Implementation update (2026-09-07, part 2): built the **Season Simulator**
+page -- the third fully functional analytics page, after the Matchup
+Predictor and Team Explorer. **No backend changes were needed or made**: the
+existing `simulate_season` tool (unchanged) already returned everything the
+page needed.
+
+## Backend investigation (performed before implementation)
+
+* **Tool:** `simulate_season` in `src/tools.py` (`_execute_simulate_season`),
+  which wraps `src/simulate_season.py`'s `project_season()` (itself
+  `simulate_season()` + `summarize_team_wins()` + `build_seedings_table()` +
+  `build_league_summary()`) on top of the cached, leakage-safe
+  `load_pregame_probabilities()` output. No new tool was needed.
+* **Request parameters (confirmed via `GET /tools`):** `season` (int,
+  required, e.g. 2025), `n_simulations` (int, optional, default 1000),
+  `random_state` (int, optional, default 42).
+* **Response structure (confirmed via a live call, not assumed):**
+  `data.projection` = `{season, n_simulations, random_state, teams,
+  projected_standings, projected_seedings, league_summary}`.
+  * `projected_standings`: one row per current franchise (30 total) with
+    `teamId, conference, mean_wins, median_wins, p5_wins, p95_wins,
+    direct_playoff_probability, mean_conference_seed,
+    median_conference_seed, p_seed_1..p_seed_6, out_of_playoffs_probability`,
+    pre-sorted by conference then descending mean wins.
+  * `projected_seedings`: 12 rows (6 seeds x 2 conferences) -- the single
+    most probable team for each direct-playoff seed slot, with `conference,
+    seed, teamId, probability`.
+  * `league_summary`: `n_teams, league_mean_wins, league_median_wins,
+    best_team {teamId, mean_wins}, worst_team {teamId, mean_wins},
+    conference_mean_wins {East, West}`.
+  * **No championship/title probability field exists anywhere in the
+    response** -- confirmed by inspecting `build_league_summary` and
+    `summarize_team_wins`; only direct-playoff-seed qualification odds
+    (top 6 per conference) are computed. The frontend therefore does **not**
+    include a "Championship Outlook" section, per the instruction not to
+    invent unsupported statistics.
+* **Performance/caching (measured live against a running `src/api.py`,
+  same behavior the Team Explorer session already found for
+  `team_projection`, now confirmed for `simulate_season` itself):**
+  * Cold (first call in a server process): **58.5s** for `n_simulations=1000`.
+  * Warm (same process, any season/simulation-count): **~0.2-0.35s**.
+  * The warm cache (`PROBABILITIES_CACHE` in `src/tools.py`) is shared
+    across **all** seasons and simulation counts -- confirmed by calling
+    `season=2023` immediately after a warm `season=2025` call and seeing
+    ~0.2s, not another cold load. This meant the frontend only needs one
+    "may take up to a minute the first time" warning, not a per-season one.
+  * Error path confirmed: an out-of-range season (e.g. 1900, no games)
+    returns `status: "error"`, HTTP 400, with a clear message -- the
+    season selector is restricted to `[2023, 2024, 2025]` (the same seasons
+    `simulate_season.py`'s own `VALIDATION_SEASONS` replays and validates
+    against actual results) so this error path is defensive-only in
+    practice, not something a normal user can trigger through the UI.
+
+## What was built
+
+* **Season Simulator** (`web/js/pages/simulator.js`, wired into `main.js`'s
+  router, no longer a placeholder):
+  * **"What does this do?" card** -- pulls the `simulate_season` tool's
+    `description`, `assumptions`, and `limitations` live from `GET /tools`
+    and renders them verbatim, so the page's methodology claims can never
+    drift from the backend's own documentation.
+  * **Controls** -- a season dropdown (2023-2025) and a simulation-count
+    dropdown (200/500/1,000/2,000, default 1,000; confirmed cheap even at
+    the top end once warm) plus a single **Run Season Simulation** button.
+    No decorative controls were added; `random_state` was deliberately not
+    exposed since reproducibility-only is not a meaningful choice for a
+    non-technical user.
+  * **Loading/error handling** -- the button disables and shows a spinner
+    plus explicit "this may take up to a minute the first time... much
+    faster on later runs" text while the request is in flight (measured
+    behavior, not a guess); a skeleton placeholder appears in the results
+    area; network and tool-level errors both render a clear error banner
+    with the backend's own error message; the button always re-enables
+    afterward so the user is never left wondering if the app has frozen.
+  * **Results** -- a league summary (mean wins, strongest/weakest projected
+    team, conference mean wins), a projected playoff field (most-likely
+    team per seed, both conferences, as probability bars), and full
+    East/West **projected standings tables** (seed position, team, mean
+    wins, and a color-coded playoff-odds bar: green >=75%, amber 25-75%,
+    muted below). Clicking a standings row expands an inline detail panel
+    with median wins, the 5th-95th percentile win range, mean conference
+    seed, and the full per-seed probability breakdown -- the "team-by-team
+    results" requirement, without a second page or a cluttered default
+    view. No championship/title odds are shown (see investigation above).
+  * **Cross-page navigation** -- every team name in the standings and
+    playoff-field sections, and the "View full team profile" link in each
+    expanded row, deep-links to Team Explorer (`#/teams?team=<id>`), reusing
+    the same `ctx.navigate` + query-string pattern the Matchup
+    Predictor/Team Explorer pair already established.
+* **New shared component** (`web/js/components/seedProbabilities.js`):
+  extracted the seed-probability-bar rendering that was previously inline
+  in Team Explorer's Projections tab into a reusable
+  `renderSeedProbabilityBars()` function, now used by both Team Explorer
+  and the Season Simulator's row drill-down -- avoiding duplicating the
+  same visualization code, per the reuse requirement. Team Explorer's own
+  behavior is unchanged (same markup/output, just relocated).
+* **`web/js/api.js`** gained one new wrapper, `getSeasonSimulation()`, a
+  thin `runTool("simulate_season", ...)` call -- no logic duplication.
+* Dashboard's "Season Simulator" quick-link card is now marked available
+  (previously "Soon").
+
+## Validation performed
+
+* **No backend changes were made**, so no new backend tests were needed;
+  full suite re-run to confirm no regressions: **169 passed** (unchanged
+  from the Team Explorer milestone).
+* Live HTTP verification against a running `src/api.py`: confirmed the
+  exact `GET /tools` metadata shape consumed by the About card; confirmed
+  cold (~58.5s) vs warm (~0.35s) `simulate_season` timing and that the
+  warm cache is shared across seasons; confirmed the full response shape
+  (30 standings rows, 12 seedings, complete `league_summary`) matches what
+  `simulator.js` renders; confirmed the error envelope shape for an
+  invalid season; re-confirmed `predict_matchup`, `team_elo_rating`, and
+  `team_projection` (Matchup Predictor and Team Explorer's endpoints) still
+  return 200 after these changes; verified every new/changed static asset
+  (`simulator.js`, `seedProbabilities.js`, updated `api.js`/`main.js`/
+  `dashboard.js`/`teams.js`) is served live with a 200 and correct
+  content-type; verified brace/paren balance and CSS-class-vs-stylesheet
+  consistency across every JS file touched this session.
+
+## What works now
+
+Three genuinely functional pages sharing one design system and API layer:
+Matchup Predictor, Team Explorer, and Season Simulator -- with working
+cross-navigation between all three (matchup results -> Team Explorer,
+Team Explorer -> Matchup Predictor, Season Simulator standings -> Team
+Explorer).
+
+## Exact next milestone
+
+**League Predictions** is the recommended next page, not Player Impact --
+based on the actual repository state, not the original candidate order:
+* `simulate_season`'s response *already contains* everything a league-wide
+  view needs (`projected_standings` for all 30 teams, `projected_seedings`,
+  `league_summary`) -- this was just proven live this session. A League
+  Predictions page would reuse the exact same tool call and largely the
+  same rendering components (`renderSeedProbabilityBars`, the standings
+  table pattern) already built for Season Simulator, making it the
+  lowest-effort, zero-backend-risk next page.
+* By contrast, **Player Impact / Trade Simulator** has a genuine backend
+  gap: players can currently only be referenced by numeric `personId` (no
+  `resolve_person_name`-style tool exists, confirmed by inspecting
+  `src/tools.py`'s registry), so a usable Player Impact page needs a
+  searchable player picker backed by a new small tool first -- more
+  backend work than League Predictions requires.
+* A dedicated **Head-to-Head Comparison page** remains lower priority: the
+  capability already exists as a Team Explorer tab, and there is no
+  evidence yet that it needs to be promoted to a standalone page.
+* The natural-language assistant remains last, per the project's
+  deterministic-first philosophy and because it is already reachable today
+  via the Dashboard's "Ask a question" panel.
+
+If League Predictions is judged to overlap too much with Season Simulator's
+existing standings tables once built, the alternative next step is closing
+the Player Impact gap (add a small, additive player-name-resolution tool,
+mirroring how `list_teams`/`team_form`/`team_elo_rating` closed the
+Team Explorer's gaps) so that page can be built next instead.
+
+---
+
+Prior implementation update (2026-09-07): built the **Team Explorer** page -- the
 first fully functional analytics page beyond the Matchup Predictor -- and
 closed the two genuine backend gaps it exposed. Nothing existing was
 rewritten; the dashboard, router, design system, and Matchup Predictor are

@@ -27,7 +27,7 @@ const QUICK_LINKS = [
     path: "/simulator",
     title: "Season Simulator",
     description: "Monte Carlo season projection: standings, seeds, playoff odds.",
-    available: false,
+    available: true,
   },
   {
     path: "/player-impact",
