@@ -36,6 +36,8 @@ try:
         FEATURES_PATH,
         METRICS_PATH,
         MODEL_PATH,
+        NBA_TEAM_ID_MAX,
+        NBA_TEAM_ID_MIN,
         TEAM_DB_PATH,
         predict_matchup,
         resolve_team_name_to_id,
@@ -48,6 +50,8 @@ except ImportError:  # pragma: no cover - direct-script support
         FEATURES_PATH,
         METRICS_PATH,
         MODEL_PATH,
+        NBA_TEAM_ID_MAX,
+        NBA_TEAM_ID_MIN,
         TEAM_DB_PATH,
         predict_matchup,
         resolve_team_name_to_id,
@@ -309,6 +313,32 @@ def _execute_resolve_team_name(parameters):
     return {"team": parameters["team"], "team_id": int(team_id)}
 
 
+def _execute_list_teams(parameters):
+    """List the 30 current NBA franchises for UI selection (teamId + names)."""
+    with sqlite3.connect(TEAM_DB_PATH) as connection:
+        rows = connection.execute(
+            """
+            SELECT teamId, teamCity, teamName, teamAbbrev
+            FROM team_histories
+            WHERE seasonActiveTill >= 2100
+              AND teamId BETWEEN ? AND ?
+            ORDER BY teamCity, teamName
+            """,
+            (NBA_TEAM_ID_MIN, NBA_TEAM_ID_MAX),
+        ).fetchall()
+    teams = [
+        {
+            "team_id": int(team_id),
+            "city": city,
+            "name": name,
+            "full_name": f"{city} {name}",
+            "abbreviation": (abbrev or "").strip(),
+        }
+        for team_id, city, name, abbrev in rows
+    ]
+    return {"teams": teams, "count": len(teams)}
+
+
 # ---------------------------------------------------------------------------
 # Tool registry
 # ---------------------------------------------------------------------------
@@ -549,6 +579,23 @@ TOOLS = {
             "Historical franchise names are not resolved to current teamIds.",
         ],
         "execute": _execute_resolve_team_name,
+    },
+    "list_teams": {
+        "name": "list_teams",
+        "description": (
+            "List the 30 current NBA franchises with teamId, city, name, and "
+            "abbreviation (for populating team selection UIs)."
+        ),
+        "category": "utility",
+        "model": "nba.db team_histories table (factual lookup)",
+        "parameters": [],
+        "assumptions": [
+            "Only the 30 currently active NBA franchises are included.",
+        ],
+        "limitations": [
+            "Historical or relocated franchise names are not included.",
+        ],
+        "execute": _execute_list_teams,
     },
 }
 

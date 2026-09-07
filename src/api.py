@@ -10,6 +10,10 @@ response is produced by ``src.tools.execute_tool`` or
 Endpoints:
 
 * ``GET  /``  (and ``/app``, ``/index.html``) -> the browser front-end page
+* ``GET  /<path>``            -> any other static asset under ``web/`` (CSS,
+  vanilla-JS ES modules, etc.), served with an explicit content-type map so
+  the dashboard front end can be a normal multi-file static app with no
+  build step
 * ``GET  /health``            -> server + production model status
 * ``GET  /tools``             -> tool registry (``list_tools``)
 * ``POST /tools/{tool_name}`` -> ``{"parameters": {...}}`` -> tool envelope
@@ -42,9 +46,44 @@ except ImportError:  # pragma: no cover - direct-script support
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB_HTML = ROOT / "web" / "index.html"
+WEB_DIR = ROOT / "web"
+WEB_HTML = WEB_DIR / "index.html"
 
 SERVICE_NAME = "nba-sports-ai"
+
+# The front end is a static, no-build-step, multi-file app (HTML/CSS/vanilla
+# JS ES modules) under web/. Content types are mapped explicitly rather than
+# relying on the OS mimetypes registry, which is inconsistent across
+# platforms (notably Windows) for .js/.css.
+_STATIC_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".json": "application/json",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".png": "image/png",
+}
+
+
+def _static_asset_path(url_path):
+    """Resolve a GET path to a file under web/, or None if not a static asset.
+
+    Guards against path traversal by requiring the resolved path to stay
+    inside ``WEB_DIR``.
+    """
+    candidate = urllib.parse.unquote(url_path).lstrip("/")
+    if not candidate:
+        return None
+    target = (WEB_DIR / candidate).resolve()
+    try:
+        target.relative_to(WEB_DIR.resolve())
+    except ValueError:
+        return None
+    if target.is_file():
+        return target
+    return None
 
 
 def _parse_json_body(body):
@@ -166,11 +205,27 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _serve_static(self, path):
+        body = path.read_bytes()
+        content_type = _STATIC_CONTENT_TYPES.get(
+            path.suffix.lower(), "application/octet-stream"
+        )
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         route = parsed.path.rstrip("/") or "/"
         if route in ("/", "/app", "/index.html"):
             self._serve_html()
+            return
+        static_path = _static_asset_path(parsed.path)
+        if static_path is not None:
+            self._serve_static(static_path)
             return
         status, payload = handle_request("GET", self.path, None)
         self._send(status, payload)

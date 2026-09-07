@@ -34,11 +34,29 @@ def test_list_tools_exposes_expected_capabilities():
         "team_record",
         "head_to_head",
         "resolve_team_name",
+        "list_teams",
     } <= set(tools)
     for tool in tools.values():
         assert tool["description"]
         assert tool["model"]
-        assert tool["parameters"]
+        assert tool["parameters"] is not None
+
+
+def test_list_teams_returns_the_30_current_franchises():
+    envelope = execute_tool("list_teams", {})
+
+    assert envelope["status"] == "success"
+    data = envelope["data"]
+    assert data["count"] == 30
+    assert len(data["teams"]) == 30
+    team = data["teams"][0]
+    assert set(team) == {"team_id", "city", "name", "full_name", "abbreviation"}
+    full_names = {team["full_name"] for team in data["teams"]}
+    assert "Boston Celtics" in full_names
+    assert "Los Angeles Lakers" in full_names
+    # No historical/relocated or international franchises leak in.
+    abbreviations = {team["abbreviation"] for team in data["teams"]}
+    assert "TRI" not in abbreviations
 
 
 def test_execute_tool_unknown_tool_returns_structured_error():

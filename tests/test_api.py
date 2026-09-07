@@ -207,13 +207,19 @@ def test_ingest_requires_source():
 
 
 def test_static_front_end_is_served():
-    # The front-end page must exist and be wired to the API endpoints.
+    # The front-end shell must exist and load the app's JS entry point. The
+    # actual API calls live in the JS modules under web/js/, not inline HTML.
     assert api.WEB_HTML.exists()
     html = api.WEB_HTML.read_text(encoding="utf-8")
     assert "POST /ask" not in html  # JS uses fetch('/ask'), not literal text
-    assert "/ask" in html
-    assert "/tools/" in html
-    assert "/ingest" in html
+    assert 'type="module"' in html
+
+    api_js = api.WEB_DIR / "js" / "api.js"
+    assert api_js.exists()
+    js = api_js.read_text(encoding="utf-8")
+    assert "/ask" in js
+    assert "/tools/" in js
+    assert "/ingest" in js
 
 
 def test_socket_serves_front_end_page():
@@ -226,7 +232,30 @@ def test_socket_serves_front_end_page():
             assert resp.status == 200
             assert resp.headers.get("Content-Type").startswith("text/html")
             body = resp.read().decode("utf-8")
-            assert "NBA Sports AI" in body
-            assert "/ask" in body
+            assert "NBA" in body
     finally:
         server.shutdown()
+
+
+def test_socket_serves_static_css_and_js_assets():
+    server = api.ThreadingHTTPServer(("127.0.0.1", 0), api._Handler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/styles.css") as resp:
+            assert resp.status == 200
+            assert resp.headers.get("Content-Type").startswith("text/css")
+
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/js/api.js") as resp:
+            assert resp.status == 200
+            assert resp.headers.get("Content-Type").startswith("text/javascript")
+    finally:
+        server.shutdown()
+
+
+def test_static_asset_path_blocks_traversal_outside_web_dir():
+    assert api._static_asset_path("/../src/api.py") is None
+    assert api._static_asset_path("/../../etc/passwd") is None
+    assert api._static_asset_path("/does-not-exist.js") is None
+    assert api._static_asset_path("/styles.css") is not None

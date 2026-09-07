@@ -2,6 +2,12 @@
 
 **Date:** 2026-08-15 · **Auditor note:** Every command below was verified by running it against the live repository, database, and model artifacts. Nothing is asserted from documentation alone.
 
+> **Update (2026-09-06):** the "no web UI" gap noted in Sections 1/11/12 below is
+> now out of date. `src/api.py` serves a real dashboard front end from `web/`
+> (Matchup Predictor + preserved raw ask/tools/ingest controls) — see the
+> "Web front end" subsection in Section 3 and `PROJECT_CONTEXT.md` for the
+> current state.
+
 ---
 
 ## 1. Executive Summary
@@ -120,6 +126,33 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 .\.venv\Scripts\python src\tools.py --tool head_to_head --params '{"team_a": "Boston Celtics", "team_b": "Los Angeles Lakers", "season": 2025}'
 ```
 - **All verified working** (I executed 5 of these live). Writes nothing. Structured envelopes with status/operation/model/assumptions/limitations/data.
+
+### Web front end (dashboard + API server)
+
+```
+.\.venv\Scripts\python src\api.py --host 127.0.0.1 --port 8000
+```
+- **Does:** Starts the stdlib HTTP API *and* serves the browser dashboard from
+  the same process (no separate frontend server, no Node/build step). Open
+  `http://127.0.0.1:8000/` in a browser.
+- The dashboard (`web/`) is a static, dependency-free multi-file app: `index.html`
+  + `styles.css` + vanilla-JS ES modules under `web/js/`. `src/api.py` serves any
+  file under `web/` in addition to `index.html`, so adding a new page/component
+  is just adding a `.js` file — no backend or build changes required.
+- **Matchups** (default landing page) is the interactive Matchup Predictor: pick
+  a home/away team from dropdowns populated by the new `list_teams` tool, click
+  **Predict Matchup**, and it calls `POST /tools/predict_matchup` and renders the
+  win probabilities, predicted winner, team-strength comparison, and model
+  driver/confidence info directly from that envelope (nothing is invented client-side).
+- **Dashboard** preserves the original raw "ask a question" / "run any tool" /
+  "live data ingest" controls (formerly the entire front end) under an
+  **Advanced** collapsible section.
+- **Teams / Season Simulator / Player Impact / League Predictions** are
+  "Coming soon" placeholder pages — the backend tools they'll use
+  (`team_record`, `head_to_head`, `simulate_season`, `team_projection`,
+  `player_impact`, `player_scenario`) already exist and are callable today via
+  the tool layer above; only the structured UI for them hasn't been built yet.
+- **Writes nothing** beyond what the underlying tools already write (e.g. `/ingest` with `dry_run: false`).
 
 ### Player-impact diagnostics
 

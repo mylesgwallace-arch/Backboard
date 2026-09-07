@@ -1,0 +1,239 @@
+// pages/dashboard.js — overview + entry points into the other tools, plus a
+// preserved "ask a question / run a raw tool" panel (the original
+// web/index.html capability) so no existing functionality is lost while the
+// structured UI grows.
+
+import { getHealth, getTools, ask, runTool, ingest } from "../api.js";
+
+export const meta = {
+  title: "Dashboard",
+  subtitle: "System status and quick access to the analytics tools.",
+};
+
+const QUICK_LINKS = [
+  {
+    path: "/matchups",
+    title: "Matchup Predictor",
+    description: "Predict any NBA matchup with the production model.",
+    available: true,
+  },
+  {
+    path: "/teams",
+    title: "Team Explorer",
+    description: "Browse team records, form, and head-to-head history.",
+    available: false,
+  },
+  {
+    path: "/simulator",
+    title: "Season Simulator",
+    description: "Monte Carlo season projection: standings, seeds, playoff odds.",
+    available: false,
+  },
+  {
+    path: "/player-impact",
+    title: "Player Impact",
+    description: "Association-only diagnostics for a player's on/off impact.",
+    available: false,
+  },
+  {
+    path: "/league-predictions",
+    title: "League Predictions",
+    description: "League-wide standings and playoff-field projections.",
+    available: false,
+  },
+];
+
+export function render(container, { navigate } = {}) {
+  container.innerHTML = `
+    <div class="card fade-in">
+      <div class="card-header">
+        <div>
+          <h2>Platform status</h2>
+          <p class="card-subtitle">Live status of the analytics API and the production model.</p>
+        </div>
+      </div>
+      <div id="health-mount" class="stat-grid">
+        ${statTileSkeleton("Service")}
+        ${statTileSkeleton("Production model")}
+        ${statTileSkeleton("Tools available")}
+      </div>
+    </div>
+
+    <div class="card fade-in">
+      <div class="card-header">
+        <div>
+          <h2>Explore the platform</h2>
+          <p class="card-subtitle">Jump into a structured analytics tool.</p>
+        </div>
+      </div>
+      <div class="quick-grid">
+        ${QUICK_LINKS.map(renderQuickCard).join("")}
+      </div>
+    </div>
+
+    <div class="card fade-in">
+      <details class="collapsible">
+        <summary>Advanced: ask a question or run a raw tool</summary>
+        <div class="grid-2">
+          <div>
+            <div class="field">
+              <label for="ask-input">Ask a question</label>
+              <textarea class="input" id="ask-input" rows="2" placeholder="Who is favored in Celtics vs Lakers?"></textarea>
+            </div>
+            <button class="btn mt-1" id="ask-btn">Ask</button>
+            <pre class="output-pane mt-1" id="ask-output">// answer appears here</pre>
+          </div>
+          <div>
+            <div class="field">
+              <label for="raw-tool-select">Run a tool directly</label>
+              <div class="select-wrap">
+                <select class="select" id="raw-tool-select"></select>
+              </div>
+            </div>
+            <div class="field mt-1">
+              <label for="raw-tool-params">Parameters (JSON)</label>
+              <textarea class="input" id="raw-tool-params" rows="3">{"home_team": "Boston Celtics", "away_team": "Los Angeles Lakers"}</textarea>
+            </div>
+            <button class="btn mt-1" id="raw-tool-btn">Run tool</button>
+            <pre class="output-pane mt-1" id="raw-tool-output">// tool envelope appears here</pre>
+          </div>
+        </div>
+        <div class="mt-2" style="padding-top:1rem; border-top:1px dashed var(--border);">
+          <div class="field">
+            <label for="ingest-source">Live data refresh — schedule source (URL or local CSV)</label>
+            <input type="text" class="input" id="ingest-source" value="data/raw/LeagueSchedule25_26.csv">
+          </div>
+          <label class="text-muted mt-1" style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem;">
+            <input type="checkbox" id="ingest-dry-run" checked>
+            Dry-run (validate + plan only, no database writes)
+          </label>
+          <button class="btn mt-1" id="ingest-btn">Ingest</button>
+          <pre class="output-pane mt-1" id="ingest-output">// ingestion manifest (provenance) appears here</pre>
+        </div>
+      </details>
+    </div>
+  `;
+
+  QUICK_LINKS.forEach((link) => {
+    const card = container.querySelector(`[data-quick-link="${link.path}"]`);
+    if (card && navigate) {
+      card.addEventListener("click", () => navigate(link.path));
+    }
+  });
+
+  loadHealth(container);
+  wireAssistantPanel(container);
+}
+
+function renderQuickCard(link) {
+  return `
+    <div class="quick-card" data-quick-link="${link.path}">
+      <h3>${link.title}${link.available ? "" : ' <span class="badge">Soon</span>'}</h3>
+      <p>${link.description}</p>
+    </div>
+  `;
+}
+
+function statTileSkeleton(label) {
+  return `
+    <div class="stat-tile">
+      <div class="stat-label">${label}</div>
+      <div class="skeleton mt-1" style="height:22px;"></div>
+    </div>
+  `;
+}
+
+async function loadHealth(container) {
+  const mount = container.querySelector("#health-mount");
+  try {
+    const [healthRes, toolsRes] = await Promise.all([getHealth(), getTools()]);
+    const health = healthRes.data || {};
+    const toolCount = (toolsRes.data?.tools || []).length;
+    mount.innerHTML = `
+      <div class="stat-tile">
+        <div class="stat-label">Service</div>
+        <div class="stat-value">
+          <span class="status-dot ${healthRes.ok ? "ok" : "error"}"></span>
+          ${healthRes.ok ? "Online" : "Unavailable"}
+        </div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Production model</div>
+        <div class="stat-value" style="font-size:1rem;">${health.model || "—"}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Tools available</div>
+        <div class="stat-value">${toolCount}</div>
+      </div>
+    `;
+  } catch (err) {
+    mount.innerHTML = `<div class="error-banner">Could not reach the API: ${err.message}</div>`;
+  }
+}
+
+function wireAssistantPanel(container) {
+  const askInput = container.querySelector("#ask-input");
+  const askBtn = container.querySelector("#ask-btn");
+  const askOutput = container.querySelector("#ask-output");
+
+  askBtn.addEventListener("click", async () => {
+    const question = askInput.value.trim();
+    if (!question) return;
+    askOutput.textContent = "Loading…";
+    try {
+      const res = await ask(question);
+      askOutput.textContent = JSON.stringify(res.data, null, 2);
+    } catch (err) {
+      askOutput.textContent = `Error: ${err.message}`;
+    }
+  });
+
+  const toolSelect = container.querySelector("#raw-tool-select");
+  const toolParams = container.querySelector("#raw-tool-params");
+  const toolBtn = container.querySelector("#raw-tool-btn");
+  const toolOutput = container.querySelector("#raw-tool-output");
+
+  getTools()
+    .then((res) => {
+      const tools = res.data?.tools || [];
+      toolSelect.innerHTML = tools
+        .map((tool) => `<option value="${tool.name}">${tool.name}</option>`)
+        .join("");
+    })
+    .catch((err) => {
+      toolOutput.textContent = `Failed to load tools: ${err.message}`;
+    });
+
+  toolBtn.addEventListener("click", async () => {
+    const name = toolSelect.value;
+    let parameters;
+    try {
+      parameters = JSON.parse(toolParams.value || "{}");
+    } catch (err) {
+      toolOutput.textContent = `Invalid JSON parameters: ${err.message}`;
+      return;
+    }
+    toolOutput.textContent = "Loading…";
+    try {
+      const res = await runTool(name, parameters);
+      toolOutput.textContent = JSON.stringify(res.data, null, 2);
+    } catch (err) {
+      toolOutput.textContent = `Error: ${err.message}`;
+    }
+  });
+
+  const ingestSource = container.querySelector("#ingest-source");
+  const ingestDryRun = container.querySelector("#ingest-dry-run");
+  const ingestBtn = container.querySelector("#ingest-btn");
+  const ingestOutput = container.querySelector("#ingest-output");
+
+  ingestBtn.addEventListener("click", async () => {
+    ingestOutput.textContent = "Loading…";
+    try {
+      const res = await ingest(ingestSource.value, ingestDryRun.checked);
+      ingestOutput.textContent = JSON.stringify(res.data, null, 2);
+    } catch (err) {
+      ingestOutput.textContent = `Error: ${err.message}`;
+    }
+  });
+}

@@ -12,7 +12,115 @@
 
 The current objective is to build and validate the **historical NBA analytics foundation**.
 
-Implementation update (2026-08-20): completed the website/API milestone (roadmap
+Implementation update (2026-09-06): replaced the single-file front end with a
+polished, scalable analytics dashboard, per the new milestone of building an
+interactive web frontend. Nothing on the backend/prediction/simulation side was
+duplicated or rewritten -- the dashboard is a pure consumer of the existing
+`src/api.py` HTTP API and `src/tools.py` tool layer.
+
+* **Backend (small, additive changes only):**
+  * Added a `list_teams` tool to `src/tools.py` (+ registry entry + test in
+    `tests/test_tools.py`) that returns the 30 current NBA franchises
+    (teamId, city, name, abbreviation) from `team_histories`, reusing the same
+    `NBA_TEAM_ID_MIN`/`NBA_TEAM_ID_MAX` current-franchise filter as
+    `resolve_team_name_to_id`. This was the one genuinely missing capability
+    needed to populate team dropdowns; no prediction/simulation logic was
+    touched.
+  * Extended `src/api.py` to serve arbitrary static files under `web/` (not
+    just `index.html`), with an explicit extension -> content-type map
+    (`.css`, `.js`, `.json`, `.svg`, ...) rather than relying on the OS
+    mimetypes registry, and with path-traversal protection
+    (`_static_asset_path`). This is what lets the frontend be a normal
+    multi-file static app (HTML/CSS/vanilla-JS ES modules) with zero build
+    step and zero new dependencies -- there is no Node/npm in this
+    environment, so a bundler-based frontend (React/Vite/etc.) was
+    deliberately avoided.
+  * Updated `tests/test_api.py`'s static-serving tests to match (asset
+    content-type checks, traversal-guard test); all previous route/error
+    tests are unchanged. Full suite: **165 passed**.
+
+* **Frontend (new, under `web/`):** a dark, data-driven analytics-SaaS design
+  system (`web/styles.css`: CSS custom properties for color/spacing/radius,
+  cards, forms, badges, probability bars, comparison bars, skeleton loading
+  states) plus a small hash-router SPA shell (`web/js/router.js`,
+  `web/js/main.js`) with a persistent sidebar (Dashboard, Matchups, Teams,
+  Season Simulator, Player Impact, League Predictions) and a topbar that
+  reflects the active page's title/subtitle.
+  * **Matchups** (`web/js/pages/matchups.js`) is the primary landing page and
+    centerpiece: home/away team dropdowns (populated via the new
+    `list_teams` tool, with a reusable `createTeamSelect` component), a swap
+    button, an optional "as-of date" advanced field, and a **Predict
+    Matchup** button that calls `POST /tools/predict_matchup`. Results
+    render the two teams visually opposed with large win-probability
+    numbers, a predicted-winner badge, a split probability bar, a
+    team-strength comparison (recent win rate, point differential, points
+    scored/allowed, rest days, active players -- straight from the
+    envelope's `team_context`), the model's own `matchup_summary` text, top
+    feature-importance chips, and a collapsible "about this model"
+    panel (accuracy/log-loss/Brier/calibration from `model_summary`).
+    Team accent colors come from a static `teamColors.js` lookup (official
+    brand colors, applied only to the matchup being viewed). Every value
+    shown comes directly from the `predict_matchup` envelope; nothing is
+    invented client-side. Loading (skeleton + spinner) and error states
+    (network failure, validation error, e.g. same team twice) are handled
+    explicitly.
+  * **Dashboard** (`web/js/pages/dashboard.js`) shows live `/health` +
+    `/tools` status, quick-nav cards into the other pages, and preserves the
+    *entire* previous single-file UI's capability (ask-a-question ->
+    `/ask`, run-any-tool -> `/tools/{name}`, live-data-ingest ->
+    `/ingest`) inside an "Advanced" collapsible section, so no existing
+    capability was lost.
+  * **Teams / Season Simulator / Player Impact / League Predictions** are
+    generated via a shared `createPlaceholderPage()` factory
+    (`web/js/pages/placeholder.js`) that names the backend tools that
+    already exist for that page (e.g. `simulate_season`, `team_projection`)
+    -- proving the architecture scales to those pages without a rewrite,
+    without fabricating a UI for capabilities not yet wired up.
+  * `web/js/api.js` is the single module that knows the HTTP contract
+    (fetch wrappers for `/health`, `/tools`, `/tools/{name}`, `/ask`,
+    `/ingest`); every page/component calls these functions instead of
+    `fetch()` directly, so a future LLM-orchestrated interface can reuse the
+    exact same functions/tool layer instead of a second implementation.
+
+* **Validation performed:** full backend test suite (165 passed, ~8 min,
+  includes model training/evaluation tests unrelated to this change);
+  started `src/api.py` locally and confirmed over the real socket: `GET /`,
+  `GET /styles.css`, `GET /js/main.js`, `GET /js/api.js`,
+  `GET /js/pages/matchups.js`, `GET /js/components/teamSelect.js` all return
+  200 with the correct content-type; `POST /tools/list_teams` returns the 30
+  current franchises; `POST /tools/predict_matchup` returns the exact
+  envelope shape the frontend expects (`data.prediction.home_win_probability`,
+  `.team_context.home.win_rate_rolling_10`, `.feature_snapshot_date.home`,
+  etc.); the same-team validation error (`status: "error"`, HTTP 400) round
+  -trips correctly for the frontend's error-banner path; `/ask`, `/tools`,
+  and `/ingest` (dry-run) all still work for the preserved dashboard "Advanced"
+  panel. Headless-browser DOM verification was attempted (Edge is installed)
+  but Edge would not produce any output in this sandboxed environment (even
+  `--version` produced no stdout), so the JS was instead validated by manual
+  review plus a brace/paren/bracket balance check across every file.
+
+* **What works now:** a professional dark-themed analytics dashboard at
+  `http://127.0.0.1:8000/` (after `python src/api.py`) with a fully
+  functional, polished Matchup Predictor as the default landing page, plus
+  the fully preserved legacy ask/raw-tool/ingest controls on the Dashboard
+  page.
+
+* **What isn't built yet (by design, per the milestone's scope):** the
+  Teams / Season Simulator / Player Impact / League Predictions pages are
+  placeholders only; no new frontend testing framework exists (there is no
+  Node/npm in this environment, so frontend behavior is currently verified
+  via the backend contract tests + manual/HTTP-level checks, not a JS test
+  runner); no LLM/chat interface (intentionally deferred per the milestone
+  brief).
+
+* **Exact next step:** build the **Team Explorer** page next (`team_record` +
+  `head_to_head` + `resolve_team_name` are already wired backend tools), using
+  the same `createTeamSelect` component and card/comparison-bar patterns
+  established by the Matchup Predictor; after that, Season Simulator
+  (`simulate_season` + `team_projection`) is the natural following page since
+  its backend is also already validated and tool-registered.
+
+Prior implementation update (2026-08-20): completed the website/API milestone (roadmap
 item 13) by adding the browser front-end UI in `web/index.html`, served by the
 existing stdlib API at `GET /`, and wiring it to the validated backend. The page
 has three controls: a question box -> `POST /ask`, a tool picker (populated from
