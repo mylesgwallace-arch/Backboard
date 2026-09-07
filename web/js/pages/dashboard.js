@@ -20,8 +20,8 @@ const QUICK_LINKS = [
   {
     path: "/teams",
     title: "Team Explorer",
-    description: "Browse team records, form, and head-to-head history.",
-    available: false,
+    description: "Browse team records, form, Elo rating, and head-to-head history.",
+    available: true,
   },
   {
     path: "/simulator",

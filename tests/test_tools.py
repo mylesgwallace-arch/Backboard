@@ -35,6 +35,8 @@ def test_list_tools_exposes_expected_capabilities():
         "head_to_head",
         "resolve_team_name",
         "list_teams",
+        "team_form",
+        "team_elo_rating",
     } <= set(tools)
     for tool in tools.values():
         assert tool["description"]
@@ -429,6 +431,101 @@ def test_resolve_team_name_returns_structured_result(monkeypatch):
     assert result["status"] == "success"
     assert result["data"]["team_id"] == 1610612738
     assert result["data"]["team"] == "Boston Celtics"
+
+
+def test_team_form_returns_latest_rolling_snapshot(monkeypatch):
+    monkeypatch.setattr("src.tools.resolve_team_name_to_id", lambda name: 1610612738)
+    fake_features = pd.DataFrame(
+        {
+            "teamId": [1610612738],
+            "gameDateTimeEst": ["2026-04-12"],
+        }
+    )
+    monkeypatch.setattr("src.tools.pd.read_csv", lambda path: fake_features)
+    monkeypatch.setattr(
+        "src.tools.lookup_last_team_row",
+        lambda features, team_id, as_of=None: {
+            "gameDateTimeEst": pd.Timestamp("2026-04-12"),
+            "win_rate_rolling_10": 0.8,
+            "teamScore_rolling_10": 120.2,
+            "opponentScore_rolling_10": 108.5,
+            "plusMinusPoints_rolling_10": 11.7,
+            "rest_days": 1.9,
+            "active_players_last_game": 12.0,
+        },
+    )
+
+    result = execute_tool("team_form", {"team": "Boston Celtics"})
+
+    assert result["status"] == "success"
+    assert result["data"]["team_id"] == 1610612738
+    assert result["data"]["snapshot_date"] == "2026-04-12"
+    assert result["data"]["win_rate_rolling_10"] == 0.8
+    assert result["data"]["plusMinusPoints_rolling_10"] == 11.7
+
+
+def test_team_form_unavailable_without_feature_rows(monkeypatch):
+    monkeypatch.setattr("src.tools.resolve_team_name_to_id", lambda name: 999999)
+    monkeypatch.setattr("src.tools.pd.read_csv", lambda path: pd.DataFrame({"teamId": [], "gameDateTimeEst": []}))
+
+    def _raise(*args, **kwargs):
+        raise ValueError("No feature rows found for teamId=999999.")
+
+    monkeypatch.setattr("src.tools.lookup_last_team_row", _raise)
+
+    result = execute_tool("team_form", {"team_id": 999999})
+
+    assert result["status"] == "unavailable"
+    assert "No feature rows found" in result["error"]["message"]
+
+
+def test_team_elo_rating_returns_current_rating(monkeypatch):
+    monkeypatch.setattr("src.tools.resolve_team_name_to_id", lambda name: 1610612738)
+    monkeypatch.setattr("src.tools.pd.read_csv", lambda path: pd.DataFrame({"a": [1]}))
+    monkeypatch.setattr(
+        "src.tools.build_game_dataset",
+        lambda features: (pd.DataFrame({"gameDateTimeEst": []}), None),
+    )
+    monkeypatch.setattr(
+        "src.tools.load_elo_config",
+        lambda: {"initial_rating": 1500.0, "k_factor": 20.0, "home_advantage": 65.0},
+    )
+    monkeypatch.setattr(
+        "src.tools.compute_elo_ratings_as_of",
+        lambda games, cutoff=None, **kwargs: (
+            {1610612738: 1682.3},
+            {1610612738},
+        ),
+    )
+
+    result = execute_tool("team_elo_rating", {"team": "Boston Celtics"})
+
+    assert result["status"] == "success"
+    assert result["data"]["team_id"] == 1610612738
+    assert result["data"]["elo_rating"] == 1682.3
+    assert result["data"]["as_of"] is None
+
+
+def test_team_elo_rating_unavailable_for_unseen_team(monkeypatch):
+    monkeypatch.setattr("src.tools.resolve_team_name_to_id", lambda name: 999999)
+    monkeypatch.setattr("src.tools.pd.read_csv", lambda path: pd.DataFrame({"a": [1]}))
+    monkeypatch.setattr(
+        "src.tools.build_game_dataset",
+        lambda features: (pd.DataFrame({"gameDateTimeEst": []}), None),
+    )
+    monkeypatch.setattr(
+        "src.tools.load_elo_config",
+        lambda: {"initial_rating": 1500.0, "k_factor": 20.0, "home_advantage": 65.0},
+    )
+    monkeypatch.setattr(
+        "src.tools.compute_elo_ratings_as_of",
+        lambda games, cutoff=None, **kwargs: ({}, set()),
+    )
+
+    result = execute_tool("team_elo_rating", {"team_id": 999999})
+
+    assert result["status"] == "unavailable"
+    assert "cannot compute an Elo rating" in result["error"]["message"]
 
 
 def test_envelope_carries_operation_model_assumptions_limitations():

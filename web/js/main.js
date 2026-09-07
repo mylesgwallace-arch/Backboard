@@ -7,10 +7,11 @@
 // would call the exact same `src/api.js` functions — i.e. the same backend
 // tool layer — as the structured UI, per the project's architecture.
 
-import { startRouter, onRouteChange, navigate, currentPath } from "./router.js";
+import { startRouter, onRouteChange, navigate, currentQuery } from "./router.js";
 import { getHealth } from "./api.js";
 import * as dashboardPage from "./pages/dashboard.js";
 import * as matchupsPage from "./pages/matchups.js";
+import * as teamsPage from "./pages/teams.js";
 import { createPlaceholderPage } from "./pages/placeholder.js";
 
 const ICONS = {
@@ -27,14 +28,6 @@ const ICONS = {
   league:
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4M17 5h3a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/><path d="M12 13v3M9 20h6M10 17h4" stroke-linecap="round"/></svg>',
 };
-
-const teamsPage = createPlaceholderPage({
-  title: "Team Explorer",
-  subtitle: "Browse team records, recent form, and head-to-head history.",
-  description:
-    "A dedicated page for browsing every current NBA franchise: season record, rolling form, and head-to-head history.",
-  backedByTools: ["team_record", "head_to_head", "resolve_team_name", "list_teams"],
-});
 
 const simulatorPage = createPlaceholderPage({
   title: "Season Simulator",
@@ -63,7 +56,7 @@ const leaguePredictionsPage = createPlaceholderPage({
 const ROUTES = [
   { path: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, page: dashboardPage },
   { path: "/matchups", label: "Matchups", icon: ICONS.matchups, page: matchupsPage },
-  { path: "/teams", label: "Teams", icon: ICONS.teams, page: teamsPage, badge: "Soon" },
+  { path: "/teams", label: "Teams", icon: ICONS.teams, page: teamsPage },
   { path: "/simulator", label: "Season Simulator", icon: ICONS.simulator, page: simulatorPage, badge: "Soon" },
   { path: "/player-impact", label: "Player Impact", icon: ICONS.playerImpact, page: playerImpactPage, badge: "Soon" },
   { path: "/league-predictions", label: "League Predictions", icon: ICONS.league, page: leaguePredictionsPage, badge: "Soon" },
@@ -105,7 +98,7 @@ function mountRoute(path) {
   setActiveNav(route.path);
   setTopbar(route);
   const content = document.querySelector("#app-content");
-  route.page.render(content, { navigate });
+  route.page.render(content, { navigate, query: currentQuery() });
 }
 
 async function loadSidebarStatus() {

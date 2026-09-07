@@ -12,7 +12,173 @@
 
 The current objective is to build and validate the **historical NBA analytics foundation**.
 
-Implementation update (2026-09-06): replaced the single-file front end with a
+Implementation update (2026-09-07): built the **Team Explorer** page -- the
+first fully functional analytics page beyond the Matchup Predictor -- and
+closed the two genuine backend gaps it exposed. Nothing existing was
+rewritten; the dashboard, router, design system, and Matchup Predictor are
+unchanged.
+
+## Backend/frontend capability audit (performed before implementation)
+
+* **Backend tools available (11 total, via `src/tools.py`):**
+  `predict_matchup` (frozen `elo_boosted_ensemble` single-game prediction),
+  `simulate_season` (full Monte Carlo season projection), `team_projection`
+  (one team's season projection), `player_impact` (association-only player
+  diagnostic), `player_scenario` (matchup + player diagnostic combined),
+  `team_record` (factual W/L, all-time or by season), `head_to_head`
+  (factual regular-season series record), `resolve_team_name` (name ->
+  teamId), `list_teams` (added in the previous session for dropdowns), and
+  two **new** tools added this session: `team_form` and `team_elo_rating`
+  (see below).
+* **Exposed through the frontend before this change:** only `predict_matchup`
+  (Matchup Predictor) and `list_teams` (team dropdowns), plus the legacy
+  ask/raw-tool-runner/ingest panel on the Dashboard (which can reach every
+  tool generically, but with no structured UI).
+* **Still placeholders after this change:** Season Simulator
+  (`simulate_season`, `team_projection` -- projection logic already proven
+  reusable via Team Explorer's Projections tab), Player Impact
+  (`player_impact`, `player_scenario`), League Predictions (`simulate_season`
+  league-wide).
+* **Genuine gaps found and closed (small, additive, no new modeling):**
+  1. There was no way to get a single team's current "strength" (Elo rating)
+     without running a full matchup prediction. Added `team_elo_rating`,
+     which wraps the exact same `compute_elo_ratings_as_of` chronological
+     replay `predict_matchup`'s Elo/ensemble path already uses -- same
+     numbers, no new rating system introduced.
+  2. There was no way to get a single team's recent rolling form (win rate,
+     scoring, point differential, rest, roster availability) without
+     supplying a fake opponent to `predict_matchup`. Added `team_form`,
+     which wraps the same `lookup_last_team_row` helper `predict_matchup`
+     already uses internally, for one team independent of an opponent.
+  Both tools are registered in `TOOLS`, covered by `tests/test_tools.py`
+  (4 new tests), and exposed through `web/js/api.js` as
+  `getTeamEloRating()` / `getTeamForm()`.
+* **Performance finding (unchanged, just newly measured/documented):**
+  `predict_matchup` and `team_elo_rating` replay the *entire* historical
+  Elo history every call (~5-9s uncached); `simulate_season`/
+  `team_projection` additionally run the full leakage-safe probability
+  model over the whole historical dataset on their *first* call in a
+  server process (~60s), then reuse an in-process cache
+  (`PROBABILITIES_CACHE` in `src/tools.py`) for ~0.1s on every subsequent
+  call. This is why the Team Explorer's Projections tab is a
+  **user-initiated "Run season projection" button** with an explicit
+  "this may take up to a minute the first time" notice, rather than an
+  auto-loading tile like the other (fast) tabs.
+
+## What was built
+
+* **Team Explorer** (`web/js/pages/teams.js`, wired into `main.js`'s router,
+  no longer a placeholder): select any of the 30 current franchises and see:
+  * **Header** — city, franchise name, abbreviation badge, a `--team-color`
+    accent bar from the existing `teamColors.js` lookup, and a "Predict a
+    matchup ▸" button that deep-links to the Matchup Predictor with this
+    team preselected as home (`/matchups?home=<teamId>`).
+  * **Key metrics** — Elo rating (`team_elo_rating`), current-season
+    (2025) W-L record and all-time W-L record (`team_record`), and recent
+    (last-10) win rate (`team_form`), all loaded together on selection
+    (all fast: DB queries are near-instant, `team_form` ~1s,
+    `team_elo_rating` ~5-9s).
+  * **Overview tab** — season + all-time record, games played, rolling
+    point differential, form snapshot date.
+  * **Performance tab** — the full rolling-form snapshot (win rate, points
+    scored/allowed, point differential, rest days, active players) with an
+    explicit note that this is a descriptive model input, not a prediction.
+  * **Projections tab** — a "Run season projection" button that calls
+    `team_projection` for the 2025 season and renders mean/median/range
+    wins, direct-playoff probability, conference, and a per-seed
+    probability bar chart (reusing the same `compare-row`/`compare-track`
+    CSS as the Matchup Predictor's comparison bars) -- with the
+    up-to-a-minute warning described above.
+  * **Head-to-Head tab** — pick any other franchise and get their factual
+    all-time regular-season head-to-head record (`head_to_head`), rendered
+    with the same reusable `renderComparisonRow` component the Matchup
+    Predictor uses for team-strength comparisons.
+  * Every number on the page traces directly to a tool envelope; nothing is
+    computed or invented in the browser.
+* **Router enhancement** (`web/js/router.js`): added optional query-string
+  support (`#/teams?team=123`) so pages can deep-link into each other. The
+  Matchup Predictor's result cards now have a "View team ▸" link under each
+  team that opens Team Explorer for that team, and Team Explorer's header
+  has a reciprocal "Predict a matchup ▸" button -- satisfying the
+  requirement that users can "navigate naturally to related analyses."
+* **`web/js/api.js`** gained typed wrappers for the tools this page needed:
+  `getTeamRecord`, `getHeadToHead`, `getTeamForm`, `getTeamEloRating`,
+  `getTeamProjection` -- all thin `runTool()` calls, no logic duplication.
+* Dashboard's "Team Explorer" quick-link card is now marked available
+  (previously "Soon").
+
+## Validation performed
+
+* Backend: 4 new tests in `tests/test_tools.py`
+  (`test_team_form_returns_latest_rolling_snapshot`,
+  `test_team_form_unavailable_without_feature_rows`,
+  `test_team_elo_rating_returns_current_rating`,
+  `test_team_elo_rating_unavailable_for_unseen_team`), plus updated registry
+  assertions in `test_tools.py`/`test_api.py`. Full suite: **169 passed**
+  (up from 165).
+* Live HTTP verification against a running `src/api.py`: exact parameter
+  shapes sent by the new `api.js` wrappers (`team_id`, `team_a_id`/
+  `team_b_id`, `as_of`) were POSTed directly and confirmed to return
+  `status: "success"` with the expected fields; confirmed the
+  `team_elo_rating`/`team_form` CLI outputs match; confirmed
+  `PROBABILITIES_CACHE` behavior (first `team_projection` call ~59s,
+  second ~0.09s) to justify the button-triggered UX; confirmed every new/
+  changed static asset (`teams.js`, updated `router.js`, `matchups.js`,
+  `api.js`) is served live with a 200 and the correct content-type.
+* All 30 franchises, `team_record` (season-filtered and all-time),
+  `head_to_head`, and `list_teams` were exercised end-to-end.
+
+## What works now
+
+A genuinely useful Team Explorer: pick a team, see its Elo rating, records,
+recent form, run an on-demand season projection, and compare head-to-head
+against any opponent -- all from real backend data, with loading/empty/error
+states handled, and two-way navigation with the Matchup Predictor.
+
+## What isn't built yet / exact next milestone
+
+Season Simulator is the recommended next page: `simulate_season` and
+`team_projection` are already tool-registered and validated (the Projections
+tab above already proves the "slow first call, cached after" UX pattern), and
+building the league-wide view (projected standings table + playoff field
+grid) is now mostly a rendering exercise on data the backend already
+returns in full (`projected_standings`, `projected_seedings`,
+`league_summary` from `project_season`). After that: Head-to-Head Team
+Comparison could be promoted from a Team Explorer tab into its own page if
+warranted; Player Impact next (backend already validated, association-only);
+League Predictions; a natural-language assistant last (the deterministic
+`assistant.answer_question` path already exists and is exposed via the
+Dashboard's "Ask a question" panel, but a dedicated chat UI has not been
+built). See Section "Prioritized roadmap" below for the full reasoning.
+
+## Prioritized roadmap for the next features
+
+1. **Season Simulator** (highest priority): backend fully validated
+   (`simulate_season`, `team_projection`), zero new backend work needed,
+   high visual impact (standings table, seed probabilities, playoff field),
+   and the Team Explorer Projections tab already solved the "slow first
+   call" UX problem this page will also have.
+2. **League Predictions**: nearly the same backend call
+   (`simulate_season` without a team filter) as Season Simulator, so it is
+   natural to build immediately after or alongside it; main new work is a
+   full-league standings/seeding table and a league summary card.
+3. **Player Impact / Trade Simulator**: backend exists and is validated
+   (`player_impact`, `player_scenario`) but requires resolving player names
+   to `personId`s for a good UX (currently ID-only, per the README's
+   "Missing but easy" list) -- a small additive `resolve_person_name`-style
+   tool or a searchable player picker would be needed first.
+4. **Head-to-Head Team Comparison as a standalone page**: already available
+   as a Team Explorer tab; only worth promoting to its own page if user
+   feedback shows it needs deeper treatment (e.g. season-by-season trend).
+5. **Natural-language NBA assistant**: lowest priority per the project's own
+   philosophy (structured/deterministic UI first); the backend
+   (`src/assistant.py`) already exists and is reachable today via the
+   Dashboard's "Ask a question" panel, so building a dedicated chat page is
+   additive UI work on an already-working capability, not a backend gap.
+
+---
+
+Prior implementation update (2026-09-06): replaced the single-file front end with a
 polished, scalable analytics dashboard, per the new milestone of building an
 interactive web frontend. Nothing on the backend/prediction/simulation side was
 duplicated or rewritten -- the dashboard is a pure consumer of the existing

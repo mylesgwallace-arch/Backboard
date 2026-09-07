@@ -16,7 +16,7 @@ export const meta = {
     "Predict the winner of any NBA matchup using the frozen production model.",
 };
 
-export function render(container) {
+export function render(container, ctx = {}) {
   container.innerHTML = `
     <div class="card fade-in">
       <div class="card-header">
@@ -126,6 +126,16 @@ export function render(container) {
       home.setTeams(teams);
       away.setTeams(teams);
       statusEl.textContent = "";
+      // Support deep-linking from other pages (e.g. Team Explorer's
+      // "Predict a matchup" button) via ?home=<teamId>&away=<teamId>.
+      const presetHome = ctx.query?.get ? ctx.query.get("home") : null;
+      const presetAway = ctx.query?.get ? ctx.query.get("away") : null;
+      if (presetHome && teams.some((t) => String(t.team_id) === presetHome)) {
+        home.selectEl.value = presetHome;
+      }
+      if (presetAway && teams.some((t) => String(t.team_id) === presetAway)) {
+        away.selectEl.value = presetAway;
+      }
       refreshPredictAvailability();
     })
     .catch((err) => {
@@ -179,6 +189,14 @@ export function render(container) {
     const homeTeam = teams.find((t) => t.team_id === homeTeamId);
     const awayTeam = teams.find((t) => t.team_id === awayTeamId);
     resultMount.innerHTML = renderResult({ prediction, homeTeam, awayTeam });
+
+    if (ctx.navigate) {
+      resultMount.querySelectorAll("[data-view-team]").forEach((el) => {
+        el.addEventListener("click", () => {
+          ctx.navigate("/teams", { team: el.dataset.viewTeam });
+        });
+      });
+    }
   });
 }
 
@@ -231,6 +249,7 @@ function renderResult({ prediction, homeTeam, awayTeam }) {
           <div class="win-prob">${formatPct(prediction.home_win_probability)}</div>
           <div class="win-prob-label">Win probability</div>
           ${homeIsFavorite ? `<div class="favorite-badge"><span class="badge positive">Predicted winner</span></div>` : ""}
+          <button class="link-btn mt-1" data-view-team="${prediction.home_team_id}">View team ▸</button>
         </div>
         <div class="vs-divider"><span>VS</span></div>
         <div class="result-team ${!homeIsFavorite ? "is-favorite" : ""}" style="--team-color:${awayColor};">
@@ -240,6 +259,7 @@ function renderResult({ prediction, homeTeam, awayTeam }) {
           <div class="win-prob">${formatPct(prediction.away_win_probability)}</div>
           <div class="win-prob-label">Win probability</div>
           ${!homeIsFavorite ? `<div class="favorite-badge"><span class="badge positive">Predicted winner</span></div>` : ""}
+          <button class="link-btn mt-1" data-view-team="${prediction.away_team_id}">View team ▸</button>
         </div>
       </div>
 

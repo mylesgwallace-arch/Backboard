@@ -72,3 +72,34 @@ export function predictMatchup({ homeTeamId, awayTeamId, gameDate }) {
   }
   return runTool("predict_matchup", parameters);
 }
+
+export function getTeamRecord({ teamId, season }) {
+  const parameters = { team_id: teamId };
+  if (season != null) parameters.season = season;
+  return runTool("team_record", parameters);
+}
+
+export function getHeadToHead({ teamAId, teamBId, season }) {
+  const parameters = { team_a_id: teamAId, team_b_id: teamBId };
+  if (season != null) parameters.season = season;
+  return runTool("head_to_head", parameters);
+}
+
+export function getTeamForm({ teamId, asOf }) {
+  const parameters = { team_id: teamId };
+  if (asOf) parameters.as_of = asOf;
+  return runTool("team_form", parameters);
+}
+
+export function getTeamEloRating({ teamId, asOf }) {
+  const parameters = { team_id: teamId };
+  if (asOf) parameters.as_of = asOf;
+  return runTool("team_elo_rating", parameters);
+}
+
+export function getTeamProjection({ teamId, season, nSimulations, randomState }) {
+  const parameters = { team_id: teamId, season };
+  if (nSimulations != null) parameters.n_simulations = nSimulations;
+  if (randomState != null) parameters.random_state = randomState;
+  return runTool("team_projection", parameters);
+}

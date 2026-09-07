@@ -124,8 +124,18 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 .\.venv\Scripts\python src\tools.py --tool player_scenario --params '{"home_team": "Boston Celtics", "away_team": "Los Angeles Lakers", "person_id": 203507}'
 .\.venv\Scripts\python src\tools.py --tool team_record --params '{"team": "Boston Celtics", "season": 2025}'
 .\.venv\Scripts\python src\tools.py --tool head_to_head --params '{"team_a": "Boston Celtics", "team_b": "Los Angeles Lakers", "season": 2025}'
+.\.venv\Scripts\python src\tools.py --tool list_teams --params '{}'
+.\.venv\Scripts\python src\tools.py --tool team_form --params '{"team": "Boston Celtics"}'
+.\.venv\Scripts\python src\tools.py --tool team_elo_rating --params '{"team": "Boston Celtics"}'
 ```
 - **All verified working** (I executed 5 of these live). Writes nothing. Structured envelopes with status/operation/model/assumptions/limitations/data.
+- `team_form` and `team_elo_rating` (added 2026-09-07) return a single team's
+  latest rolling pregame snapshot and current Elo rating respectively, without
+  requiring a fake opponent -- both wrap the same helpers `predict_matchup`
+  already uses internally (`lookup_last_team_row`,
+  `compute_elo_ratings_as_of`); no new modeling was introduced. `team_elo_rating`
+  replays the full historical schedule each call (~5-9s, same cost as
+  `predict_matchup`'s Elo path); `team_form` is fast (~1s).
 
 ### Web front end (dashboard + API server)
 
@@ -144,14 +154,27 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
   **Predict Matchup**, and it calls `POST /tools/predict_matchup` and renders the
   win probabilities, predicted winner, team-strength comparison, and model
   driver/confidence info directly from that envelope (nothing is invented client-side).
+  Each result team card has a **View team ▸** link that deep-links to Team
+  Explorer for that team (`#/teams?team=<id>`).
+- **Teams** (added 2026-09-07) is the Team Explorer: pick any of the 30 current
+  franchises and see its Elo rating, current-season and all-time record, and
+  recent (last-10) form as key-metric tiles, then drill into Overview /
+  Performance / Projections / Head-to-Head tabs. Projections uses a
+  user-initiated **Run season projection** button (`team_projection`) because
+  the underlying Monte Carlo engine's first call in a server process takes up
+  to ~60s (it replays the full historical schedule once, then caches); every
+  other tab loads automatically since its backing tools are fast. Team
+  Explorer's header has a **Predict a matchup ▸** button that deep-links back
+  to the Matchup Predictor with this team preselected
+  (`#/matchups?home=<id>`).
 - **Dashboard** preserves the original raw "ask a question" / "run any tool" /
   "live data ingest" controls (formerly the entire front end) under an
   **Advanced** collapsible section.
-- **Teams / Season Simulator / Player Impact / League Predictions** are
-  "Coming soon" placeholder pages — the backend tools they'll use
-  (`team_record`, `head_to_head`, `simulate_season`, `team_projection`,
-  `player_impact`, `player_scenario`) already exist and are callable today via
-  the tool layer above; only the structured UI for them hasn't been built yet.
+- **Season Simulator / Player Impact / League Predictions** are still "Coming
+  soon" placeholder pages — the backend tools they'll use (`simulate_season`,
+  `team_projection`, `player_impact`, `player_scenario`) already exist and are
+  callable today via the tool layer above; only the structured UI for them
+  hasn't been built yet. See `PROJECT_CONTEXT.md` for the prioritized roadmap.
 - **Writes nothing** beyond what the underlying tools already write (e.g. `/ingest` with `dry_run: false`).
 
 ### Player-impact diagnostics

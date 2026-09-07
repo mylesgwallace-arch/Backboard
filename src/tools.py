@@ -39,9 +39,13 @@ try:
         NBA_TEAM_ID_MAX,
         NBA_TEAM_ID_MIN,
         TEAM_DB_PATH,
+        compute_elo_ratings_as_of,
+        load_elo_config,
+        lookup_last_team_row,
         predict_matchup,
         resolve_team_name_to_id,
     )
+    from src.train_baseline_model import build_game_dataset
     from src.simulate_season import load_pregame_probabilities, project_season
     from src.player_impact import summarize_player_impact
     from src.player_scenario import analyze_single_player_scenario
@@ -53,9 +57,13 @@ except ImportError:  # pragma: no cover - direct-script support
         NBA_TEAM_ID_MAX,
         NBA_TEAM_ID_MIN,
         TEAM_DB_PATH,
+        compute_elo_ratings_as_of,
+        load_elo_config,
+        lookup_last_team_row,
         predict_matchup,
         resolve_team_name_to_id,
     )
+    from train_baseline_model import build_game_dataset
     from simulate_season import load_pregame_probabilities, project_season
     from player_impact import summarize_player_impact
     from player_scenario import analyze_single_player_scenario
@@ -304,6 +312,67 @@ def _execute_head_to_head(parameters):
         "team_a_wins": team_a_wins,
         "team_b_wins": team_b_wins,
         "source": "nba.db games (Regular Season)",
+    }
+
+
+def _execute_team_form(parameters):
+    """Return a single team's latest rolling pregame feature snapshot.
+
+    Wraps the same ``lookup_last_team_row`` helper ``predict_matchup`` uses
+    internally, but for one team independent of an opponent, so a team
+    overview page can show recent form without needing a fake matchup.
+    """
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    features = pd.read_csv(FEATURES_PATH)
+    features["gameDateTimeEst"] = pd.to_datetime(features["gameDateTimeEst"])
+    try:
+        row = lookup_last_team_row(features, team_id, parameters.get("as_of"))
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    return {
+        "team_id": team_id,
+        "snapshot_date": str(pd.Timestamp(row["gameDateTimeEst"]).date()),
+        "win_rate_rolling_10": float(row.get("win_rate_rolling_10", 0.0)),
+        "teamScore_rolling_10": float(row.get("teamScore_rolling_10", 0.0)),
+        "opponentScore_rolling_10": float(row.get("opponentScore_rolling_10", 0.0)),
+        "plusMinusPoints_rolling_10": float(row.get("plusMinusPoints_rolling_10", 0.0)),
+        "rest_days": float(row.get("rest_days", 0.0)),
+        "active_players_last_game": float(row.get("active_players_last_game", 0.0)),
+    }
+
+
+def _execute_team_elo_rating(parameters):
+    """Return a single team's current (or as-of-date) Elo rating.
+
+    Wraps the same ``compute_elo_ratings_as_of`` chronological replay that
+    ``predict_matchup``'s Elo/ensemble path uses internally; no new rating
+    model is introduced.
+    """
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    features = pd.read_csv(FEATURES_PATH)
+    games, _ = build_game_dataset(features)
+    games["gameDateTimeEst"] = pd.to_datetime(games["gameDateTimeEst"])
+    elo_config = load_elo_config()
+    as_of = parameters.get("as_of")
+    cutoff = pd.Timestamp(as_of) if as_of else None
+    ratings, seen_teams = compute_elo_ratings_as_of(
+        games,
+        cutoff=cutoff,
+        initial_rating=elo_config["initial_rating"],
+        k_factor=elo_config["k_factor"],
+        home_advantage=elo_config["home_advantage"],
+    )
+    if team_id not in seen_teams:
+        cutoff_message = f" on or before {as_of}" if as_of else ""
+        raise ToolUnavailable(
+            f"No completed games found for teamId={team_id}{cutoff_message}; "
+            "cannot compute an Elo rating."
+        )
+    return {
+        "team_id": team_id,
+        "as_of": as_of,
+        "elo_rating": round(float(ratings[team_id]), 2),
+        "initial_rating": float(elo_config["initial_rating"]),
     }
 
 
@@ -559,6 +628,63 @@ TOOLS = {
             "This is a factual database query, not a model prediction.",
         ],
         "execute": _execute_head_to_head,
+    },
+    "team_form": {
+        "name": "team_form",
+        "description": (
+            "Return a single team's latest rolling pregame form snapshot "
+            "(recent win rate, scoring, point differential, rest, and roster "
+            "availability), independent of any specific opponent."
+        ),
+        "category": "model_input",
+        "model": "elo_boosted_ensemble pregame features (factual snapshot)",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId of the team."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the team."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Optional cutoff date (YYYY-MM-DD); only the "
+                            "most recent pregame snapshot on or before this "
+                            "date is returned."},
+        ],
+        "assumptions": [
+            "The snapshot is the same rolling pregame feature row the "
+            "production model would use for this team's next game.",
+        ],
+        "limitations": [
+            "This is a descriptive snapshot of model inputs, not a "
+            "prediction.",
+        ],
+        "execute": _execute_team_form,
+    },
+    "team_elo_rating": {
+        "name": "team_elo_rating",
+        "description": (
+            "Return a single team's current (or as-of-date) Elo rating from "
+            "the same chronological Elo replay used by the production model."
+        ),
+        "category": "model_input",
+        "model": "elo_boosted_ensemble Elo component (chronological replay)",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId of the team."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the team."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Optional cutoff date (YYYY-MM-DD); only games "
+                            "strictly before this date are replayed."},
+        ],
+        "assumptions": [
+            "Ratings are computed the same way as the Elo component inside "
+            "the production model: chronological replay, no leakage.",
+        ],
+        "limitations": [
+            "A single team's Elo rating has no fixed meaning on its own; it "
+            "is only comparable relative to other teams' ratings computed "
+            "the same way.",
+        ],
+        "execute": _execute_team_elo_rating,
     },
     "resolve_team_name": {
         "name": "resolve_team_name",

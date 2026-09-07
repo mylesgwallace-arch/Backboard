@@ -31,7 +31,7 @@ def test_tools_endpoint_lists_registry():
     assert {
         "predict_matchup", "simulate_season", "team_projection",
         "player_impact", "player_scenario", "team_record", "head_to_head",
-        "resolve_team_name",
+        "resolve_team_name", "list_teams", "team_form", "team_elo_rating",
     } <= names
 
 
