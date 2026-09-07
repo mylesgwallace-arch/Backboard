@@ -12,6 +12,153 @@
 
 The current objective is to build and validate the **historical NBA analytics foundation**.
 
+Implementation update (2026-09-07, part 3): built the **League Predictions**
+page -- the fourth fully functional analytics page, after the Matchup
+Predictor, Team Explorer, and Season Simulator. **No backend changes were
+needed or made**: exactly as predicted in the previous session's "exact next
+milestone" note, the existing `simulate_season` tool already returned
+everything a league-wide overview needed.
+
+## Backend investigation (performed before implementation, re-confirmed live)
+
+* Re-verified (not assumed) the exact response shape via a live `POST
+  /tools/simulate_season` call: `data.projection.projected_standings` (30
+  rows), `.projected_seedings` (12 rows), `.league_summary` -- identical
+  shape to the previous session's documented findings. No new fields, no
+  championship/title probability (still doesn't exist).
+* Re-confirmed the caching behavior on a **freshly started** server process
+  (`python src/api.py --port 8010`, isolated from the already-running dev
+  server): cold call **49.1s**, warm call (same season) **250ms**, and warm
+  calls for *other* seasons (2024, 2023) immediately after were **287-346ms**
+  -- confirming the `PROBABILITIES_CACHE` is shared across seasons within one
+  process, exactly as documented previously. This directly informed the
+  League Predictions page's UX (see below).
+* Confirmed the Season Simulator, Team Explorer, and Matchup Predictor's
+  backing tools (`simulate_season`, `list_teams`, `predict_matchup`,
+  `team_elo_rating`) all still return `status: "success"` after this
+  session's changes -- no regression.
+
+## What was built
+
+* **League Predictions** (`web/js/pages/league.js`, wired into `main.js`'s
+  router in place of the placeholder): a fast, read-only, league-wide
+  overview -- explicitly *not* a copy of the Season Simulator's
+  configure-and-run interface. Key differences from Season Simulator:
+  * **Auto-loads on page mount** (the 2025 season, 1,000 simulations --
+    Season Simulator's own defaults) with no button click required, since
+    this page's purpose is an immediate overview rather than a
+    configuration workflow. A season dropdown (2023-2025, same validated
+    seasons Season Simulator exposes) re-triggers the load on change; a
+    "Reload projections" button is available for manual retry. The
+    simulation-count control is deliberately **not** exposed here (fixed at
+    1,000) -- a short "About this page" card links to Season Simulator for
+    anyone who wants to change it or run a custom count.
+  * **Loading state** explicitly says results may take up to a minute the
+    first time *this session* and will be fast afterward -- worded from the
+    measured cold/warm timings above, not a guess, and accurate regardless
+    of which page (Season Simulator or League Predictions) happens to
+    trigger the first call in a given server process.
+  * **League Overview** -- reuses the extracted `renderLeagueSummaryCard`
+    component (league mean wins, strongest/weakest projected team,
+    conference mean wins).
+  * **Playoff Picture** -- reuses the extracted `renderPlayoffField`
+    component (most-likely team per direct-playoff seed, both conferences),
+    with team names now clickable (a new `clickableTeams` option added to
+    the shared component) to deep-link into Team Explorer.
+  * **Teams to watch** (new section, not present on Season Simulator): the
+    teams whose `direct_playoff_probability` is closest to 50% -- i.e. where
+    the model is least certain whether they land in the top 6 of their
+    conference or not. This is a plain proximity sort (`|probability -
+    0.5|`, ascending) on a field the backend already returns; no new
+    statistic, threshold, or narrative label is invented, satisfying the
+    "transparently derived from actual model outputs" requirement.
+  * **Projected standings** -- full East/West tables (rank, team, mean
+    wins, playoff-odds bar), every row clickable straight through to Team
+    Explorer. Deliberately simpler than Season Simulator's version (no
+    expandable per-team detail row/seed-probability drill-down) since this
+    page's job is a fast read, not a deep per-team dive -- users who want
+    that detail already have it on Season Simulator or Team Explorer's
+    Projections tab.
+  * Every number on the page traces directly to the `simulate_season` tool
+    envelope; nothing is computed or invented in the browser.
+* **New shared components** (extracted from `simulator.js`, verified to
+  produce byte-identical markup before and after the extraction):
+  * `web/js/components/leagueSummary.js` -- `renderLeagueSummaryCard()`.
+  * `web/js/components/playoffField.js` -- `renderPlayoffField()`, now with
+    an optional `{ title, subtitle, clickableTeams }` to support League
+    Predictions' clickable team names without changing Season Simulator's
+    existing (non-clickable) rendering.
+  * `web/js/pages/simulator.js` now imports both instead of defining them
+    inline -- Season Simulator's own behavior and output are unchanged; this
+    was purely a duplication-avoidance extraction ahead of the second
+    consumer, per the project's reuse-before-duplicate principle.
+* **`main.js`** now routes `/league-predictions` to the real page instead of
+  `createPlaceholderPage(...)`; the sidebar's "Soon" badge is removed for
+  that route. **`dashboard.js`**'s "League Predictions" quick-link card is
+  now marked available (previously "Soon").
+* No changes to `web/js/api.js` were needed -- the existing
+  `getSeasonSimulation()` wrapper (added for Season Simulator) is reused
+  as-is.
+
+## Validation performed
+
+* **No backend changes were made**, so no new backend tests were needed;
+  full suite re-run to confirm no regressions: **169 passed** (unchanged).
+* Live HTTP verification against the running `src/api.py`: re-confirmed the
+  exact `simulate_season` response shape consumed by the new page; measured
+  season-switch timing (2024/2023/2025 in sequence, all 250-350ms, proving
+  the page's season dropdown never triggers an expensive duplicate
+  simulation once warm); confirmed `predict_matchup`, `team_elo_rating`, and
+  `list_teams` still return `status: "success"` after these changes.
+* **Clean-server-start verification**: started a second, fully independent
+  `src/api.py` process on an isolated port (`--port 8010`, separate from the
+  already-running dev server) to prove the new/changed static assets
+  (`league.js`, updated `simulator.js`/`main.js`/`dashboard.js`, new
+  `leagueSummary.js`/`playoffField.js`) are served correctly (200,
+  `text/javascript`/`text/css`) from a process that never had them loaded
+  before, and re-measured cold (49.1s) vs warm (250ms) `simulate_season`
+  timing on that clean process to confirm the documented behavior holds
+  from a true cold start, not just an already-warm dev server. That test
+  process was then stopped; the original dev server (a separate, pre-
+  existing process) was left untouched.
+* Verified brace/paren/bracket balance across every JS file touched this
+  session (`league.js`, `simulator.js`, `leagueSummary.js`,
+  `playoffField.js`, `main.js`, `dashboard.js`) -- all balanced.
+
+## What works now
+
+Four genuinely functional pages sharing one design system and API layer:
+Matchup Predictor, Team Explorer, Season Simulator, and League Predictions --
+with working cross-navigation between all of them (matchup results -> Team
+Explorer, Team Explorer -> Matchup Predictor, Season Simulator standings ->
+Team Explorer, League Predictions' playoff field/standings/teams-to-watch ->
+Team Explorer).
+
+## Exact next milestone
+
+**Player Impact / Trade Simulator** is the recommended next page -- confirmed
+by re-inspecting the repository, not assumed from the prior session's note:
+* `src/tools.py`'s registry still has no `resolve_person_name`-style tool;
+  `player_impact` and `player_scenario` both require a numeric `person_id`
+  parameter with no name-based lookup path. This is the same genuine backend
+  gap identified previously, and it still blocks a good UX -- a searchable
+  player picker needs a small, additive resolution tool first (mirroring how
+  `list_teams`/`team_form`/`team_elo_rating` closed the Team Explorer's
+  equivalent gaps), not a rewrite of `player_impact`/`player_scenario`
+  themselves, which are already validated and association-only-labeled.
+* With Season Simulator and League Predictions both built, there is no
+  remaining "nearly free" page left that reuses an already-fully-exposed
+  tool without any backend work -- Player Impact is next in the roadmap and
+  is the smallest remaining gap.
+* A dedicated **Head-to-Head Comparison page** remains lower priority: the
+  capability already exists as a Team Explorer tab, and there is still no
+  evidence it needs to be promoted to a standalone page.
+* The natural-language assistant remains last, per the project's
+  deterministic-first philosophy and because it is already reachable today
+  via the Dashboard's "Ask a question" panel.
+
+---
+
 Implementation update (2026-09-07, part 2): built the **Season Simulator**
 page -- the third fully functional analytics page, after the Matchup
 Predictor and Team Explorer. **No backend changes were needed or made**: the

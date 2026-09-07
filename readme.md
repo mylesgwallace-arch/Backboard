@@ -186,11 +186,36 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
   is shared across seasons and simulation counts), the run button shows an
   explicit "this may take up to a minute the first time" notice and stays
   disabled with a spinner until the request resolves.
-- **Player Impact / League Predictions** are still "Coming soon" placeholder
-  pages — the backend tools they'll use (`player_impact`, `player_scenario`,
-  `simulate_season` league-wide) already exist and are callable today via
-  the tool layer above; only the structured UI for them hasn't been built
-  yet. See `PROJECT_CONTEXT.md` for the prioritized roadmap.
+- **League Predictions** (added 2026-09-07): a fast, read-only league-wide
+  overview built on the exact same `simulate_season` tool as Season
+  Simulator (fixed at 1,000 simulations; the page is an overview, not a
+  configuration surface — a season dropdown lets you switch seasons, and
+  the "Open Season Simulator" link goes to the full configurable tool). It
+  **auto-loads the 2025 season projection on page load** (no button click
+  required) and renders: a league summary card, a "Projected playoff
+  picture" (top-6-per-conference seed field, reusing the same component as
+  Season Simulator), a "Teams to watch" section (the teams whose
+  `direct_playoff_probability` is closest to 50% — i.e. nearest the
+  top-6/out-of-playoffs cutoff line, a proximity sort on a field the
+  backend already returns, not an invented statistic), and full East/West
+  projected-standings tables. Every team name deep-links to Team Explorer
+  (`#/teams?team=<id>`). Because the underlying engine's first call in a
+  server process is slow (~50-60s) but every later call (any season, same
+  process) is fast (~0.2-0.35s, confirmed live), the page shows an explicit
+  "this may take up to a minute the first time this session" notice while
+  loading rather than implying live/instant results.
+- **Shared components extracted this session**
+  (`web/js/components/leagueSummary.js`, `web/js/components/playoffField.js`):
+  the league-summary card and playoff-field grid were pulled out of Season
+  Simulator's page module (byte-identical rendering, verified) so League
+  Predictions could reuse them instead of duplicating the markup; Season
+  Simulator's own behavior/output is unchanged.
+- **Player Impact** is still a "Coming soon" placeholder page — the backend
+  tools it will use (`player_impact`, `player_scenario`) already exist and
+  are callable today via the tool layer above; only the structured UI
+  hasn't been built yet, and (per `PROJECT_CONTEXT.md`) a player-name
+  resolution gap needs to close first for a good UX. See
+  `PROJECT_CONTEXT.md` for the prioritized roadmap.
 - **Writes nothing** beyond what the underlying tools already write (e.g. `/ingest` with `dry_run: false`).
 
 ### Player-impact diagnostics

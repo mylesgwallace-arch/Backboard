@@ -13,6 +13,7 @@ import * as dashboardPage from "./pages/dashboard.js";
 import * as matchupsPage from "./pages/matchups.js";
 import * as teamsPage from "./pages/teams.js";
 import * as simulatorPage from "./pages/simulator.js";
+import * as leaguePage from "./pages/league.js";
 import { createPlaceholderPage } from "./pages/placeholder.js";
 
 const ICONS = {
@@ -38,21 +39,13 @@ const playerImpactPage = createPlaceholderPage({
   backedByTools: ["player_impact", "player_scenario"],
 });
 
-const leaguePredictionsPage = createPlaceholderPage({
-  title: "League Predictions",
-  subtitle: "League-wide projected standings and playoff field.",
-  description:
-    "A league-wide view built on the same season simulation engine: projected standings, playoff field, and a league summary for every team at once.",
-  backedByTools: ["simulate_season"],
-});
-
 const ROUTES = [
   { path: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, page: dashboardPage },
   { path: "/matchups", label: "Matchups", icon: ICONS.matchups, page: matchupsPage },
   { path: "/teams", label: "Teams", icon: ICONS.teams, page: teamsPage },
   { path: "/simulator", label: "Season Simulator", icon: ICONS.simulator, page: simulatorPage },
   { path: "/player-impact", label: "Player Impact", icon: ICONS.playerImpact, page: playerImpactPage, badge: "Soon" },
-  { path: "/league-predictions", label: "League Predictions", icon: ICONS.league, page: leaguePredictionsPage, badge: "Soon" },
+  { path: "/league-predictions", label: "League Predictions", icon: ICONS.league, page: leaguePage },
 ];
 
 function buildSidebar() {

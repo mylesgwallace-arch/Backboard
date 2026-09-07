@@ -39,7 +39,7 @@ const QUICK_LINKS = [
     path: "/league-predictions",
     title: "League Predictions",
     description: "League-wide standings and playoff-field projections.",
-    available: false,
+    available: true,
   },
 ];
 

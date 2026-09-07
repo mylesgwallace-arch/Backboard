@@ -8,7 +8,8 @@
 import { getTools, getSeasonSimulation } from "../api.js";
 import { fetchTeams } from "../components/teamSelect.js";
 import { renderSeedProbabilityBars } from "../components/seedProbabilities.js";
-import { teamColor } from "../teamColors.js";
+import { renderLeagueSummaryCard } from "../components/leagueSummary.js";
+import { renderPlayoffField } from "../components/playoffField.js";
 
 export const meta = {
   title: "Season Simulator",
@@ -200,7 +201,7 @@ function renderResults(projection, teams) {
   const west = projection.projected_standings.filter((r) => r.conference === "West");
 
   return `
-    ${renderLeagueSummary(projection.league_summary, teamById, projection.season, projection.n_simulations)}
+    ${renderLeagueSummaryCard(projection.league_summary, teamById, projection.season, projection.n_simulations)}
     ${renderPlayoffField(projection.projected_seedings, teamById)}
     <div class="card fade-in">
       <div class="card-header">
@@ -212,80 +213,6 @@ function renderResults(projection, teams) {
       <div class="grid-2">
         ${renderStandingsTable("Eastern Conference", east, teamById)}
         ${renderStandingsTable("Western Conference", west, teamById)}
-      </div>
-    </div>
-  `;
-}
-
-function renderLeagueSummary(summary, teamById, season, nSimulations) {
-  const bestTeam = teamById.get(summary.best_team.teamId);
-  const worstTeam = teamById.get(summary.worst_team.teamId);
-  return `
-    <div class="card fade-in">
-      <div class="section-title">League summary — ${season}-${String(season + 1).slice(-2)} season (${nSimulations.toLocaleString()} simulations)</div>
-      <div class="stat-grid">
-        <div class="stat-tile">
-          <div class="stat-label">League mean wins</div>
-          <div class="stat-value">${summary.league_mean_wins.toFixed(1)}</div>
-        </div>
-        <div class="stat-tile">
-          <div class="stat-label">Strongest projected team</div>
-          <div class="stat-value" style="font-size:1.05rem;">${escapeHtml(bestTeam?.full_name || summary.best_team.teamId)}</div>
-          <div class="text-muted" style="font-size:0.76rem;">${summary.best_team.mean_wins.toFixed(1)} mean wins</div>
-        </div>
-        <div class="stat-tile">
-          <div class="stat-label">Weakest projected team</div>
-          <div class="stat-value" style="font-size:1.05rem;">${escapeHtml(worstTeam?.full_name || summary.worst_team.teamId)}</div>
-          <div class="text-muted" style="font-size:0.76rem;">${summary.worst_team.mean_wins.toFixed(1)} mean wins</div>
-        </div>
-        <div class="stat-tile">
-          <div class="stat-label">Conference mean wins</div>
-          <div class="stat-value" style="font-size:1rem;">
-            E ${summary.conference_mean_wins.East?.toFixed(1) ?? "—"} · W ${summary.conference_mean_wins.West?.toFixed(1) ?? "—"}
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderPlayoffField(seedings, teamById) {
-  if (!seedings || !seedings.length) return "";
-  const east = seedings.filter((s) => s.conference === "East");
-  const west = seedings.filter((s) => s.conference === "West");
-  const renderConference = (rows, label) => `
-    <div>
-      <div class="section-title">${label}</div>
-      ${rows
-        .map((row) => {
-          const team = teamById.get(row.teamId);
-          const color = teamColor(row.teamId).primary;
-          return `
-            <div class="compare-row">
-              <div class="compare-row-head">
-                <span class="metric-name">Seed ${row.seed} — ${escapeHtml(team?.full_name || row.teamId)}</span>
-                <span>${(row.probability * 100).toFixed(0)}%</span>
-              </div>
-              <div class="compare-track">
-                <div class="compare-fill home" style="width:${row.probability * 100}%; background:${color};"></div>
-              </div>
-            </div>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-  return `
-    <div class="card fade-in">
-      <div class="card-header">
-        <div>
-          <h2>Projected playoff field</h2>
-          <p class="card-subtitle">The most likely team to occupy each direct-playoff seed (top 6 per conference).</p>
-        </div>
-      </div>
-      <div class="grid-2">
-        ${renderConference(east, "Eastern Conference")}
-        ${renderConference(west, "Western Conference")}
       </div>
     </div>
   `;
