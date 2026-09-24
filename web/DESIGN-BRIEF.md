@@ -1,8 +1,8 @@
 # Blacktop Tabloid — design brief
 
-Status: **rev 1 (proposal)**. This brief is written before the stylesheet
-rewrite so the direction can be checked first. The implementation follows it
-page by page.
+Status: **rev 2**. Rev 1 was committed before any CSS was written. Section 8
+records the self-critique that produced rev 2. Where rev 2 differs from rev 1,
+rev 2 wins.
 
 ## 1. The idea in one line
 
@@ -88,9 +88,9 @@ text color on paper.** On paper, stamps use `--ink` or `--ink-red`.
 |---|---|---|---|
 | Headline | **Anton** | Impact, Haettenschweiler, "Arial Narrow Bold", "Franklin Gothic Heavy", "Liberation Sans Narrow", sans-serif | Mastheads, card titles, tabloid headlines |
 | Stencil | **Big Shoulders Stencil Display** 800/900 | "Stencil Std", Stencil, Anton, Impact, sans-serif | Nav section label, stamps, kickers |
-| Marker | **Permanent Marker** | "Marker Felt", "Segoe Print", "Bradley Hand", Anton, sans-serif | One handwritten annotation per hero, at most |
+| Marker | **Permanent Marker** | "Marker Felt", "Segoe Print", "Bradley Hand", Anton, sans-serif | The scrawled word in every tabloid headline ("over", "on top", "alert!") and graffiti callouts. Never numbers |
 | Workhorse | **Barlow** 400–700 | Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Liberation Sans", sans-serif | All body text and **all numbers** (`tabular-nums`) |
-| Labels | **Barlow Condensed** 600–800 | "Arial Narrow", "Roboto Condensed", Barlow, sans-serif | Field labels, nav items, table heads, badges |
+| Labels | **Barlow Condensed** 700–800 | "Arial Narrow", "Roboto Condensed", Barlow, sans-serif | Field labels, nav items, table heads, badges |
 
 The sizes clash on purpose: the mega masthead is
 `clamp(2.75rem, 1.6rem + 4.2vw, 5.5rem)` and sits right next to 0.72rem
@@ -147,8 +147,13 @@ stencil kickers. Body text is 15px, up from 14px.
 * **Topbar → masthead.** A stencil kicker line, a mega Anton title with an
   offset orange misregistration ghost, and the subtitle in Barlow. Faint court
   markings sit behind it, and an orange **drip edge** runs along the bottom.
-* **`.card` → data slab.** Square corners, flat asphalt-900, a hard offset
-  "pasted" shadow and a worn chalk-paint top edge. `h2` is Anton caps.
+* **`.card` → data slab (rev 2).** The slab reads as a *painted court panel*,
+  not a dark card. It has square corners and flat asphalt-900 inside, and its
+  boundary is a 2px worn chalk-paint line (a court boundary, eroded with
+  `--tx-wear`). The header is a stencil title strip: an Anton title with a
+  short spray-orange tag at the left edge, sitting on a faded painted
+  divider. The black offset shadow from rev 1 is gone because it is
+  invisible on asphalt.
 * **`.clipping` (new) → tabloid clipping.** Newsprint paper, ink text, torn top
   and bottom edges, drop shadow. Used for heroes only.
 * **Matchup prediction (`matchups.js`, `probabilityBar.js`).** The whole result
@@ -199,3 +204,26 @@ stencil kickers. Body text is 15px, up from 14px.
   caution-tape edge.
 * **Banners.** The error banner gets a caution-tape edge and chalk text. The
   info banner becomes a "scouting report" note.
+
+## 8. Self-critique and what changed in rev 2
+
+I read rev 1 against the question: *does this read as Blacktop Tabloid, or as
+generic dark-mode-with-stickers?* The heroes (clippings, team slabs, the
+chain-link rail) passed. Four things did not:
+
+| Rev 1 weakness | Why it reads generic | Rev 2 fix |
+|---|---|---|
+| Data slabs were "dark card + hard black shadow + chalk top edge" | Dark card on a dark page is plain dark mode, and a black shadow is invisible on asphalt | The slab boundary is now a **worn chalk court line** (2px, wear-masked) with a stencil title strip. It reads as paint on the blacktop, and the inside stays flat and calm |
+| Orange was the only loud color outside the heroes | Dark + one orange accent is a re-skinned SaaS theme | **Color collisions are a rule:** every hero has at least two spot colors plus team colors hitting each other (the highlighter VS splat over two team halves, the ink-red stamp over newsprint, the highlighter headline bar). Orange is kept for *spray* things only: buttons, drips, the nav slab |
+| The texture list had no jobs | Textures used anywhere turn into sticker soup | **One job per texture:** chain-link = navigation only. Torn paper = "this is a story" (hero clippings, and the team slab's edge). Drips = the masthead's edge and alert frames. Halftone = team-color slabs and paper corners. Chalk / worn paint = data boundaries and the playoff cutoff line. Grain = the ground. Caution tape = errors and API-down only |
+| Marker was an optional annotation, and misregistration and collage appeared once | The brief asks for *marker-scrawl headline type*, off-registration and collage layering | **Every tabloid headline mixes faces:** team names in Anton, the verb scrawled in marker in ink-red ("THUNDER *over* WIZARDS", "CELTICS *on top*"). Clipping headlines get a 2px ink-red **misregistration ghost**. Each hero overlaps one layer across its own edge (a stamp or a strip of tape crossing the torn edge) for the collage feel |
+
+Two more rules came out of the critique:
+
+8. **Stamps must say something the data said.** No decorative stickers. A
+   tilted stamp only appears for a derived state (HIGH-CONFIDENCE PICK,
+   TOSS-UP, HOT/COLD STREAK, story tags). There is at most **one tilted
+   element per hero**.
+9. **Backboard, rim and court lines are structural.** The backboard-and-rim
+   mark is the brand. Court lines sit behind the masthead, and a court line
+   marks the playoff cutoff. None of them are sprinkled around as clip-art.
