@@ -1,8 +1,9 @@
 # Blacktop Tabloid — design brief
 
-Status: **rev 2**. Rev 1 was committed before any CSS was written. Section 8
-records the self-critique that produced rev 2. Where rev 2 differs from rev 1,
-rev 2 wins.
+Status: **rev 2, implemented**. Rev 1 was committed before any CSS was
+written. Section 8 records the self-critique that produced rev 2. Section 9
+lists what the implementation settled, and section 10 lists the deviations.
+Where a later section differs from an earlier one, the later section wins.
 
 ## 1. The idea in one line
 
@@ -53,7 +54,7 @@ them were estimated by eye.
 | `--paper-shade` | `#dcd4c0` | second paper tone | — |
 | `--ink` | `#141312` | paper / paper-shade | 14.8 / 12.6 |
 | `--ink-soft` | `#4f4a42` | paper / paper-shade | 7.0 / 6.0 |
-| `--ink-red` | `#b3141a` | paper (stamps, alert headlines) | ≥ 4.5 (checked in the final pass) |
+| `--ink-red` | `#b3141a` | paper / paper-shade (stamps, scrawls, teaser kickers) | 5.5 / 4.7 |
 
 ### Spot colors (layered on top of team colors, never replacing them)
 
@@ -77,10 +78,11 @@ text color on paper.** On paper, stamps use `--ink` or `--ink-red`.
    `--ink → --chalk → #000 → #fff` and returns the first that reaches 4.5:1.
    Across all 60 primary and secondary colors, the lowest result is **4.55:1**
    (Thunder `#007AC1` with black).
-2. **Clash, don't blend.** When two teams on screen have near-identical
-   primaries (contrast < 1.3:1, for example Bulls/Raptors/Rockets `#CE1141` or
-   Knicks/76ers `#006BB6`), the away team switches to its own secondary color
-   from `teamColors.js`. No colors are invented.
+2. **Clash, don't blend.** When two teams on screen have look-alike
+   primaries (perceptual distance ΔE (CIE76) < 20, for example
+   Bulls/Raptors/Rockets `#CE1141` or Knicks/76ers `#006BB6`), the second
+   team switches to its own secondary color from `teamColors.js`. No colors
+   are invented. (Rev 1 said "contrast < 1.3:1"; see section 10.)
 
 ## 4. Type
 
@@ -227,3 +229,121 @@ Two more rules came out of the critique:
 9. **Backboard, rim and court lines are structural.** The backboard-and-rim
    mark is the brand. Court lines sit behind the masthead, and a court line
    marks the playoff cutoff. None of them are sprinkled around as clip-art.
+
+## 9. What the implementation settled
+
+### Alert and story thresholds
+
+Every callout is derived in its page module from data the page already has.
+No new API calls are made and no data is invented.
+
+| Where | State | Rule (source field) |
+|---|---|---|
+| Matchups | **HIGH-CONFIDENCE PICK** (tilted ink-red stamp) | favorite win probability ≥ **0.70** (`home_/away_win_probability`) |
+| Matchups | **TOSS-UP** (tilted ink stamp) | favorite win probability < **0.55** |
+| Matchups | **UPSET ALERT!** (highlighter caution callout) | underdog win probability ≥ **0.35** *and* the underdog's `team_context.*.win_rate_rolling_10` > the favorite's. Takes priority over the two stamps above |
+| Matchups | **BIG SWING** (orange callout) | the same home/away pairing was predicted earlier in this page session and `home_win_probability` moved ≥ **0.10** (for example after setting an as-of date) |
+| Matchups | headline verb | "over" normally, "edge" for a toss-up, a trailing "?" for an upset |
+| League | **RUNAWAY** / **DOGFIGHT** / **ON TOP** | the gap in `mean_wins` between #1 and #2: ≥ **4.0** / < **1.0** / otherwise |
+| League | teasers | **Bubble watch** = `direct_playoff_probability` closest to 0.5. **The basement** = `league_summary.worst_team` |
+| Teams | **HOT STREAK** / **COLD STREAK** | `team_form.win_rate_rolling_10` ≥ **0.70** / ≤ **0.30** |
+| Dashboard | **ENGINE ONLINE** / **TOOL RACK EMPTY** / **API DOWN** | `/health` ok with tools > 0 / ok with 0 tools / not ok or network failure |
+
+### Token and recipe changes since rev 2
+
+* The rail is `--sidebar-width: 282px` (up from 252px), so a badged nav label
+  fits on one line in Barlow Condensed. Labels may wrap only in the system
+  fallback face.
+* The halftone recipe is **re-declared on each host** (`.clipping`,
+  `.result-team`, `.team-hero`). Custom properties resolve `var()` where they
+  are declared, so a single `:root` recipe would ignore each host's `--dot`.
+* **Halftone dots on team slabs are drawn in the color opposite the text ink**
+  (`colorInk.halftoneDotColor`), so a dot behind a letter can only *raise*
+  contrast. This is checked for all 60 team colors.
+* Bars (`.compare-fill`) get a chalk inset outline at 0.55 (5.2:1 against the
+  track), so black or navy team fills stay visible on asphalt.
+* Buttons lost their 3px inner bottom shadow, which darkened the orange to
+  4.15:1 behind ink.
+
+### Verification summary
+
+* **Token pairs + team colors:** 111 computed checks, 0 failures. The lowest
+  text-on-team-color ratio is 4.55:1 (Thunder `#007AC1` with black). Worst
+  cases through texture: chalk through the 0.30 chain-link wire is 8.97:1,
+  chalk-dim through a 0.16 grain speck is 6.68:1, and ink-soft over a 0.2
+  halftone dot is 4.58:1.
+* **axe-core 4.13** (WCAG 2 A/AA rules) on 17 scenarios × 2 widths: 0
+  violations.
+* **Rendered-pixel check:** axe can't decide text over gradients and
+  textures, so every such element (1,027) was measured by diffing
+  screenshots with its text shown and hidden, and sampling the real
+  background under the glyph strokes. After fixes there are 0 failures. The
+  one remaining flag was a rasterization artifact of the ±0.9° poster tilt,
+  and it measures clean with the tilt disabled.
+
+## 10. Deviations from the constraints (and why)
+
+1. **Files touched beyond `index.html` and `pages/`.**
+   * `web/js/main.js`: nav items became `<a href="#/…">` with `aria-current`,
+     so they are keyboard-focusable. Plain clicks still go through
+     `navigate()`, and modifier-clicks open a new tab.
+   * A new helper module, `web/js/colorInk.js`: text on team colors has to be
+     chosen by computed contrast at render time.
+   * Component markup changed as follows. `probabilityBar.js`: a half-court
+     marker and percentages in the `aria-label`. `seedProbabilities.js` and
+     `playoffField.js`: modifier classes, plus `role="link" tabindex="0"` on
+     clickable names. Signatures, exports, data read and existing classes
+     are unchanged.
+   * `comparisonBar.js`, `teamSelect.js`, `leagueSummary.js`, `router.js`,
+     `api.js` and `src/*.py` are unchanged.
+2. **Small interaction additions, not just markup.** Several interactive
+   things were click-only `<div>`s or `<tr>`s, which can't show a
+   `:focus-visible` style: nav items, dashboard posters, League team links
+   and teasers, and simulator rows. They are now focusable and open on
+   Enter. Simulator rows expand through a native `<button aria-expanded>` in
+   the team cell; its click bubbles to the existing row handler. Data flow
+   and routing are unchanged.
+3. **"Big win-probability swing" needs a baseline the API doesn't provide.**
+   BIG SWING therefore compares against the previous prediction of the same
+   pairing *in the current page session*. It does not persist across
+   reloads.
+4. **The Dashboard has no sports data**, only `/health` and `/tools`. Its
+   hero is therefore a platform-status headline. The sports "headline of the
+   day" lives on League Predictions, whose projection holds the biggest
+   story.
+5. **Numbers in display faces.** The hero win-probability stamp uses Anton
+   (upright, flat paper plate, no effects). Headings may contain label
+   numbers in Anton, for example "League summary — 2025-26 season (1,000
+   simulations)". The team-hero name's secondary-color misregistration ghost
+   also lands on the digits of "76ers", which is a team name, not a data
+   value. No numeric *data value* is rotated, skewed, halftoned or ghosted:
+   tabloid headlines are built from team nicknames only, and the numbers go
+   in the deck.
+6. **Tilts.** Each hero has one tilted *stamp*. In addition, the stamp
+   *frames* around the win percentages tilt, as allowed by rule 2 ("frames
+   are loud"), and the marker scrawl leans −4° as part of the headline type.
+   Dashboard posters tilt ±0.9°. They are navigation and hold no numbers.
+7. **Texture opacity above 0.20 in the shell.** The chain-link rail is at
+   0.30 and the placeholder fence at 0.40. The 10–20% cap applies to data
+   pages, and all of this is shell: nav labels sit on solid sign plates and
+   the placeholder copy sits on a solid paper sign. The page ground behind
+   the simulator's tables is 0.16.
+8. **Text-link targets** (`.link-btn`, for example "View team ▸") have a
+   32px minimum height. That is above the 24px WCAG 2.2 AA target minimum
+   but below 44px, so the one link inside League's "About" paragraph stays
+   inline. Buttons, selects, inputs, nav items and summaries are ≥ 44px.
+9. **Five font families** (Anton, Big Shoulders Stencil Display, Permanent
+   Marker, Barlow, Barlow Condensed) rather than a strict two-face pairing,
+   which the tabloid's clashing type calls for. Only the weights used are
+   requested, and with `display=swap`. With the fonts blocked, the system
+   fallbacks were checked for layout and overflow.
+10. **The clash rule changed from rev 1.** "Contrast < 1.3:1" measured
+    luminance only, so it wrongly treated Celtics green vs Bulls red as
+    duplicates. Perceptual ΔE < 20 swaps only look-alike colors.
+11. **New editorial copy.** Headline verbs and tags ("over", "edge", "run
+    away with it", "game on!", "timeout!", "Scouting report", "Analytics
+    desk") are voice, not data. Every fact in the copy comes from the
+    envelope.
+12. **A pre-existing layout bug was fixed along the way.** The fixed 252px
+    sidebar overflowed every phone view. Below 860px the rail now becomes a
+    top bar with a scrolling nav strip.
