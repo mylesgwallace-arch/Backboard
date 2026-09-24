@@ -172,7 +172,7 @@ function silhouette(jerseyNumber, wordmark) {
  * @param {object} props
  * @param {string}   props.tag          small label pill above the headline
  * @param {string[]} props.headline     [top, ransom, accent] — 3 words, stacked
- * @param {string}   props.sticker      slanted "exclamation" accent (1 max)
+ * @param {string}   [props.sticker]    optional slanted "exclamation" accent
  * @param {string}   props.deck         one-sentence supporting copy
  * @param {{href: string, label: string}} props.cta  the single primary action
  * @param {{value: string, label: string}} [props.stat]  stat badge
@@ -226,7 +226,7 @@ export function renderHero({
           <span class="sr-only">${escapeText(`${top} ${ransom} ${accent}`)}</span>
           <span class="hero-title-visual" aria-hidden="true">
             <span class="hero-word hero-word--top">${escapeText(top)}</span>
-            <span class="hero-word hero-word--ransom">${ransomLetters}<span class="hero-sticker">${escapeText(sticker)}</span></span>
+            <span class="hero-word hero-word--ransom">${ransomLetters}${sticker ? `<span class="hero-sticker">${escapeText(sticker)}</span>` : ""}</span>
             <span class="hero-word hero-word--accent">
               <span class="rip-piece rip-piece--top"><span class="rip" style="clip-path:${rip.top}">${escapeText(accent)}</span></span>
               <span class="rip-piece rip-piece--bottom"><span class="rip" style="clip-path:${rip.bottom}">${escapeText(accent)}</span></span>

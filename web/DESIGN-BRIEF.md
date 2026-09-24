@@ -366,11 +366,12 @@ carries the page's `<h1>`.
 - **Headline:** three stacked words: solid chalk, ransom-note letter chips,
   and an accent word torn along one generated jagged line (two CSS
   `clip-path` polygons sharing an edge) with a paper sliver along the tear.
-- **Decorations (max six):** SVG `clipPath` torn paper backing, halftone
-  field on the slab, tag pill, one slanted marker sticker ("called it!"),
-  stat badge, hand-drawn arrow at the CTA. Phones keep only the backing and
-  the sticker, and the color blocks stay inside the photo panel so the
-  headline always sits on the dark base.
+- **Decorations:** SVG `clipPath` torn paper backing, halftone field on
+  the slab, tag pill, stat badge, hand-drawn arrow at the CTA. The component
+  also supports one optional slanted marker sticker (`sticker` prop); the
+  Dashboard doesn't use it. Phones keep only the backing, and the color
+  blocks stay inside the photo panel so the headline always sits on the
+  dark base.
 - **Photo:** an SVG player-bust placeholder in the palette's jersey, with
   halftone key-light and shade screens and a paper cut-out outline.
   `renderHero({ photo: { src, alt } })` swaps in a real transparent cutout
