@@ -9,21 +9,23 @@ export function createPlaceholderPage({ title, subtitle, description, backedByTo
     render(container) {
       container.innerHTML = `
         <div class="coming-soon fade-in">
-          <span class="badge accent">Coming soon</span>
-          <h2>${title}</h2>
-          <p>${description}</p>
-          ${
-            backedByTools && backedByTools.length
-              ? `
-                <p class="mt-1" style="font-size:0.78rem;">
-                  Backend tools already available for this page:
-                </p>
-                <ul>
-                  ${backedByTools.map((tool) => `<li><code>${tool}</code></li>`).join("")}
-                </ul>
-              `
-              : ""
-          }
+          <div class="coming-soon-sign">
+            <p class="stamp stamp--tilt coming-soon-stamp">Coming soon</p>
+            <h2>${title}</h2>
+            <p>${description}</p>
+            ${
+              backedByTools && backedByTools.length
+                ? `
+                  <p class="mt-1 coming-soon-note">
+                    Backend tools already available for this page:
+                  </p>
+                  <ul>
+                    ${backedByTools.map((tool) => `<li><code>${tool}</code></li>`).join("")}
+                  </ul>
+                `
+                : ""
+            }
+          </div>
         </div>
       `;
     },

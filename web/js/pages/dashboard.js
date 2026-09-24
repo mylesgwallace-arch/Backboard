@@ -45,6 +45,8 @@ const QUICK_LINKS = [
 
 export function render(container, { navigate } = {}) {
   container.innerHTML = `
+    <div id="dashboard-headline-mount">${renderHeadlineSkeleton()}</div>
+
     <div class="card fade-in">
       <div class="card-header">
         <div>
@@ -118,6 +120,13 @@ export function render(container, { navigate } = {}) {
     const card = container.querySelector(`[data-quick-link="${link.path}"]`);
     if (card && navigate) {
       card.addEventListener("click", () => navigate(link.path));
+      // Posters are focusable links, so Enter opens them too.
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          navigate(link.path);
+        }
+      });
     }
   });
 
@@ -127,11 +136,85 @@ export function render(container, { navigate } = {}) {
 
 function renderQuickCard(link) {
   return `
-    <div class="quick-card" data-quick-link="${link.path}">
+    <div class="quick-card" data-quick-link="${link.path}" role="link" tabindex="0">
       <h3>${link.title}${link.available ? "" : ' <span class="badge">Soon</span>'}</h3>
       <p>${link.description}</p>
     </div>
   `;
+}
+
+function renderHeadlineSkeleton() {
+  return `
+    <div class="card clipping front-page fade-in" aria-hidden="true">
+      <div class="skeleton" style="height:28px; width:200px;"></div>
+      <div class="skeleton mt-2" style="height:72px; width:60%;"></div>
+      <div class="skeleton mt-1" style="height:18px; width:50%;"></div>
+    </div>
+  `;
+}
+
+/**
+ * Front-page headline derived from the /health and /tools responses this page
+ * already fetches (no extra requests): the engine is online, online with an
+ * empty tool rack, or down (alert state with caution tape).
+ */
+function renderStatusHeadline(state, { model, toolCount, message } = {}) {
+  if (state === "down") {
+    return `
+      <section class="card clipping front-page front-page--alert fade-in" aria-labelledby="dashboard-headline">
+        <div class="clipping-masthead">
+          <span class="kicker">Front page</span>
+          <span class="clipping-meta">Platform status · /health</span>
+        </div>
+        <div class="front-page-lead">
+          <p class="stamp stamp--tilt front-page-tag">Alert</p>
+          <h2 class="tabloid-headline" id="dashboard-headline">API <span class="hl-mark">down</span> <span class="scrawl">timeout!</span></h2>
+          <p class="deck">
+            The analytics API isn't answering, so predictions, team data and simulations can't load.
+            Start the server with <code>python src/api.py</code>, then reload this page.
+          </p>
+          ${message ? `<p class="clipping-meta mt-1">Details: ${escapeText(message)}</p>` : ""}
+        </div>
+      </section>
+    `;
+  }
+  if (state === "empty") {
+    return `
+      <section class="card clipping front-page fade-in" aria-labelledby="dashboard-headline">
+        <div class="clipping-masthead">
+          <span class="kicker">Front page</span>
+          <span class="clipping-meta">Platform status · /health + /tools</span>
+        </div>
+        <div class="front-page-lead">
+          <p class="stamp stamp--tilt stamp--ink front-page-tag">Check</p>
+          <h2 class="tabloid-headline" id="dashboard-headline">Tool rack <span class="hl-mark">empty</span></h2>
+          <p class="deck">The API is up, but it reported <strong>0</strong> registered tools.</p>
+        </div>
+      </section>
+    `;
+  }
+  return `
+    <section class="card clipping front-page fade-in" aria-labelledby="dashboard-headline">
+      <div class="clipping-masthead">
+        <span class="kicker">Front page</span>
+        <span class="clipping-meta">Platform status · /health + /tools</span>
+      </div>
+      <div class="front-page-lead">
+        <p class="stamp stamp--tilt front-page-tag">Live</p>
+        <h2 class="tabloid-headline" id="dashboard-headline">Engine <span class="hl-mark">online</span> <span class="scrawl">game on!</span></h2>
+        <p class="deck">
+          The production model <code>${escapeText(model || "unknown")}</code> is serving
+          <strong>${toolCount}</strong> analytics tools. Start with a matchup, a team, or a full-season simulation.
+        </p>
+      </div>
+    </section>
+  `;
+}
+
+function escapeText(value) {
+  return String(value).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
 }
 
 function statTileSkeleton(label) {
@@ -145,10 +228,16 @@ function statTileSkeleton(label) {
 
 async function loadHealth(container) {
   const mount = container.querySelector("#health-mount");
+  const headlineMount = container.querySelector("#dashboard-headline-mount");
   try {
     const [healthRes, toolsRes] = await Promise.all([getHealth(), getTools()]);
     const health = healthRes.data || {};
     const toolCount = (toolsRes.data?.tools || []).length;
+    const online = healthRes.ok && health.status === "ok";
+    headlineMount.innerHTML = renderStatusHeadline(
+      online ? (toolCount > 0 ? "online" : "empty") : "down",
+      { model: health.model, toolCount }
+    );
     mount.innerHTML = `
       <div class="stat-tile">
         <div class="stat-label">Service</div>
@@ -167,6 +256,7 @@ async function loadHealth(container) {
       </div>
     `;
   } catch (err) {
+    headlineMount.innerHTML = renderStatusHeadline("down", { message: err.message });
     mount.innerHTML = `<div class="error-banner">Could not reach the API: ${err.message}</div>`;
   }
 }
