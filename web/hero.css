@@ -112,7 +112,7 @@
    untouched. */
 .hero-block--c1.has-footage {
   background:
-    linear-gradient(rgba(16, 17, 20, 0.62), rgba(16, 17, 20, 0.62)),
+    linear-gradient(rgba(16, 17, 20, 0.40), rgba(16, 17, 20, 0.40)),
     var(--hero-c1);
 }
 
@@ -133,7 +133,7 @@
   height: 100%;
   object-fit: cover;
   object-position: 50% 0;
-  filter: grayscale(1) blur(1.6px) brightness(var(--hero-footage-lift, 1.6));
+  ;
 }
 
 .hero-footage::after {
