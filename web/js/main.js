@@ -14,6 +14,8 @@ import * as matchupsPage from "./pages/matchups.js";
 import * as teamsPage from "./pages/teams.js";
 import * as simulatorPage from "./pages/simulator.js";
 import * as leaguePage from "./pages/league.js";
+import * as assistantPage from "./pages/assistant.js";
+import * as headToHeadPage from "./pages/headToHead.js";
 import { createPlaceholderPage } from "./pages/placeholder.js";
 
 const ICONS = {
@@ -29,6 +31,10 @@ const ICONS = {
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M18 8v6M15 11h6" stroke-linecap="round"/></svg>',
   league:
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4M17 5h3a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/><path d="M12 13v3M9 20h6M10 17h4" stroke-linecap="round"/></svg>',
+  assistant:
+    '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5.5h16v10.2H9.8L5 20V15.7H4Z"/><path d="M8 9.6h8M8 12.6h5" stroke-linecap="round"/></svg>',
+  headToHead:
+    '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="12" r="3.2"/><circle cx="18" cy="12" r="3.2"/><path d="M9.2 12h5.6" stroke-linecap="round" stroke-dasharray="1.6 2.4"/></svg>',
 };
 
 const playerImpactPage = createPlaceholderPage({
@@ -43,9 +49,11 @@ const ROUTES = [
   { path: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, page: dashboardPage },
   { path: "/matchups", label: "Matchups", icon: ICONS.matchups, page: matchupsPage },
   { path: "/teams", label: "Teams", icon: ICONS.teams, page: teamsPage },
+  { path: "/head-to-head", label: "Head-to-Head", icon: ICONS.headToHead, page: headToHeadPage },
   { path: "/simulator", label: "Season Simulator", icon: ICONS.simulator, page: simulatorPage },
   { path: "/player-impact", label: "Player Impact", icon: ICONS.playerImpact, page: playerImpactPage, badge: "Soon" },
   { path: "/league-predictions", label: "League Predictions", icon: ICONS.league, page: leaguePage },
+  { path: "/assistant", label: "Assistant", icon: ICONS.assistant, page: assistantPage },
 ];
 
 function buildSidebar() {

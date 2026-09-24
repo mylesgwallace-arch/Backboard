@@ -31,6 +31,12 @@ const QUICK_LINKS = [
     available: true,
   },
   {
+    path: "/head-to-head",
+    title: "Head-to-Head",
+    description: "Compare any two franchises' record, all-time and season by season.",
+    available: true,
+  },
+  {
     path: "/player-impact",
     title: "Player Impact",
     description: "Association-only diagnostics for a player's on/off impact.",
@@ -40,6 +46,12 @@ const QUICK_LINKS = [
     path: "/league-predictions",
     title: "League Predictions",
     description: "League-wide standings and playoff-field projections.",
+    available: true,
+  },
+  {
+    path: "/assistant",
+    title: "Assistant",
+    description: "Ask a plain-language question and get an answer traced to a tool call.",
     available: true,
   },
 ];

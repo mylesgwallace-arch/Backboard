@@ -110,7 +110,7 @@ async function loadTeam(body, teams, teamId, ctx) {
 
   wireTabs(body);
   wireProjectionsTab(body, teamId);
-  wireHeadToHeadTab(body, teams, teamId);
+  wireHeadToHeadTab(body, teams, teamId, ctx);
   wirePredictButton(body, team, ctx);
 }
 
@@ -423,7 +423,7 @@ function renderProjectionResult(projection, nSimulations) {
   `;
 }
 
-function wireHeadToHeadTab(body, teams, teamId) {
+function wireHeadToHeadTab(body, teams, teamId, ctx) {
   const select = body.querySelector("#h2h-opponent-select");
   const runBtn = body.querySelector("#run-h2h-btn");
   const mount = body.querySelector("#h2h-result-mount");
@@ -472,7 +472,15 @@ function wireHeadToHeadTab(body, teams, teamId) {
         awayColor: opponentBarColor,
         formatValue: (v) => `${v} wins`,
       })}
+      <button class="link-btn mt-1" id="h2h-trend-link">See the season-by-season trend ▸</button>
     `;
+
+    const trendLink = mount.querySelector("#h2h-trend-link");
+    if (trendLink && ctx?.navigate) {
+      trendLink.addEventListener("click", () => {
+        ctx.navigate("/head-to-head", { a: teamId, b: opponentId });
+      });
+    }
   });
 }
 
