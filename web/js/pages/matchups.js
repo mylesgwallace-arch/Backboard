@@ -9,6 +9,19 @@ import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
 import { renderProbabilityBar } from "../components/probabilityBar.js";
 import { renderComparisonRow } from "../components/comparisonBar.js";
 import { teamColor } from "../teamColors.js";
+import { clashingPair, teamSlabStyle } from "../colorInk.js";
+
+// Tabloid callout thresholds (see web/DESIGN-BRIEF.md). Every callout is
+// derived from the predict_matchup envelope already on this page.
+const HIGH_CONFIDENCE_MIN = 0.7; // favorite win probability → HIGH-CONFIDENCE PICK
+const TOSS_UP_BELOW = 0.55; // favorite win probability → TOSS-UP
+const UPSET_UNDERDOG_MIN = 0.35; // underdog win probability, AND the underdog has
+//                                  the better last-10 win rate → UPSET ALERT
+const SWING_MIN = 0.1; // home win-probability move vs. this session's previous
+//                        run of the same home/away pairing → BIG SWING
+
+// Previous home win probability per "home-away" pairing (this page session).
+const previousHomeProbability = new Map();
 
 export const meta = {
   title: "Matchups",
@@ -188,7 +201,8 @@ export function render(container, ctx = {}) {
     const prediction = envelope.data.prediction;
     const homeTeam = teams.find((t) => t.team_id === homeTeamId);
     const awayTeam = teams.find((t) => t.team_id === awayTeamId);
-    resultMount.innerHTML = renderResult({ prediction, homeTeam, awayTeam });
+    const swing = trackSwing(prediction);
+    resultMount.innerHTML = renderResult({ prediction, homeTeam, awayTeam, swing });
 
     if (ctx.navigate) {
       resultMount.querySelectorAll("[data-view-team]").forEach((el) => {
@@ -218,22 +232,42 @@ function errorBanner(message) {
   return `<div class="error-banner">⚠ ${escapeHtml(message)}</div>`;
 }
 
-function renderResult({ prediction, homeTeam, awayTeam }) {
-  const homeColor = teamColor(prediction.home_team_id).primary;
-  const awayColor = teamColor(prediction.away_team_id).primary;
+function renderResult({ prediction, homeTeam, awayTeam, swing }) {
+  // "Clash, don't blend": identical primaries fall back to the away team's
+  // own secondary color from teamColors.js.
+  const { first: homeColor, second: awayColor } = clashingPair(
+    teamColor(prediction.home_team_id),
+    teamColor(prediction.away_team_id)
+  );
   const homeIsFavorite =
     prediction.home_win_probability >= prediction.away_win_probability;
   const snapshotLabel = describeSnapshotDate(prediction.feature_snapshot_date);
+  const story = deriveStory(prediction, homeIsFavorite);
+
+  const home = {
+    team: homeTeam,
+    id: prediction.home_team_id,
+    color: homeColor,
+    probability: prediction.home_win_probability,
+    side: "Home",
+  };
+  const away = {
+    team: awayTeam,
+    id: prediction.away_team_id,
+    color: awayColor,
+    probability: prediction.away_win_probability,
+    side: "Away",
+  };
+  const favorite = homeIsFavorite ? home : away;
+  const underdog = homeIsFavorite ? away : home;
 
   return `
-    <div class="card fade-in">
-      <div class="card-header">
-        <div>
-          <h2>Prediction</h2>
-          <p class="card-subtitle">
-            ${escapeHtml(prediction.model)}${snapshotLabel ? " · " + escapeHtml(snapshotLabel) : ""}
-          </p>
-        </div>
+    <article class="card clipping matchup-clipping fade-in" aria-labelledby="matchup-headline">
+      <div class="clipping-masthead">
+        <span class="kicker">The pick</span>
+        <span class="clipping-meta">
+          ${escapeHtml(prediction.model)}${snapshotLabel ? " · " + escapeHtml(snapshotLabel) : ""}
+        </span>
         ${
           prediction.game_date
             ? `<span class="chip">As of <strong>${escapeHtml(prediction.game_date)}</strong></span>`
@@ -241,26 +275,18 @@ function renderResult({ prediction, homeTeam, awayTeam }) {
         }
       </div>
 
+      <div class="matchup-headline-row">
+        ${renderHeadline(story, favorite, underdog)}
+        ${renderStamp(story)}
+      </div>
+
+      ${story.kind === "upset" ? renderUpsetCallout(story, favorite, underdog) : ""}
+      ${swing ? renderSwingCallout(swing) : ""}
+
       <div class="result-scoreboard">
-        <div class="result-team ${homeIsFavorite ? "is-favorite" : ""}" style="--team-color:${homeColor};">
-          <div class="team-side-label">Home</div>
-          <div class="team-name">${escapeHtml(homeTeam?.full_name || `Team ${prediction.home_team_id}`)}</div>
-          <div class="team-abbrev">${escapeHtml(homeTeam?.abbreviation || "")}</div>
-          <div class="win-prob">${formatPct(prediction.home_win_probability)}</div>
-          <div class="win-prob-label">Win probability</div>
-          ${homeIsFavorite ? `<div class="favorite-badge"><span class="badge positive">Predicted winner</span></div>` : ""}
-          <button class="link-btn mt-1" data-view-team="${prediction.home_team_id}">View team ▸</button>
-        </div>
-        <div class="vs-divider"><span>VS</span></div>
-        <div class="result-team ${!homeIsFavorite ? "is-favorite" : ""}" style="--team-color:${awayColor};">
-          <div class="team-side-label">Away</div>
-          <div class="team-name">${escapeHtml(awayTeam?.full_name || `Team ${prediction.away_team_id}`)}</div>
-          <div class="team-abbrev">${escapeHtml(awayTeam?.abbreviation || "")}</div>
-          <div class="win-prob">${formatPct(prediction.away_win_probability)}</div>
-          <div class="win-prob-label">Win probability</div>
-          ${!homeIsFavorite ? `<div class="favorite-badge"><span class="badge positive">Predicted winner</span></div>` : ""}
-          <button class="link-btn mt-1" data-view-team="${prediction.away_team_id}">View team ▸</button>
-        </div>
+        ${renderTeamHalf(home, homeIsFavorite)}
+        <div class="vs-divider" aria-hidden="true"><span>VS</span></div>
+        ${renderTeamHalf(away, !homeIsFavorite)}
       </div>
 
       ${renderProbabilityBar({
@@ -270,21 +296,129 @@ function renderResult({ prediction, homeTeam, awayTeam }) {
         awayColor,
       })}
       <div class="prob-bar-labels">
-        <span>${escapeHtml(homeTeam?.abbreviation || "HOME")}</span>
-        <span>${escapeHtml(awayTeam?.abbreviation || "AWAY")}</span>
+        <span>${escapeHtml(homeTeam?.abbreviation || "HOME")} · ${formatPct(prediction.home_win_probability)}</span>
+        <span>${formatPct(prediction.away_win_probability)} · ${escapeHtml(awayTeam?.abbreviation || "AWAY")}</span>
       </div>
 
       ${
         prediction.matchup_summary
-          ? `<div class="info-banner mt-2"><span>💡</span><p class="model-insight">${escapeHtml(prediction.matchup_summary)}</p></div>`
+          ? `<div class="info-banner scouting-note mt-2"><span class="note-label">Scouting report</span><p class="model-insight">${escapeHtml(prediction.matchup_summary)}</p></div>`
           : ""
       }
-    </div>
+    </article>
 
     ${renderTeamStrengthCard({ prediction, homeTeam, awayTeam, homeColor, awayColor })}
 
     ${renderModelInfoCard(prediction)}
   `;
+}
+
+function renderTeamHalf(side, isFavorite) {
+  const name = side.team?.full_name || `Team ${side.id}`;
+  return `
+    <div class="result-team ${isFavorite ? "is-favorite" : ""}" style="${teamSlabStyle(side.color)}">
+      <div class="team-side-label">${side.side}</div>
+      <div class="team-name">${escapeHtml(name)}</div>
+      <div class="team-abbrev">${escapeHtml(side.team?.abbreviation || "")}</div>
+      <div class="win-stamp">
+        <div class="win-prob">${formatPct(side.probability)}</div>
+        <div class="win-prob-label">Win probability</div>
+      </div>
+      ${isFavorite ? `<div class="favorite-badge"><span class="badge positive">Predicted winner</span></div>` : ""}
+      <button class="link-btn mt-1" data-view-team="${side.id}">View team ▸</button>
+    </div>
+  `;
+}
+
+/**
+ * Classify the prediction into one tabloid "story" using only fields in the
+ * envelope: the two win probabilities and team_context's last-10 win rates.
+ */
+function deriveStory(prediction, homeIsFavorite) {
+  const favoriteP = Math.max(prediction.home_win_probability, prediction.away_win_probability);
+  const underdogP = Math.min(prediction.home_win_probability, prediction.away_win_probability);
+  const context = prediction.team_context || {};
+  const favoriteForm = (homeIsFavorite ? context.home : context.away)?.win_rate_rolling_10;
+  const underdogForm = (homeIsFavorite ? context.away : context.home)?.win_rate_rolling_10;
+  const underdogIsHotter =
+    typeof favoriteForm === "number" &&
+    typeof underdogForm === "number" &&
+    underdogForm > favoriteForm;
+
+  let kind = "pick";
+  if (underdogP >= UPSET_UNDERDOG_MIN && underdogIsHotter) kind = "upset";
+  else if (favoriteP >= HIGH_CONFIDENCE_MIN) kind = "lock";
+  else if (favoriteP < TOSS_UP_BELOW) kind = "tossup";
+
+  return { kind, favoriteP, underdogP, favoriteForm, underdogForm };
+}
+
+function nickname(side) {
+  return side.team?.name || side.team?.abbreviation || side.side;
+}
+
+function renderHeadline(story, favorite, underdog) {
+  // Team names in Anton on their own color slabs; the verb scrawled in marker.
+  const verb = story.kind === "tossup" ? "edge" : "over";
+  const doubt = story.kind === "upset" ? "?" : "";
+  return `
+    <h2 class="tabloid-headline" id="matchup-headline">
+      <span class="hl-team" style="${teamSlabStyle(favorite.color)}">${escapeHtml(nickname(favorite))}</span>
+      <span class="scrawl">${verb}</span>
+      <span class="hl-team" style="${teamSlabStyle(underdog.color)}">${escapeHtml(nickname(underdog))}</span>${doubt}
+    </h2>
+  `;
+}
+
+function renderStamp(story) {
+  if (story.kind === "lock") {
+    return `<p class="stamp stamp--tilt matchup-stamp">High-confidence pick</p>`;
+  }
+  if (story.kind === "tossup") {
+    return `<p class="stamp stamp--tilt stamp--ink matchup-stamp">Toss-up</p>`;
+  }
+  return "";
+}
+
+function renderUpsetCallout(story, favorite, underdog) {
+  const underdogName = underdog.team?.full_name || nickname(underdog);
+  const favoriteName = favorite.team?.full_name || nickname(favorite);
+  return `
+    <div class="callout callout--upset" role="note">
+      <span class="callout-title">Upset alert!</span>
+      <p class="callout-body">
+        The underdog ${escapeHtml(underdogName)} still carry a
+        <strong>${formatPct(story.underdogP)}</strong> win chance and the better recent form:
+        <strong>${formatPct(story.underdogForm, 0)}</strong> of their last 10 won, vs
+        <strong>${formatPct(story.favoriteForm, 0)}</strong> for the ${escapeHtml(favoriteName)}.
+      </p>
+    </div>
+  `;
+}
+
+function renderSwingCallout(swing) {
+  const points = (swing.delta * 100).toFixed(1);
+  return `
+    <div class="callout callout--swing" role="note">
+      <span class="callout-title">Big swing</span>
+      <p class="callout-body">
+        Home win probability moved <strong>${swing.delta > 0 ? "+" : ""}${points} pts</strong>
+        since your last run of this matchup
+        (<strong>${formatPct(swing.previous)}</strong> → <strong>${formatPct(swing.current)}</strong>).
+      </p>
+    </div>
+  `;
+}
+
+/** Compare against this session's previous run of the same pairing. */
+function trackSwing(prediction) {
+  const key = `${prediction.home_team_id}-${prediction.away_team_id}`;
+  const current = prediction.home_win_probability;
+  const previous = previousHomeProbability.get(key);
+  previousHomeProbability.set(key, current);
+  if (typeof previous !== "number") return null;
+  const delta = current - previous;
+  return Math.abs(delta) >= SWING_MIN ? { previous, current, delta } : null;
 }
 
 function renderTeamStrengthCard({ prediction, homeTeam, awayTeam, homeColor, awayColor }) {
@@ -352,9 +486,10 @@ function renderTeamStrengthCard({ prediction, homeTeam, awayTeam, homeColor, awa
           <p class="card-subtitle">Rolling pregame form used by the model (last 10 games before this matchup).</p>
         </div>
       </div>
-      <div class="compare-values" style="margin-bottom:0.6rem;">
-        <span>${escapeHtml(homeTeam?.abbreviation || "HOME")}</span>
-        <span>${escapeHtml(awayTeam?.abbreviation || "AWAY")}</span>
+      <div class="compare-legend">
+        <span class="team-chip" style="${teamSlabStyle(homeColor)}">${escapeHtml(homeTeam?.abbreviation || "HOME")}</span>
+        <span class="compare-legend-label">Home · Away</span>
+        <span class="team-chip" style="${teamSlabStyle(awayColor)}">${escapeHtml(awayTeam?.abbreviation || "AWAY")}</span>
       </div>
       ${rows}
       ${prediction.feature_importance ? renderFeatureChips(prediction.feature_importance) : ""}
@@ -425,8 +560,8 @@ function describeSnapshotDate(snapshot) {
   return "";
 }
 
-function formatPct(value) {
-  return `${(value * 100).toFixed(1)}%`;
+function formatPct(value, digits = 1) {
+  return `${(value * 100).toFixed(digits)}%`;
 }
 
 function formatSigned(value, digits = 1) {
