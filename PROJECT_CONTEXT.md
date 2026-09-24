@@ -195,6 +195,105 @@ Tests: 43 new (`tests/test_player_lookup.py`, `tests/test_db_query.py`,
 
 Registry: 18 tools.
 
+## Phase 3 (2026-09-24): current-season data -- built; roster adjustment validated as NOT helpful
+
+### What was investigated (verified, not assumed)
+
+| Need | Source checked | Finding |
+|---|---|---|
+| 2026-27 schedule | NBA announcement (pr.nba.com, nba.com/news) | Published; season opens 2026-10-20. Each team has dates for 80 of 82 games; the last 2 are set by NBA Cup group results (Dec 4-10). |
+| Machine-readable schedule | `cdn.nba.com/static/json/staticData/scheduleLeagueV2.json` | Returns HTTP 403 to non-browser requests from this environment (checked with a HEAD request; nothing downloaded). NBA.com terms of use permit personal, non-commercial downloads only and prohibit public/commercial reuse without written permission; NBA statistics may not be used in commercial or fantasy products. |
+| Schedule in the repo's own format | `data/raw/LeagueSchedule25_26.csv` (+ 24_25) | Same layout as the Kaggle "NBA Dataset: Box Scores and Stats (1947 - Today)" (eoinamoore) export the repo's raw data appears to come from; a `LeagueSchedule26_27.csv` from that export would ingest directly. The dataset's license was not verified (the page was not machine-readable). |
+| Transactions / rosters | `data/raw/nba_player_movement_raw.csv` (already in repo) | Covers 2015-07-01 to **2026-08-13**, i.e. most of the current offseason (10,374 normalized high-confidence add/remove events). Basketball-Reference rate-limits bots to 20 requests/min (24 h block if exceeded); its data-use page returned 403 to automated fetches. |
+
+Because nothing reliable, free and programmatically accessible was verified,
+the pipeline is generic: schedules and transactions are CSV files validated
+against explicit contracts, and nothing is fetched automatically. **The
+2026-27 schedule has not been ingested** (it would be a file download, which
+this autonomous session did not do without permission).
+
+### What was built
+
+* **`src/live_data.py` fixes (real bugs).** `derive_game_type` classified
+  first-round and semifinal playoff games as regular season (it only looked
+  for "final"/"playoff") and NBA Cup group/QF/SF games as non-regular-season;
+  on the 2025-26 schedule file that gave 1,212 regular-season and 40 playoff
+  games instead of 1,230 and 85. Ingesting a schedule would also have
+  overwritten the stored gameType of existing games with those wrong labels.
+  Fixed (Cup group + QF/SF count in the standings; only the Cup final is
+  "NBA Cup"); the derived types now match the database's own labels for
+  1,399 of 1,400 games (the one difference is the Cup-final name). Also fixed
+  two field-name typos that silently dropped `arenaName` and
+  `seriesGameNumber` on ingest. The one existing test that encoded the old
+  Cup behavior was updated.
+* **Schedules for upcoming seasons.** `forward_projection.season_schedule`
+  now falls back to the `games` table (played or unplayed games) when the
+  database has scheduled-but-unplayed games the model dataset lacks; completed
+  seasons still use the model dataset, so all validated numbers are
+  unchanged. `strength_freshness` flags results ingested after the last
+  feature rebuild (the frozen strength would ignore them).
+* **`src/roster_state.py` -> tools `team_roster`, `team_strength`
+  (`roster_adjusted`), `project_rest_of_season(roster_adjusted=...)` + CLI
+  (`--as-of`, `--backtest`).** Starts from each team's real pregame feature
+  row and moves only the roster-derived inputs (`player_*_rolling_10` sums and
+  active-player counts) for players who left (trade, waive, signed
+  elsewhere) or joined since that team's last game. Verified: recomputing the
+  production player features from the database reproduces the feature file
+  exactly (difference 0.0 for all 30 teams on three dates), and with no
+  transactions the adjusted snapshot equals the production snapshot.
+* **Validation result: roster adjustment does not help.** Preseason
+  (opening-day) projections, 2015-2025, same seeds and uncertainty:
+
+  | | Win MAE | CRPS | Per-game log loss (strength frozen on opening day) |
+  |---|---|---|---|
+  | Production snapshot | 7.767 | 5.634 | 0.6734 |
+  | Roster-adjusted | 7.796 | 5.655 | 0.6744 |
+
+  Per-game log loss is better in 2 of 11 seasons and win MAE in 4 of 11.
+  The production model puts ~3% of its
+  importance on roster-derived inputs (Elo gap 63%, rolling margin 14%), and
+  those inputs measure volume, not quality. **Roster adjustment is therefore
+  opt-in, off by default, and labeled experimental everywhere.** Correctly
+  modeling what a new roster is worth is a player-value problem (see
+  Phase 5), not a bookkeeping one. Report: `models/roster_adjustment_backtest.json`.
+* **`data_status` tool** (latest game, latest feature row, latest
+  transaction, whether the upcoming schedule is loaded, and the exact update
+  commands).
+* **Web: new "Current Season" page** (`web/js/pages/currentSeason.js`,
+  checked live): data freshness, all 30 teams' strength today (Elo +
+  production chance to beat an average opponent + the roster-adjusted column
+  with minutes in/out), a per-team arrivals/departures drill-down, and -- once
+  the schedule is ingested -- a preseason projection with title odds.
+* `templates/roster_transactions_template.csv`: header for
+  `data/manual/roster_transactions.csv` (same contract as every roster-event
+  file: `event_id, event_timestamp, team_id, person_id, change_type (add|
+  remove), source, source_url`), picked up automatically when present.
+
+### Findings recorded, not fixed (they feed the frozen model)
+
+* `player_points_per_minute_rolling_10` is null in 97.6% of feature rows
+  (100% since 2020): one null per-minute value (a 0-minute row) makes the
+  running mean NaN for the rest of the team's history in
+  `build_features.add_pregame_player_features`. The model median-imputes it,
+  so it is effectively a constant. Fixing it changes the training data and
+  would require re-validating the production model under the
+  candidate-beats-production gate.
+* Player-history features are missing for 87% of 2021-22 team-games (the
+  known null-gameType gap in that season's player box scores).
+
+### To make the current season live (manual steps)
+
+1. Obtain the 2026-27 schedule as a CSV with at least `gameId,
+   gameDateTimeEst, homeTeamId, awayTeamId` (the Kaggle `LeagueSchedule26_27.csv`
+   layout works as is), then `python src/live_data.py --source <file> --dry-run`
+   and, if it passes, without `--dry-run`.
+2. During the season, refresh the raw CSV export, then `python src/load_data.py`,
+   `python src/create_indexes.py`, `python src/build_features.py`, and re-ingest
+   the schedule (load_data replaces the games table).
+3. New transactions: re-run `python src/roster_change_data.py
+   --normalize-player-movement data/raw/nba_player_movement_raw.csv` on a newer
+   feed, or add rows to `data/manual/roster_transactions.csv`.
+
 ---
 
 # 1. Current Objective

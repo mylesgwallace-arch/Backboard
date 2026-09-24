@@ -621,6 +621,11 @@ def test_project_rest_of_season_highlights_requested_team(monkeypatch):
 
     monkeypatch.setattr("src.tools.project_from_date", fake_project)
     monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools.season_schedule", lambda inputs, season: "schedule")
+    monkeypatch.setattr(
+        "src.tools.strength_freshness",
+        lambda inputs, schedule, as_of: {"features_stale": False},
+    )
 
     result = execute_tool(
         "project_rest_of_season",
@@ -702,3 +707,49 @@ def test_validation_report_rejects_unknown_component():
     result = execute_tool("validation_report", {"component": "vibes"})
     assert result["status"] == "error"
     assert "production_model" in result["error"]["message"]
+
+
+def test_bool_parameters_accept_common_spellings():
+    schema = [{"name": "flag", "type": "bool", "required": False, "description": "f"}]
+    for raw, expected in ((True, True), ("true", True), ("0", False), (1, True), ("False", False)):
+        assert validate_parameters(schema, {"flag": raw})["flag"] is expected
+    with pytest.raises(Exception):
+        validate_parameters(schema, {"flag": "maybe"})
+
+
+def test_phase_three_tools_are_registered():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    for name in ("team_strength", "team_roster"):
+        assert name in tools
+        assert any("backtest" in limit or "feed" in limit for limit in tools[name]["limitations"])
+    params = {p["name"]: p for p in tools["project_rest_of_season"]["parameters"]}
+    assert params["roster_adjusted"]["type"] == "bool"
+
+
+def test_project_rest_of_season_unavailable_without_a_schedule(monkeypatch):
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+
+    def no_schedule(inputs, season):
+        raise ValueError("No games found for season 2026. If this is an upcoming season, ingest its schedule first")
+
+    monkeypatch.setattr("src.tools.season_schedule", no_schedule)
+    result = execute_tool("project_rest_of_season", {"season": 2026, "as_of": "2026-10-20"})
+    assert result["status"] == "unavailable"
+    assert "ingest its schedule" in result["error"]["message"]
+
+
+def test_team_roster_returns_one_teams_moves(monkeypatch):
+    monkeypatch.setattr("src.tools._cached_model_inputs",
+                        lambda: type("Inputs", (), {"features": None})())
+    monkeypatch.setattr("src.tools._cached_transactions", lambda: None)
+    monkeypatch.setattr(
+        "src.tools.build_roster_state",
+        lambda as_of, features, transactions=None, team_ids=None: (
+            {team_ids[0]: {"arrived": [{"person_id": 7}], "departed": []}},
+            [{"team_id": team_ids[0], "person_id": 7}, {"team_id": 1, "person_id": 8}],
+        ),
+    )
+    result = execute_tool("team_roster", {"team_id": 1610612755, "as_of": "2026-09-24"})
+    assert result["status"] == "success"
+    assert result["data"]["roster"]["arrived"][0]["person_id"] == 7
+    assert result["data"]["transactions_applied"] == [{"team_id": 1610612755, "person_id": 7}]

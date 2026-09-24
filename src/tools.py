@@ -60,6 +60,15 @@ try:
         frozen_matchup_probabilities,
         load_model_inputs,
         project_from_date,
+        season_schedule,
+        strength_freshness,
+        strength_table,
+    )
+    from src.roster_state import (
+        adjusted_snapshots,
+        build_roster_state,
+        load_transactions,
+        roster_change_summary,
     )
     from src.playoffs import (
         actual_bracket_odds,
@@ -97,6 +106,15 @@ except ImportError:  # pragma: no cover - direct-script support
         frozen_matchup_probabilities,
         load_model_inputs,
         project_from_date,
+        season_schedule,
+        strength_freshness,
+        strength_table,
+    )
+    from roster_state import (
+        adjusted_snapshots,
+        build_roster_state,
+        load_transactions,
+        roster_change_summary,
     )
     from playoffs import (
         actual_bracket_odds,
@@ -175,6 +193,7 @@ def _cached_margin_bundle():
 
 INT_TYPE = "int"
 STR_TYPE = "str"
+BOOL_TYPE = "bool"
 
 PLAYOFF_LIMITATION = (
     "Season projections are descriptive outputs of the validated per-game model; "
@@ -520,18 +539,55 @@ def _execute_describe_database(parameters):
         raise ToolError(str(exc))
 
 
+def _cached_transactions():
+    if "transactions" not in MODEL_INPUTS_CACHE:
+        MODEL_INPUTS_CACHE["transactions"] = load_transactions()
+    return MODEL_INPUTS_CACHE["transactions"]
+
+
+def _today():
+    return pd.Timestamp.today().normalize()
+
+
 def _execute_project_rest_of_season(parameters):
     """Project final standings from the actual record on a cutoff date."""
     season = parameters["season"]
-    projection = project_from_date(
-        season,
-        parameters["as_of"],
-        _cached_model_inputs(),
-        n_simulations=parameters.get("n_simulations", 1000),
-        random_state=parameters.get("random_state", 42),
-        team_names=load_team_names(season),
-    )
+    inputs = _cached_model_inputs()
+    try:
+        schedule = season_schedule(inputs, season)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    snapshots = None
+    roster_note = None
+    if parameters.get("roster_adjusted"):
+        snapshots, state, applied = adjusted_snapshots(
+            parameters["as_of"], inputs.features, transactions=_cached_transactions()
+        )
+        roster_note = {
+            "transactions_applied": len(applied),
+            "teams_with_changes": sum(
+                1 for team in state.values() if team["arrived"] or team["departed"]
+            ),
+            "warning": "Roster adjustment did not improve preseason projections in the "
+                       "2015-2025 backtest (models/roster_adjustment_backtest.json).",
+        }
+    try:
+        projection = project_from_date(
+            season,
+            parameters["as_of"],
+            inputs,
+            n_simulations=parameters.get("n_simulations", 1000),
+            random_state=parameters.get("random_state", 42),
+            team_names=load_team_names(season),
+            schedule=schedule,
+            snapshots=snapshots,
+        )
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    projection["strength_freshness"] = strength_freshness(inputs, schedule, parameters["as_of"])
     result = {"projection": projection}
+    if roster_note:
+        result["roster_adjustment"] = roster_note
     if parameters.get("team_id") is not None or parameters.get("team"):
         team_id = _team_id_or_name(parameters, "team_id", "team")
         row = next(
@@ -545,6 +601,108 @@ def _execute_project_rest_of_season(parameters):
         result["team_id"] = team_id
         result["team_projection"] = row
     return result
+
+
+def _execute_team_strength(parameters):
+    """Schedule-free current strength of every team, optionally roster-adjusted."""
+    inputs = _cached_model_inputs()
+    as_of = pd.Timestamp(parameters["as_of"]) if parameters.get("as_of") else _today()
+    team_ids = list(range(NBA_TEAM_ID_MIN, NBA_TEAM_ID_MAX + 1))
+    rows = strength_table(inputs, as_of, team_ids=team_ids)
+    names = load_team_names()
+    result = {"as_of": str(as_of.date()), "teams": rows}
+    if parameters.get("roster_adjusted"):
+        snapshots, state, applied = adjusted_snapshots(
+            as_of, inputs.features, transactions=_cached_transactions()
+        )
+        adjusted = {
+            row["teamId"]: row
+            for row in strength_table(inputs, as_of, team_ids=team_ids, snapshots=snapshots)
+        }
+        changes = {row["teamId"]: row for row in roster_change_summary(state)}
+        for row in rows:
+            row["roster_adjusted_win_probability_vs_average"] = (
+                adjusted[row["teamId"]]["win_probability_vs_average"]
+            )
+            row["roster_changes"] = changes.get(row["teamId"])
+        result["transactions_applied"] = len(applied)
+        result["latest_transaction"] = (
+            None if not applied else max(event["date"] for event in applied)
+        )
+    for row in rows:
+        info = names.get(row["teamId"])
+        if info:
+            row["teamName"] = info["teamName"]
+    return result
+
+
+def _execute_data_status(parameters):
+    """How current each data source is, and whether the upcoming schedule is loaded."""
+    inputs = _cached_model_inputs()
+    today = _today()
+    upcoming = today.year if today.month >= 7 else today.year - 1
+    with sqlite3.connect(TEAM_DB_PATH) as connection:
+        latest_game = connection.execute(
+            "SELECT MAX(gameDateTimeEst) FROM games WHERE winner IS NOT NULL"
+        ).fetchone()[0]
+        upcoming_games = connection.execute(
+            "SELECT COUNT(*), SUM(winner IS NOT NULL) FROM games "
+            "WHERE gameType = 'Regular Season' AND gameDateTimeEst >= ? AND gameDateTimeEst < ?",
+            (f"{upcoming}-09-01", f"{upcoming + 1}-07-01"),
+        ).fetchone()
+        has_log = connection.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='data_ingestion_log'"
+        ).fetchone()[0]
+        log = connection.execute(
+            "SELECT fetched_at, source_url, rows_loaded, validation_status "
+            "FROM data_ingestion_log ORDER BY id DESC LIMIT 5"
+        ).fetchall() if has_log else []
+    transactions = _cached_transactions()
+    return {
+        "today": str(today.date()),
+        "latest_completed_game": latest_game,
+        "latest_feature_row": str(inputs.features["gameDateTimeEst"].max()),
+        "latest_transaction": (
+            None if transactions.empty else str(transactions["event_timestamp"].max().date())
+        ),
+        "transaction_count": int(len(transactions)),
+        "upcoming_season": upcoming,
+        "upcoming_season_regular_season_games_in_database": int(upcoming_games[0] or 0),
+        "upcoming_season_games_with_results": int(upcoming_games[1] or 0),
+        "recent_ingestions": [
+            {"fetched_at": row[0], "source": row[1], "rows_loaded": row[2], "status": row[3]}
+            for row in log
+        ],
+        "how_to_update": {
+            "schedule": "python src/live_data.py --source <LeagueSchedule26_27.csv or URL> "
+                        "(add --dry-run first to validate)",
+            "results_and_box_scores": "replace data/raw/*.csv with an updated export, then "
+                                      "python src/load_data.py, python src/create_indexes.py "
+                                      "and python src/build_features.py. load_data replaces "
+                                      "the games table, so re-ingest the schedule afterwards.",
+            "transactions": "python src/roster_change_data.py --normalize-player-movement "
+                            "data/raw/nba_player_movement_raw.csv, or add rows to "
+                            "data/manual/roster_transactions.csv",
+        },
+    }
+
+
+def _execute_team_roster(parameters):
+    """Arrivals/departures for one team since its last game (factual bookkeeping)."""
+    inputs = _cached_model_inputs()
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    as_of = pd.Timestamp(parameters["as_of"]) if parameters.get("as_of") else _today()
+    state, applied = build_roster_state(
+        as_of, inputs.features, transactions=_cached_transactions(), team_ids=[team_id]
+    )
+    if team_id not in state:
+        raise ToolUnavailable(f"No pregame history for teamId={team_id} on or before {as_of.date()}.")
+    return {
+        "team_id": team_id,
+        "as_of": str(as_of.date()),
+        "roster": state[team_id],
+        "transactions_applied": [event for event in applied if event["team_id"] == team_id],
+    }
 
 
 def _execute_predict_margin(parameters):
@@ -1070,6 +1228,10 @@ TOOLS = {
              "description": "Number of Monte Carlo simulations (default 1000)."},
             {"name": "random_state", "type": INT_TYPE, "required": False,
              "description": "Random seed for reproducible runs (default 42)."},
+            {"name": "roster_adjusted", "type": BOOL_TYPE, "required": False,
+             "description": "Experimental: recompute each team's roster-derived "
+                            "inputs from transactions since its last game "
+                            "(default false; did not improve the backtest)."},
         ],
         "assumptions": [
             "Every remaining game uses the same probability predict_matchup "
@@ -1089,10 +1251,103 @@ TOOLS = {
             "carrying each team's current win percentage forward (3.95).",
             "No roster changes, injuries or trades after the cutoff are "
             "modeled; the frozen strength does not update.",
-            "The schedule is the season's games in the repository; a season "
-            "whose schedule is not in the database cannot be projected yet.",
+            "The schedule is the season's games in the repository. An upcoming "
+            "season can be projected once its schedule is ingested "
+            "(python src/live_data.py --source <schedule.csv>); results "
+            "ingested after the last feature rebuild are counted in the record "
+            "but not in the frozen strength (see strength_freshness).",
         ],
         "execute": _execute_project_rest_of_season,
+    },
+    "team_strength": {
+        "name": "team_strength",
+        "description": (
+            "Current strength of all 30 teams as the production model sees it: "
+            "Elo rating and the chance to beat an average opponent (mean of home "
+            "and road win probabilities against every other team). Optionally "
+            "also a roster-adjusted version reflecting transactions since each "
+            "team's last game."
+        ),
+        "category": "model_input",
+        "model": "elo_boosted_ensemble (strength frozen at as_of)",
+        "parameters": [
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Date YYYY-MM-DD (default today: the latest data)."},
+            {"name": "roster_adjusted", "type": BOOL_TYPE, "required": False,
+             "description": "Also compute the roster-adjusted chance and list "
+                            "each team's arrivals/departures (default false)."},
+        ],
+        "assumptions": [
+            "Strength is frozen at the latest pregame data on or before as_of; "
+            "in the offseason that is each team's last regular-season game.",
+            "Roster adjustment changes only the roster-derived inputs (player "
+            "production sums and active-player counts); team form and Elo are "
+            "team properties and are not changed.",
+        ],
+        "limitations": [
+            "A schedule-free summary, not a win projection: real schedules "
+            "are unbalanced.",
+            "Roster adjustment did not improve preseason projections in the "
+            "2015-2025 backtest (MAE 7.77 -> 7.80 wins, game log loss "
+            "0.6734 -> 0.6744); the production model puts little weight on "
+            "roster-derived inputs. Treat the adjusted column as bookkeeping.",
+            "Transactions come from the NBA player-movement feed through "
+            "2026-08-13 (plus data/manual/roster_transactions.csv if present). "
+            "Unsigned free agents and retirements stay with their last team.",
+        ],
+        "execute": _execute_team_strength,
+    },
+    "data_status": {
+        "name": "data_status",
+        "description": (
+            "Report how current the data is: latest completed game, latest "
+            "feature row, latest roster transaction, and whether the upcoming "
+            "season's schedule has been ingested."
+        ),
+        "category": "utility",
+        "model": "nba.db + feature file + transaction files (factual status)",
+        "parameters": [],
+        "assumptions": [
+            "The upcoming season is the one starting this calendar year once "
+            "July has begun.",
+        ],
+        "limitations": [
+            "Nothing is fetched from the internet; updates are manual commands "
+            "(listed in how_to_update).",
+        ],
+        "execute": _execute_data_status,
+    },
+    "team_roster": {
+        "name": "team_roster",
+        "description": (
+            "Who has left and who has joined a team since its last game, from "
+            "box scores plus timestamped transactions, with each player's "
+            "recent per-game minutes/points/assists/rebounds."
+        ),
+        "category": "database_query",
+        "model": "nba.db box scores + roster transactions (factual bookkeeping)",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Date YYYY-MM-DD (default today)."},
+        ],
+        "assumptions": [
+            "The starting roster is everyone with a box-score row in the team's "
+            "last ten regular-season games before its latest pregame snapshot.",
+            "A later 'add' moves a player to the new team; a 'remove' (waive, "
+            "trade) takes the player off.",
+        ],
+        "limitations": [
+            "Unsigned free agents and retired players still count for their "
+            "last team (the feed has no contract-expiry events).",
+            "Players with no NBA box-score history show zero production.",
+            "Transactions after the feed's last date (2026-08-13) are missing "
+            "unless added to data/manual/roster_transactions.csv.",
+        ],
+        "execute": _execute_team_roster,
     },
     "predict_margin": {
         "name": "predict_margin",
@@ -1247,6 +1502,15 @@ def validate_parameters(schema, parameters):
                 cleaned[name] = int(value)
                 continue
             raise ToolError(f"Parameter '{name}' must be an integer.")
+        elif spec["type"] == BOOL_TYPE:
+            if isinstance(value, bool):
+                cleaned[name] = value
+            elif isinstance(value, str) and value.strip().lower() in ("true", "false", "1", "0"):
+                cleaned[name] = value.strip().lower() in ("true", "1")
+            elif isinstance(value, int) and value in (0, 1):
+                cleaned[name] = bool(value)
+            else:
+                raise ToolError(f"Parameter '{name}' must be true or false.")
         else:
             if not isinstance(value, str):
                 raise ToolError(f"Parameter '{name}' must be a string.")

@@ -152,3 +152,61 @@ def test_crps_known_values():
     coin = np.array([[0.0], [1.0]])
     # E|X - 0| = 0.5 and E|X - X'| = 0.5, so CRPS = 0.5 - 0.25.
     assert crps_from_samples(coin, [0.0])[0] == pytest.approx(0.25)
+
+
+def test_upcoming_season_schedule_comes_from_the_games_table(tmp_path):
+    import sqlite3
+
+    from src.forward_projection import schedule_from_database, season_schedule, strength_freshness
+
+    db_path = tmp_path / "nba.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE games (gameId INTEGER, gameDateTimeEst TEXT, gameType TEXT, "
+                           "hometeamId INTEGER, awayteamId INTEGER, winner INTEGER)")
+        connection.executemany(
+            "INSERT INTO games VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (1, "2026-10-20 19:00:00", "Regular Season", EAST_A, EAST_B, EAST_A),
+                (2, "2026-10-21 19:00:00", "Regular Season", WEST_A, WEST_B, None),
+                (3, "2026-10-05 19:00:00", "Preseason", EAST_A, WEST_A, EAST_A),
+            ],
+        )
+        connection.commit()
+
+    database = schedule_from_database(2026, db_path=db_path)
+    assert list(database["gameId"]) == [1, 2]
+    assert database["target"].tolist()[0] == 1.0
+    assert np.isnan(database["target"].tolist()[1])
+
+    inputs = _synthetic_inputs()  # its games are all season 2024
+    schedule = season_schedule(inputs, 2026, db_path=db_path)
+    assert list(schedule["gameId"]) == [1, 2]
+    freshness = strength_freshness(inputs, schedule, "2026-10-22")
+    assert freshness["features_stale"] is True
+    assert freshness["played_games_after_latest_features"] == 1
+
+    with pytest.raises(ValueError, match="ingest its schedule"):
+        season_schedule(inputs, 2030, db_path=db_path)
+
+
+def test_projection_accepts_unplayed_database_schedule():
+    inputs = _synthetic_inputs()
+    schedule = inputs.games.copy()
+    schedule.loc[schedule["gameDateTimeEst"] >= pd.Timestamp("2024-11-05"), "target"] = np.nan
+    projection = project_from_date(2024, "2024-11-05", inputs, n_simulations=50, schedule=schedule)
+    assert projection["games_remaining"] == int(schedule["target"].isna().sum())
+    with pytest.raises(ValueError, match="no recorded result"):
+        project_from_date(2024, "2024-11-10", inputs, n_simulations=10, schedule=schedule)
+
+
+def test_strength_table_is_a_mean_of_home_and_road_probabilities():
+    from src.forward_projection import strength_table
+
+    inputs = _synthetic_inputs()
+    rows = strength_table(inputs, "2024-11-10")
+    assert {row["teamId"] for row in rows} == set(TEAMS)
+    for row in rows:
+        assert row["win_probability_vs_average"] == pytest.approx(
+            (row["home_win_probability_vs_average"] + row["road_win_probability_vs_average"]) / 2)
+    # Across all teams the road/home means are complementary on average.
+    assert np.mean([row["win_probability_vs_average"] for row in rows]) == pytest.approx(0.5)

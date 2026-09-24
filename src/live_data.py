@@ -124,19 +124,35 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def derive_game_type(labels):
+PLAYOFF_LABEL_MARKERS = (
+    "first round", "semifinal", "conf. final", "conf final", "conference final",
+    "nba finals", "playoff",
+)
+
+
+def derive_game_type(labels, subtype=None):
     """Derive a ``gameType`` from schedule label columns (assumption: league
-    schedule feeds lack an explicit type column)."""
-    blob = " ".join(str(x or "") for x in labels).lower()
+    schedule feeds lack an explicit type column).
+
+    NBA Cup group games and the quarter-/semifinals count in the regular-
+    season standings, so they are ``Regular Season``; only the Cup
+    championship game is ``NBA Cup``. Checked against the 2025-26 league
+    schedule file: 1,230 regular-season, 85 playoff, 6 play-in games.
+    """
+    blob = " ".join(str(x) for x in labels if x is not None and not (
+        isinstance(x, float) and pd.isna(x))).lower()
+    subtype = "" if subtype is None or (isinstance(subtype, float) and pd.isna(subtype)) else str(subtype).lower()
     if "preseason" in blob:
         return "Preseason"
-    if "all-star" in blob or "all star" in blob:
+    if "all-star" in blob or "all star" in blob or "rising stars" in blob:
         return "All-Star Game"
     if "play-in" in blob or "playin" in blob:
         return "Play-in Tournament"
     if "cup" in blob:
-        return "NBA Cup"
-    if "final" in blob or "playoff" in blob:
+        if "championship" in blob or "final" in blob.replace("semifinal", "").replace("quarterfinal", ""):
+            return "NBA Cup"
+        return "Regular Season"
+    if any(marker in blob for marker in PLAYOFF_LABEL_MARKERS):
         return "Playoffs"
     return "Regular Season"
 
@@ -204,15 +220,16 @@ def build_games_row(normalized_row):
         "hometeamCity": pick("hometeamcity"),
         "awayteamName": pick("awayteamname"),
         "awayteamCity": pick("awayteamcity"),
-        "arenaName": pick("arenename"),
+        "arenaName": pick("arenaname"),
         "arenaCity": pick("arenacity"),
         "arenaState": pick("arenastate"),
         "gameLabel": pick("gamelabel"),
         "gameSubLabel": pick("gamesublabel"),
         "gameSubtype": pick("gamesubtype"),
-        "seriesGameNumber": pick("seriesgamennumber"),
+        "seriesGameNumber": pick("seriesgamenumber"),
         "gameType": derive_game_type(
-            [normalized_row.get("gamelabel"), normalized_row.get("gamesublabel")]
+            [normalized_row.get("gamelabel"), normalized_row.get("gamesublabel")],
+            normalized_row.get("gamesubtype"),
         ),
         "gameDate": timestamp,
     }

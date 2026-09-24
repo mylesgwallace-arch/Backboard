@@ -23,6 +23,7 @@ models/*
 # The margin/total model is small and served by the predict_margin tool.
 !models/margin_model.pkl
 !models/margin_metrics.json
+!models/roster_adjustment_backtest.json
 
 # Environment variables
 .env

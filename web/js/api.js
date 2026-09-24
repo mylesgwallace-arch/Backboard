@@ -132,6 +132,23 @@ export function getPlayoffOdds({ season, asOf, teamId, nSimulations }) {
   return runTool("playoff_odds", parameters);
 }
 
+export function getDataStatus() {
+  return runTool("data_status", {});
+}
+
+export function getTeamStrength({ asOf, rosterAdjusted } = {}) {
+  const parameters = {};
+  if (asOf) parameters.as_of = asOf;
+  if (rosterAdjusted) parameters.roster_adjusted = true;
+  return runTool("team_strength", parameters);
+}
+
+export function getTeamRoster({ teamId, asOf }) {
+  const parameters = { team_id: teamId };
+  if (asOf) parameters.as_of = asOf;
+  return runTool("team_roster", parameters);
+}
+
 export function getValidationReport(component) {
   return runTool("validation_report", { component });
 }

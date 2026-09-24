@@ -211,8 +211,17 @@ def test_derive_game_type_covers_known_labels():
     assert live_data.derive_game_type(["Preseason", ""]) == "Preseason"
     assert live_data.derive_game_type(["NBA Finals", "Game 5"]) == "Playoffs"
     assert live_data.derive_game_type(["Play-in", ""]) == "Play-in Tournament"
-    assert live_data.derive_game_type(["Emirates NBA Cup", ""]) == "NBA Cup"
+    # Cup group games and quarter/semifinals count in the regular-season
+    # standings; only the championship game does not.
+    assert live_data.derive_game_type(["Emirates NBA Cup", ""], "in-season") == "Regular Season"
+    assert live_data.derive_game_type(["Emirates NBA Cup", "West Semifinal"]) == "Regular Season"
+    assert live_data.derive_game_type(["Emirates NBA Cup", "Championship"]) == "NBA Cup"
     assert live_data.derive_game_type(["Regular Season", ""]) == "Regular Season"
+    # First-round and semifinal playoff labels are playoffs, not regular season.
+    assert live_data.derive_game_type(["East First Round", "Game 1"]) == "Playoffs"
+    assert live_data.derive_game_type(["West Conf. Semifinals", "Game 3"]) == "Playoffs"
+    assert live_data.derive_game_type(["Rising Stars Final", ""]) == "All-Star Game"
+    assert live_data.derive_game_type([float("nan"), None]) == "Regular Season"
 
 
 def test_get_ingestion_log_returns_rows(tmp_path):

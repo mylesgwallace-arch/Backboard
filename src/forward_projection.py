@@ -29,6 +29,7 @@ standings at several checkpoints of completed seasons.
 import argparse
 import json
 import pickle
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -205,12 +206,115 @@ def frozen_matchup_probabilities(pairs, as_of, inputs, ratings=None, snapshots=N
     )
 
 
-def season_schedule(inputs, season):
-    """All completed regular-season games of ``season`` in the model dataset."""
+def strength_table(inputs, as_of=None, team_ids=None, snapshots=None):
+    """Each team's production-model chance to beat an average opponent.
+
+    For every ordered pair the frozen ``elo_boosted_ensemble`` home-win
+    probability is computed (strength frozen at ``as_of``, like
+    ``predict_matchup``). A team's value is the mean, over all other teams,
+    of its home and road win probabilities -- a schedule-free summary of
+    current strength, not a win projection.
+    """
+    ratings = elo_ratings_before(inputs.games, as_of, inputs.elo_config)
+    if snapshots is None:
+        snapshots = team_snapshots(inputs.features, as_of)
+    if team_ids is None:
+        team_ids = sorted(set(ratings) & set(int(team) for team in snapshots.index))
+    team_ids = [int(team) for team in team_ids]
+    pairs = pd.DataFrame(
+        [(home, away) for home in team_ids for away in team_ids if home != away],
+        columns=["homeTeamId", "awayTeamId"],
+    )
+    scored = frozen_matchup_probabilities(pairs, as_of, inputs, ratings=ratings, snapshots=snapshots)
+    home = scored.groupby("homeTeamId")["home_win_probability"].mean()
+    road = 1.0 - scored.groupby("awayTeamId")["home_win_probability"].mean()
+    rows = []
+    for team in team_ids:
+        rows.append({
+            "teamId": team,
+            "elo_rating": round(float(ratings[team]), 1),
+            "home_win_probability_vs_average": float(home[team]),
+            "road_win_probability_vs_average": float(road[team]),
+            "win_probability_vs_average": float((home[team] + road[team]) / 2.0),
+            "snapshot_date": str(pd.Timestamp(snapshots.loc[team, "gameDateTimeEst"]).date()),
+        })
+    return sorted(rows, key=lambda row: -row["win_probability_vs_average"])
+
+
+def season_schedule(inputs, season, db_path=None):
+    """The regular-season schedule of ``season``.
+
+    Completed seasons come from the model dataset (every game has features and
+    a result). A season that is not there yet -- e.g. a new season whose
+    schedule was ingested with ``live_data.py`` -- comes from the ``games``
+    table, with ``target`` NaN for games that have no result.
+    """
     schedule = inputs.games[inputs.games["season"] == int(season)]
+    database = schedule_from_database(season, db_path)
+    missing = database[~database["gameId"].isin(schedule["gameId"])]
+    # An in-progress or upcoming season has scheduled-but-unplayed games that
+    # only the games table knows about; use the full database schedule then.
+    # A completed season keeps the model dataset (the handful of played games
+    # the feature pipeline dropped for data-quality reasons stay out, which
+    # keeps every validated number unchanged).
+    if schedule.empty or missing["target"].isna().any():
+        schedule = database
     if schedule.empty:
-        raise ValueError(f"No games found for season {season}.")
+        raise ValueError(
+            f"No games found for season {season}. If this is an upcoming season, "
+            "ingest its schedule first: python src/live_data.py --source <schedule.csv>."
+        )
     return schedule.sort_values(["gameDateTimeEst", "gameId"]).reset_index(drop=True)
+
+
+def schedule_from_database(season, db_path=None):
+    """Regular-season games of ``season`` from ``nba.db`` (played or not)."""
+    try:
+        from src.main import TEAM_DB_PATH
+    except ImportError:  # pragma: no cover
+        from main import TEAM_DB_PATH
+    db_path = db_path or TEAM_DB_PATH
+    with sqlite3.connect(db_path) as connection:
+        frame = pd.read_sql_query(
+            """
+            SELECT gameId, gameDateTimeEst, hometeamId AS homeTeamId,
+                   awayteamId AS awayTeamId, winner
+            FROM games
+            WHERE gameType = 'Regular Season'
+              AND gameDateTimeEst >= ? AND gameDateTimeEst < ?
+            """,
+            connection,
+            params=(f"{int(season)}-09-01", f"{int(season) + 1}-07-01"),
+        )
+    if frame.empty:
+        return frame.assign(target=pd.Series(dtype=float), season=pd.Series(dtype=int))
+    frame["gameDateTimeEst"] = pd.to_datetime(frame["gameDateTimeEst"])
+    winner = pd.to_numeric(frame["winner"], errors="coerce")
+    frame["target"] = np.where(
+        winner == frame["homeTeamId"], 1.0,
+        np.where(winner == frame["awayTeamId"], 0.0, np.nan),
+    )
+    frame["season"] = int(season)
+    return frame.drop(columns=["winner"])
+
+
+def strength_freshness(inputs, schedule, cutoff):
+    """How current the frozen strength is relative to the schedule's results.
+
+    Returns the latest feature-row date on or before the cutoff, and how many
+    schedule games with a recorded result fall after it (results ingested but
+    features not rebuilt -- the frozen strength then ignores them).
+    """
+    cutoff = pd.Timestamp(cutoff)
+    feature_dates = inputs.features.loc[inputs.features["gameDateTimeEst"] <= cutoff, "gameDateTimeEst"]
+    latest = feature_dates.max() if not feature_dates.empty else None
+    played = schedule[(schedule["gameDateTimeEst"] < cutoff) & schedule["target"].notna()]
+    unseen = played[played["gameDateTimeEst"] > latest] if latest is not None else played
+    return {
+        "latest_feature_date": None if latest is None else str(pd.Timestamp(latest).date()),
+        "played_games_after_latest_features": int(len(unseen)),
+        "features_stale": bool(len(unseen) > 0),
+    }
 
 
 def _record_to_date(completed, teams):
