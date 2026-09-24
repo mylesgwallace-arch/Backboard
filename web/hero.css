@@ -106,6 +106,16 @@
   display: none; /* the footage print replaces the static halftone field */
 }
 
+/* Cuts the slab's orange down before the footage prints onto it, so the
+   loop doesn't read as an orange-tinted video. This dims the paint behind
+   the footage only — the <video> element's own filter/blend/loop are
+   untouched. */
+.hero-block--c1.has-footage {
+  background:
+    linear-gradient(rgba(16, 17, 20, 0.62), rgba(16, 17, 20, 0.62)),
+    var(--hero-c1);
+}
+
 .hero-footage {
   --pitch: 9px;
   position: absolute;
