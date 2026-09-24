@@ -402,8 +402,10 @@ code {
   flex-shrink: 0;
 }
 
+/* May wrap only in the fallback face (wider than Barlow Condensed). */
 .nav-item .nav-label {
-  white-space: nowrap;
+  min-width: 0;
+  line-height: 1.15;
 }
 
 .nav-item .nav-badge {
