@@ -411,19 +411,26 @@ carries the page's `<h1>`.
   * **Dark side:** a faint chalk halftone (dots at 0.07) covers the left
     half, fading toward the slab. In the stacked layout it covers the dark
     ground below the photo panel.
-  * **Motion:** a 10.7 s loop of three steady backboard/rim shots at half
-    speed with 1 s crossfades, no cuts and a seamless loop point.
+  * **Motion:** the full 38.4 s edited clip, at native speed and frame
+    rate, looping.
   * **Who gets motion:** only viewports ≥ 861px, without
     `prefers-reduced-motion` and without Save-Data. Everyone else,
-    including all phones, gets the 8 KB poster printed the same way, and
-    the video is never requested (sources carry `data-src` until
-    `wireHero()` activates them).
+    including all phones, gets the poster printed the same way, and
+    the video (and music, see below) is never requested (sources carry
+    `data-src` until `wireHero()` activates them).
   * **Loading:** the download starts after the `load` event, at idle.
     Playback pauses while the hero is off screen or the tab is hidden.
   * **Control:** a 44px pause/play button (WCAG 2.2.2) sits on the slab
     (top-right; bottom-left of the photo panel in the stacked layout). The
     print behind it can be bright or dark, so its focus ring is two-tone:
     a highlighter outline inside an ink halo.
+  * **Music:** an optional `footage.audio` music bed (`web/media/
+    background-theme.mp3`) plays alongside the video on the same
+    play/pause schedule. It starts muted (autoplay policy); a second 44px
+    button directly beneath the pause/play button is the only way to turn
+    it on, since that's a real user gesture. Its volume tracks the hero's
+    on-screen fraction (via `IntersectionObserver` thresholds), so
+    scrolling the hero out fades the music down instead of cutting it.
 - **Photo:** an SVG player-bust placeholder in the palette's jersey, with
   halftone key-light and shade screens and a paper cut-out outline. The
   jersey reads **BACKBOARD**, the product name (it said BLACKTOP, which

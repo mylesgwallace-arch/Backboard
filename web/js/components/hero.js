@@ -178,15 +178,20 @@ function silhouette(jerseyNumber, wordmark) {
  * The slab's footage layer. Sources carry `data-src` only, so nothing is
  * downloaded until wireHero() decides this viewer should get motion; until
  * then (and for phones, reduced motion or Save-Data) the poster is printed
- * instead.
+ * instead. `audio` (optional) is a music bed that plays alongside the video
+ * on the same schedule — see wireHero().
  */
-function renderFootage({ poster, sources }) {
+function renderFootage({ poster, sources, audio }) {
   return `
     <div class="hero-footage">
       <video class="hero-footage-video" muted loop playsinline preload="none" tabindex="-1"
         disablepictureinpicture disableremoteplayback poster="${escapeText(poster)}">
         ${sources.map((source) => `<source data-src="${escapeText(source.src)}" type="${escapeText(source.type)}">`).join("")}
       </video>
+      ${audio ? `
+      <audio class="hero-footage-audio" muted loop preload="none" tabindex="-1">
+        ${audio.sources.map((source) => `<source data-src="${escapeText(source.src)}" type="${escapeText(source.type)}">`).join("")}
+      </audio>` : ""}
     </div>`;
 }
 
@@ -201,9 +206,11 @@ function renderFootage({ poster, sources }) {
  * @param {{src: string, alt: string}} [props.photo]     real player cutout
  * @param {boolean}  [props.figure=true] false drops the cutout and its torn
  *        paper backing, leaving the slab (and any footage) as the visual
- * @param {{poster: string, sources: {src: string, type: string}[]}} [props.footage]
+ * @param {{poster: string, sources: {src: string, type: string}[], audio?: {sources: {src: string, type: string}[]}}} [props.footage]
  *        ambient loop printed into the color slab; call wireHero() after
- *        mounting to load and play it
+ *        mounting to load and play it. `footage.audio` adds a music bed
+ *        played alongside it (muted until the viewer clicks the mute
+ *        toggle) that fades with the video's scroll-based visibility.
  * @param {object}   [props.palette]    {c1, c2, onC1, onC2, accent} (see heroPalette)
  * @param {string}   [props.jerseyNumber] placeholder jersey number
  * @param {string}   [props.wordmark]     placeholder jersey wordmark
@@ -288,6 +295,17 @@ export function renderHero({
           <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>
           <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
         </button>` : ""}
+      ${footage && footage.audio ? `
+        <button type="button" class="hero-audio-toggle" data-state="muted" aria-label="Unmute background music" title="Unmute background music" hidden>
+          <svg class="icon-muted" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 9v6h4l5 5V4L8 9H4z" fill="currentColor"/>
+            <path d="M16.3 8.3l5.4 7.4M21.7 8.3l-5.4 7.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <svg class="icon-unmuted" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 9v6h4l5 5V4L8 9H4z" fill="currentColor"/>
+            <path d="M16 8.5a5 5 0 0 1 0 7M18.6 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>` : ""}
     </section>
   `;
 }
@@ -298,13 +316,20 @@ export function renderHero({
  * no prefers-reduced-motion and no Save-Data. Everyone else keeps the
  * printed poster. The download starts after the page has loaded and gone
  * idle, playback pauses while the hero is off screen or the tab is hidden,
- * and the toggle gives a persistent pause (WCAG 2.2.2). Listeners are
- * dropped when the hero is removed from `root`.
+ * and the toggle gives a persistent pause (WCAG 2.2.2). If the footage has
+ * an `audio` bed, it loads/plays on the same schedule as the video (one
+ * pause button controls both) and its volume tracks how much of the hero
+ * is still on screen — scrolling the hero out fades the music out instead
+ * of cutting it. It starts muted (autoplay policy); the mute toggle is the
+ * only thing that turns it on, and that's a real user gesture so browsers
+ * allow it. Listeners are dropped when the hero is removed from `root`.
  */
 export function wireHero(root) {
   const video = root.querySelector(".hero-footage-video");
   const toggle = root.querySelector(".hero-footage-toggle");
   if (!video || !toggle) return;
+  const audio = root.querySelector(".hero-footage-audio");
+  const audioToggle = root.querySelector(".hero-audio-toggle");
 
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const wideEnough = window.matchMedia("(min-width: 861px)");
@@ -331,6 +356,14 @@ export function wireHero(root) {
     toggle.title = label;
   };
 
+  const syncAudioToggle = () => {
+    if (!audio || !audioToggle) return;
+    const label = audio.muted ? "Unmute background music" : "Mute background music";
+    audioToggle.dataset.state = audio.muted ? "muted" : "unmuted";
+    audioToggle.setAttribute("aria-label", label);
+    audioToggle.title = label;
+  };
+
   const update = () => {
     if (!video.isConnected) {
       teardown();
@@ -338,24 +371,39 @@ export function wireHero(root) {
     }
     if (!ready || !motionAllowed()) {
       toggle.hidden = true;
+      if (audioToggle) audioToggle.hidden = true;
       if (!video.paused) video.pause();
+      if (audio && !audio.paused) audio.pause();
       return;
     }
     toggle.hidden = false;
+    if (audioToggle) audioToggle.hidden = false;
     if (!loaded) {
       loaded = true;
       video.querySelectorAll("source[data-src]").forEach((source) => {
         source.src = source.dataset.src;
       });
       video.load();
+      if (audio) {
+        audio.querySelectorAll("source[data-src]").forEach((source) => {
+          source.src = source.dataset.src;
+        });
+        audio.load();
+      }
     }
     if (userPaused || !inView || document.hidden) {
       video.pause();
+      if (audio) audio.pause();
     } else {
       const attempt = video.play();
       if (attempt && attempt.catch) attempt.catch(syncToggle);
+      if (audio) {
+        const audioAttempt = audio.play();
+        if (audioAttempt && audioAttempt.catch) audioAttempt.catch(syncAudioToggle);
+      }
     }
     syncToggle();
+    syncAudioToggle();
   };
 
   function teardown() {
@@ -363,6 +411,7 @@ export function wireHero(root) {
     if (observer) observer.disconnect();
     mutations.disconnect();
     video.pause();
+    if (audio) audio.pause();
   }
 
   video.addEventListener("play", syncToggle, { signal });
@@ -371,15 +420,28 @@ export function wireHero(root) {
     userPaused = !video.paused;
     update();
   }, { signal });
+  if (audio && audioToggle) {
+    audio.addEventListener("play", syncAudioToggle, { signal });
+    audio.addEventListener("pause", syncAudioToggle, { signal });
+    audioToggle.addEventListener("click", () => {
+      audio.muted = !audio.muted;
+      syncAudioToggle();
+    }, { signal });
+  }
   reducedMotion.addEventListener("change", update, { signal });
   wideEnough.addEventListener("change", update, { signal });
   document.addEventListener("visibilitychange", update, { signal });
 
   if ("IntersectionObserver" in window) {
+    // Fine-grained thresholds so intersectionRatio reports the hero's
+    // on-screen fraction in ~5% steps as it scrolls by, not just in/out —
+    // that fraction drives the music's fade.
+    const thresholds = Array.from({ length: 21 }, (_, i) => i / 20);
     observer = new IntersectionObserver(([entry]) => {
       inView = entry.isIntersecting;
+      if (audio) audio.volume = entry.intersectionRatio;
       update();
-    });
+    }, { threshold: thresholds });
     observer.observe(video);
   }
 

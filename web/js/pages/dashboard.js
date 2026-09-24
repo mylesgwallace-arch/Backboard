@@ -81,6 +81,10 @@ export function renderHero(slot) {
         { src: "/media/background.mp4", type: "video/mp4" },
         { src: "/media/background.webm", type: "video/webm" },
       ],
+      // Muted until the viewer clicks the mute toggle; fades with scroll.
+      audio: {
+        sources: [{ src: "/media/background-theme.mp3", type: "audio/mpeg" }],
+      },
     },
   });
   wireHero(slot);

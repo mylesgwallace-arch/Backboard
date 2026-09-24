@@ -116,12 +116,13 @@
   object-position: 50% 0;
 }
 
-/* Pause/play for the loop (WCAG 2.2.2). wireHero() un-hides it only when
-   the footage actually plays. */
-.hero-footage-toggle {
+/* Pause/play for the loop (WCAG 2.2.2), and the mute toggle for its music
+   bed directly beneath it. wireHero() un-hides each only when it actually
+   plays. */
+.hero-footage-toggle,
+.hero-audio-toggle {
   position: absolute;
   z-index: 3;
-  top: 1.25rem;
   right: 1.25rem;
   display: grid;
   place-items: center;
@@ -135,23 +136,35 @@
   cursor: pointer;
 }
 
-.hero-footage-toggle[hidden] {
+.hero-footage-toggle {
+  top: 1.25rem;
+}
+
+.hero-audio-toggle {
+  top: calc(1.25rem + 44px + 0.6rem);
+}
+
+.hero-footage-toggle[hidden],
+.hero-audio-toggle[hidden] {
   display: none;
 }
 
-.hero-footage-toggle svg {
+.hero-footage-toggle svg,
+.hero-audio-toggle svg {
   width: 18px;
   height: 18px;
 }
 
-.hero-footage-toggle:hover {
+.hero-footage-toggle:hover,
+.hero-audio-toggle:hover {
   background: #000;
 }
 
-/* The slab under the toggle can be bright orange or a dark print patch, so
+/* The slab under the toggles can be bright orange or a dark print patch, so
    the ring is two-tone: highlighter (14:1 on ink) inside an ink halo (6:1
    on orange). One of the two always stands out from whatever is behind. */
-.hero-footage-toggle:focus-visible {
+.hero-footage-toggle:focus-visible,
+.hero-audio-toggle:focus-visible {
   outline: 3px solid var(--highlighter, #ffe03d);
   outline-offset: 3px;
   box-shadow: 0 0 0 8px var(--hero-ink);
@@ -159,6 +172,11 @@
 
 .hero-footage-toggle[data-state="playing"] .icon-play,
 .hero-footage-toggle[data-state="paused"] .icon-pause {
+  display: none;
+}
+
+.hero-audio-toggle[data-state="unmuted"] .icon-muted,
+.hero-audio-toggle[data-state="muted"] .icon-unmuted {
   display: none;
 }
 
@@ -643,11 +661,18 @@
     margin: 1.2rem 0 0;
   }
 
-  /* The figure's head sits top-right here, so the footage toggle moves to
-     the photo panel's bottom-left corner, which is always slab. (It only
-     shows at 861-980px; phones get the still print and no toggle.) */
+  /* The figure's head sits top-right here, so the toggles move to the
+     photo panel's bottom-left corner, which is always slab, stacking
+     upward from the bottom edge. (They only show at 861-980px; phones get
+     the still print and no toggles.) */
   .hero-footage-toggle {
     top: calc(var(--hero-visual-h) - 56px);
+    right: auto;
+    left: 12px;
+  }
+
+  .hero-audio-toggle {
+    top: calc(var(--hero-visual-h) - 56px - 50px);
     right: auto;
     left: 12px;
   }
