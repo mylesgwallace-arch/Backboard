@@ -396,16 +396,14 @@ carries the page's `<h1>`.
   use it. The stacked layout keeps only the backing, and the color blocks
   stay inside the photo panel so the headline always sits on the dark base.
 - **Footage (the Dashboard's main visual):** `renderHero({ footage,
-  figure: false })` drops the cutout and its torn paper and prints a muted
-  loop (`web/media/hero-loop.*`, see its README) across the whole
-  `--hero-c1` slab as **live halftone**. The grayscale video is blurred and
-  lifted, a 9px 45° dot screen is laid over it at half strength,
-  `contrast(16)` thresholds the mix so each dot grows with the darkness
-  under it, and `multiply` drops the white out. It is clipped to the slab's
-  diagonal and never behind copy.
-  * **Strength:** `--hero-footage-ink` is 0.7, bold on purpose (see §10
-    item 15). The slab carries no text, and the stat badge sits on its own
-    paper plate.
+  figure: false })` drops the cutout and its torn paper and plays the full
+  edited clip (`web/media/background.*`, see its README) across the whole
+  `--hero-c1` slab **in full color, unprocessed** — no crop, no grayscale,
+  no halftone re-screening. The video fully covers the slab (`object-fit:
+  cover`), so `--hero-c1` never shows through while it's playing; it is
+  clipped to the slab's diagonal and never behind copy.
+  * The slab carries no text, and the stat badge sits on its own paper
+    plate.
   * **Diagonal:** at 1101px and up the slab runs from 50% of the hero at
     the top to 44% at the bottom, with the blue band just left of it. The
     deck is capped at `min(34ch, 29cqi)` so it never reaches the band. At

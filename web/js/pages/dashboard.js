@@ -71,15 +71,15 @@ export function renderHero(slot) {
     deck: "Win probabilities for any NBA matchup from a validated model, plus team form and full-season simulations.",
     cta: { href: "#/matchups", label: "Predict a matchup" },
     stat: { value: HOLDOUT_ACCURACY, label: `Picks right on ${HOLDOUT_GAMES} held-out games` },
-    // No cutout: the footage printed into the slab is the hero's visual.
+    // No cutout: the footage is the hero's visual.
     figure: false,
-    // Loop printed into the orange slab (see web/media/README.md).
+    // The full edited clip (see web/media/README.md), shown as-is.
     // H.264 first (smaller here); VP9 for browsers without H.264.
     footage: {
-      poster: "/media/hero-loop-poster.jpg",
+      poster: "/media/background-poster.jpg",
       sources: [
-        { src: "/media/hero-loop.mp4", type: 'video/mp4; codecs="avc1.64001E"' },
-        { src: "/media/hero-loop.webm", type: 'video/webm; codecs="vp9"' },
+        { src: "/media/background.mp4", type: "video/mp4" },
+        { src: "/media/background.webm", type: "video/webm" },
       ],
     },
   });
