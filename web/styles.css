@@ -2056,6 +2056,122 @@ details.collapsible[open] summary {
 
 .data-table .num { text-align: right; }
 
+.data-table thead th.num { text-align: right; }
+
+.data-table td.rank {
+  width: 2.6rem;
+  color: var(--chalk-dim);
+  font-weight: 600;
+}
+
+.data-table td.team {
+  font-weight: 600;
+}
+
+.data-table .odds-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.data-table .odds-cell > span {
+  min-width: 2.6rem;
+  text-align: right;
+}
+
+/* Clickable rows: flat hover, highlighter focus, no texture ever. */
+.data-table tbody tr.standings-row,
+.data-table tbody tr[data-team-link] {
+  cursor: pointer;
+}
+
+.data-table tbody tr.standings-row:hover,
+.data-table tbody tr[data-team-link]:hover {
+  background: var(--asphalt-800);
+}
+
+.data-table tbody tr:focus-visible {
+  outline: 3px solid var(--highlighter);
+  outline-offset: -3px;
+}
+
+.data-table tbody tr.standings-row[aria-expanded="true"] {
+  background: var(--asphalt-800);
+}
+
+.data-table tbody tr.standings-row[aria-expanded="true"] td.team {
+  box-shadow: inset 4px 0 0 var(--spray-orange);
+  padding-left: 0.8rem;
+}
+
+.data-table tbody tr.standings-detail-row > td {
+  padding: 0.9rem 0.6rem 1.2rem;
+  background: var(--asphalt-950);
+  border-top: 0;
+}
+
+/* The direct-playoff cutoff: a dashed highlighter court line between seed
+   6 and seed 7. It is a row boundary, so it never touches the numbers. */
+.data-table tbody tr.is-below-cutoff > td {
+  border-top: 2px dashed var(--highlighter);
+}
+
+.table-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-family: var(--font-label);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+}
+
+.cutoff-key {
+  display: inline-block;
+  width: 28px;
+  height: 0;
+  border-top: 2px dashed var(--highlighter);
+}
+
+.stat-grid.stat-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 480px) {
+  .stat-grid.stat-grid--3 { grid-template-columns: minmax(0, 1fr); }
+  .data-table { font-size: 0.9rem; }
+  .data-table thead th,
+  .data-table tbody td { padding-left: 0.35rem; padding-right: 0.35rem; }
+}
+
+.plain-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+  color: var(--chalk-dim);
+}
+
+.plain-list li + li {
+  margin-top: 0.3rem;
+}
+
+/* "Out of playoffs" sits under a painted divider, apart from the seeds. */
+.compare-row--out {
+  margin-top: 1.1rem;
+  padding-top: 0.8rem;
+  border-top: 2px dashed rgba(244, 241, 234, 0.25);
+}
+
+.seed-row .metric-name[data-team-link]:hover {
+  color: var(--chalk);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* --------------------------------------------------------------------------
    Placeholder / coming-soon pages
    -------------------------------------------------------------------------- */

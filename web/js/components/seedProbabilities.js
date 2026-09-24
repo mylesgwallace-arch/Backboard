@@ -11,18 +11,20 @@ export function renderSeedProbabilityBars(projectionRow, { barColor = "var(--acc
     .map((key) => ({
       label: `Seed ${key.replace("p_seed_", "")}`,
       value: projectionRow[key],
+      modifier: "",
     }));
   if (projectionRow.out_of_playoffs_probability != null) {
     seedRows.push({
       label: "Out of playoffs",
       value: projectionRow.out_of_playoffs_probability,
+      modifier: " compare-row--out",
     });
   }
 
   return seedRows
     .map(
       (row) => `
-        <div class="compare-row">
+        <div class="compare-row seed-row${row.modifier}">
           <div class="compare-row-head">
             <span class="metric-name">${row.label}</span>
             <span>${(row.value * 100).toFixed(1)}%</span>

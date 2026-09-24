@@ -100,13 +100,13 @@ async function loadAboutCard(container) {
       <div class="grid-2 mt-2">
         <div>
           <div class="section-title">Assumptions</div>
-          <ul style="margin:0; padding-left:1.1rem; font-size:0.8rem; color:var(--text-secondary);">
+          <ul class="plain-list">
             ${tool.assumptions.map((a) => `<li>${escapeHtml(a)}</li>`).join("")}
           </ul>
         </div>
         <div>
           <div class="section-title">Limitations</div>
-          <ul style="margin:0; padding-left:1.1rem; font-size:0.8rem; color:var(--text-secondary);">
+          <ul class="plain-list">
             ${tool.limitations.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}
           </ul>
         </div>
@@ -222,19 +222,20 @@ function renderStandingsTable(title, rows, teamById) {
   return `
     <div>
       <div class="section-title">${title}</div>
-      <table style="width:100%; border-collapse:collapse; font-size:0.84rem;">
+      <table class="data-table standings-table">
         <thead>
-          <tr style="text-align:left; color:var(--text-secondary); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em;">
-            <th style="padding:0.4rem 0.3rem;">Seed</th>
-            <th style="padding:0.4rem 0.3rem;">Team</th>
-            <th style="padding:0.4rem 0.3rem; text-align:right;">Mean wins</th>
-            <th style="padding:0.4rem 0.3rem; text-align:right;">Playoff odds</th>
+          <tr>
+            <th scope="col">Seed</th>
+            <th scope="col">Team</th>
+            <th scope="col" class="num">Mean wins</th>
+            <th scope="col" class="num">Playoff odds</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map((row, index) => renderStandingsRow(row, index, teamById)).join("")}
         </tbody>
       </table>
+      <p class="table-note"><span class="cutoff-key" aria-hidden="true"></span> Direct-playoff line: top 6 seeds</p>
     </div>
   `;
 }
@@ -242,13 +243,16 @@ function renderStandingsTable(title, rows, teamById) {
 function renderStandingsRow(row, index, teamById) {
   const team = teamById.get(row.teamId);
   const oddsColor = playoffOddsColor(row.direct_playoff_probability);
+  // The dashed playoff-cutoff court line sits above the first team outside
+  // the direct-playoff seeds (seed 7).
+  const cutoffClass = index === 6 ? " is-below-cutoff" : "";
   return `
-    <tr class="standings-row" data-team-id="${row.teamId}" style="border-top:1px solid var(--border); cursor:pointer;">
-      <td style="padding:0.5rem 0.3rem; color:var(--text-secondary);">${index + 1}</td>
-      <td style="padding:0.5rem 0.3rem; font-weight:600;">${escapeHtml(team?.full_name || row.teamId)}</td>
-      <td style="padding:0.5rem 0.3rem; text-align:right;">${row.mean_wins.toFixed(1)}</td>
-      <td style="padding:0.5rem 0.3rem;">
-        <div style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
+    <tr class="standings-row${cutoffClass}" data-team-id="${row.teamId}" tabindex="0" aria-expanded="false">
+      <td class="rank">${index + 1}</td>
+      <td class="team">${escapeHtml(team?.full_name || row.teamId)}</td>
+      <td class="num">${row.mean_wins.toFixed(1)}</td>
+      <td class="num">
+        <div class="odds-cell">
           <span>${(row.direct_playoff_probability * 100).toFixed(0)}%</span>
           <div class="compare-track" style="width:60px;">
             <div class="compare-fill home" style="width:${row.direct_playoff_probability * 100}%; background:${oddsColor};"></div>
@@ -257,8 +261,8 @@ function renderStandingsRow(row, index, teamById) {
       </td>
     </tr>
     <tr class="standings-detail-row" data-detail-for="${row.teamId}" style="display:none;">
-      <td colspan="4" style="padding:0.6rem 0.3rem 1rem;">
-        <div class="stat-grid" style="grid-template-columns:repeat(3, 1fr);">
+      <td colspan="4">
+        <div class="stat-grid stat-grid--3">
           <div class="stat-tile">
             <div class="stat-label">Median wins</div>
             <div class="stat-value" style="font-size:1.1rem;">${row.median_wins.toFixed(1)}</div>
@@ -292,13 +296,25 @@ function playoffOddsColor(probability) {
 
 function wireResultInteractions(resultMount, teams, ctx) {
   resultMount.querySelectorAll(".standings-row").forEach((row) => {
-    row.addEventListener("click", (event) => {
-      if (event.target.closest("[data-view-team]")) return;
+    const toggle = () => {
       const teamId = row.dataset.teamId;
       const detail = resultMount.querySelector(`.standings-detail-row[data-detail-for="${teamId}"]`);
       if (!detail) return;
       const isOpen = detail.style.display !== "none";
       detail.style.display = isOpen ? "none" : "table-row";
+      row.setAttribute("aria-expanded", String(!isOpen));
+    };
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("[data-view-team]")) return;
+      toggle();
+    });
+    // Rows are focusable, so Enter/Space expand them like a click.
+    row.addEventListener("keydown", (event) => {
+      if (event.target !== row) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggle();
+      }
     });
   });
 
