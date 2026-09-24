@@ -1,8 +1,8 @@
-# Sports AI — Project Specification
+# Backboard — Project Specification
 
 ## 1. Project Overview
 
-**Sports AI** is an AI-powered sports analytics platform designed to answer complex sports questions using **real data, statistical models, simulations, and natural-language reasoning**.
+**Backboard** is an AI-powered sports analytics platform designed to answer complex sports questions using **real data, statistical models, simulations, and natural-language reasoning**.
 
 The long-term goal is to create something closer to a combination of:
 
@@ -184,7 +184,7 @@ Potential future database:
 The general repository structure is:
 
 ```text
-sports-ai/
+backboard/
 │
 ├── data/
 │   ├── raw/
@@ -404,7 +404,7 @@ Do not prematurely over-engineer the database.
 
 # 10. Statistical Modeling
 
-Statistical modeling is a core component of Sports AI.
+Statistical modeling is a core component of Backboard.
 
 Potential progression:
 

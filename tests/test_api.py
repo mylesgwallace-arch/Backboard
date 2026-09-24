@@ -21,7 +21,7 @@ def test_health_reports_production_model():
     assert status == 200
     assert payload["status"] == "ok"
     assert payload["model"] == "elo_boosted_ensemble"
-    assert payload["service"] == "nba-sports-ai"
+    assert payload["service"] == "backboard"
 
 
 def test_tools_endpoint_lists_registry():

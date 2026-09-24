@@ -49,7 +49,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB_DIR = ROOT / "web"
 WEB_HTML = WEB_DIR / "index.html"
 
-SERVICE_NAME = "nba-sports-ai"
+SERVICE_NAME = "backboard"
 
 # The front end is a static, no-build-step, multi-file app (HTML/CSS/vanilla
 # JS ES modules) under web/. Content types are mapped explicitly rather than

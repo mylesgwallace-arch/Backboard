@@ -1,5 +1,9 @@
 # Blacktop Tabloid — design brief
 
+The visual system for **Backboard** (the app was branded "NBA Sports AI"
+when revs 1 and 2 were written; "Blacktop Tabloid" is the name of the look,
+not the product).
+
 Status: **rev 2, implemented**. Rev 1 was committed before any CSS was
 written. Section 8 records the self-critique that produced rev 2. Section 9
 lists what the implementation settled, and section 10 lists the deviations.
