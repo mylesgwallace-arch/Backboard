@@ -54,22 +54,34 @@ function buildSidebar() {
     <div class="nav-section-label">Analytics</div>
     ${ROUTES.map(
       (route) => `
-        <div class="nav-item" data-path="${route.path}">
-          ${route.icon}
-          <span>${route.label}</span>
+        <a class="nav-item" href="#${route.path}" data-path="${route.path}">
+          ${route.icon.replace("<svg ", '<svg aria-hidden="true" focusable="false" ')}
+          <span class="nav-label">${route.label}</span>
           ${route.badge ? `<span class="nav-badge">${route.badge}</span>` : ""}
-        </div>
+        </a>
       `
     ).join("")}
   `;
+  // Nav items are real links (keyboard-focusable); the click handler still
+  // routes through navigate() exactly as before.
   nav.querySelectorAll(".nav-item").forEach((el) => {
-    el.addEventListener("click", () => navigate(el.dataset.path));
+    el.addEventListener("click", (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      navigate(el.dataset.path);
+    });
   });
 }
 
 function setActiveNav(path) {
   document.querySelectorAll(".nav-item").forEach((el) => {
-    el.classList.toggle("active", el.dataset.path === path);
+    const isActive = el.dataset.path === path;
+    el.classList.toggle("active", isActive);
+    if (isActive) {
+      el.setAttribute("aria-current", "page");
+    } else {
+      el.removeAttribute("aria-current");
+    }
   });
 }
 
