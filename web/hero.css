@@ -6,9 +6,12 @@
      --hero-c2 (band, jersey, one ransom chip), --hero-paper (cut paper).
      Swap them per team with heroPalette(teamId) in hero.js.
    * Decorative pieces are capped at six: torn photo backing, halftone
-     field, tag pill, slanted sticker, stat badge, hand-drawn arrow.
-     On phones only the backing and the sticker survive.
-   * Textures sit on paper and color slabs, never behind body copy.
+     field (or the footage print that replaces it), tag pill, slanted
+     sticker, stat badge, hand-drawn arrow. On phones only the backing, the
+     sticker and a still print of the footage survive (the stacked layout
+     below 981px).
+   * Textures and footage sit on paper and color slabs, never behind body
+     copy.
    * The badge number stays upright and flat; only type is collaged.
    ========================================================================== */
 
@@ -83,6 +86,96 @@
   -webkit-mask: radial-gradient(90% 85% at 20% 92%, #000 0%, transparent 72%);
   mask: radial-gradient(90% 85% at 20% 92%, #000 0%, transparent 72%);
   opacity: 0.85;
+}
+
+/* ---- Footage: the slab's halftone print ---------------------------------
+   A muted grayscale loop (web/media/hero-loop.*) re-screened live into
+   halftone dots. The video is blurred and lifted, a 45° dot screen is laid
+   over it at half strength, and contrast() thresholds the mix, so each dot
+   grows with the darkness under it. multiply then drops the white out and
+   leaves dark dots printed on --hero-c1. Until the loop plays (and for
+   phones, reduced motion and Save-Data, where it never loads) the poster
+   frame is printed the same way. --hero-footage-ink is the dot strength:
+   0.22, the brief's halftone cap (§5). The slab carries no text, and the
+   print fades toward its lower half, where the paper and badge sit. */
+.hero-block--c1.has-footage::before {
+  display: none; /* the footage print replaces the static halftone field */
+}
+
+.hero-footage {
+  --pitch: 9px;
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  filter: contrast(16);
+  mix-blend-mode: multiply;
+  opacity: var(--hero-footage-ink, 0.22);
+  -webkit-mask: linear-gradient(to bottom, #000 35%, rgba(0, 0, 0, 0.45) 100%);
+  mask: linear-gradient(to bottom, #000 35%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.hero-footage-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 0;
+  filter: grayscale(1) blur(1.6px) brightness(var(--hero-footage-lift, 1.6));
+}
+
+.hero-footage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle, #000 0, transparent calc(var(--pitch) / 2)) 0 0 / var(--pitch) var(--pitch),
+    radial-gradient(circle, #000 0, transparent calc(var(--pitch) / 2)) calc(var(--pitch) / 2) calc(var(--pitch) / 2) / var(--pitch) var(--pitch),
+    #fff;
+  opacity: 0.5;
+}
+
+/* Pause/play for the loop (WCAG 2.2.2). wireHero() un-hides it only when
+   the footage actually plays. */
+.hero-footage-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 1.25rem;
+  right: 1.25rem;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid var(--hero-paper);
+  border-radius: 50%;
+  background: var(--hero-base);
+  color: var(--hero-paper);
+  cursor: pointer;
+}
+
+.hero-footage-toggle[hidden] {
+  display: none;
+}
+
+.hero-footage-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.hero-footage-toggle:hover {
+  background: #000;
+}
+
+/* On a color slab the focus ring is the slab's computed ink (§6.7). */
+.hero-footage-toggle:focus-visible {
+  outline: 3px solid var(--hero-on-c1);
+  outline-offset: 3px;
+}
+
+.hero-footage-toggle[data-state="playing"] .icon-play,
+.hero-footage-toggle[data-state="paused"] .icon-pause {
+  display: none;
 }
 
 .hero-block--c2 {
@@ -264,6 +357,9 @@
 }
 
 .ransom-chip--2 {
+  /* Extra padding keeps the stencil letter clear of its inset ring at
+     every headline size (measured down to 360px wide). */
+  padding: 0.14em 0.2em 0.12em;
   background: var(--hero-base);
   color: var(--hero-chalk);
   font-family: var(--font-stencil);
@@ -454,26 +550,35 @@
   }
 }
 
-/* ---- Tablet: tighten the columns ---------------------------------------- */
+/* ---- Tablet: tighten the columns ----------------------------------------
+   Measured with rendered-pixel contrast: below this width the deck ran onto
+   the torn paper and the figure's arm. The deck narrows and the collage
+   gives up some width so every glyph stays on the dark base. */
 
-@media (max-width: 1100px) and (min-width: 861px) {
+@media (max-width: 1100px) and (min-width: 981px) {
   .hero-copy { width: 52%; }
-  .hero-visual { width: 56%; }
+  .hero-deck { max-width: 28ch; }
+  .hero-visual { width: 52%; }
+  .hero-figure { height: min(84%, 60rem); }
   .hero-badge { left: 47%; width: 8.5rem; }
   .hero-badge-value { font-size: 2.1rem; }
   .hero-arrow { display: none; }
 }
 
-/* ---- Phone: photo on top, type below, only backing + sticker remain ---- */
+/* ---- Stacked: photo on top, type below, only backing + sticker remain ---
+   Phones, and narrow windows where the sidebar still shows (861-980px):
+   there the hero is under 700px wide and the two-column collage can't keep
+   the figure off the copy. */
 
-@media (max-width: 860px) {
+@media (max-width: 980px) {
   .hero {
     --hero-size: clamp(3.3rem, 26cqi, 7rem);
     --hero-visual-h: min(36svh, 340px);
+    --hero-gutter: clamp(16px, 4cqi, 2.5rem);
     min-height: auto;
     flex-direction: column;
     align-items: stretch;
-    padding: 0 16px 3rem;
+    padding: 0 var(--hero-gutter) 3rem;
   }
 
   /* On phones the color blocks stay inside the photo panel, so the
@@ -506,7 +611,7 @@
     inset: auto;
     width: auto;
     height: var(--hero-visual-h);
-    margin: 0 -16px;
+    margin: 0 calc(-1 * var(--hero-gutter));
     z-index: 0;
     overflow: hidden;
   }
@@ -528,6 +633,15 @@
     margin: 1.2rem 0 0;
   }
 
+  /* The figure's head sits top-right here, so the footage toggle moves to
+     the photo panel's bottom-left corner, which is always slab. (It only
+     shows at 861-980px; phones get the still print and no toggle.) */
+  .hero-footage-toggle {
+    top: calc(var(--hero-visual-h) - 56px);
+    right: auto;
+    left: 12px;
+  }
+
   .hero-tag,
   .hero-arrow,
   .hero-badge {
@@ -539,11 +653,13 @@
 
   .hero-cta {
     width: 100%;
+    max-width: 26rem;
     justify-content: center;
   }
 }
 
 @media (forced-colors: active) {
+  .hero-footage { display: none; }
   .hero-cta { border: 2px solid ButtonText; }
   .hero-word--accent { color: CanvasText; }
 }
