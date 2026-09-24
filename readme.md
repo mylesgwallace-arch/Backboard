@@ -1,4 +1,4 @@
-# Sports AI — Complete Capability Audit (Repository-Grounded)
+# Backboard — Complete Capability Audit (Repository-Grounded)
 
 **Date:** 2026-08-15 · **Auditor note:** Every command below was verified by running it against the live repository, database, and model artifacts. Nothing is asserted from documentation alone.
 
@@ -411,4 +411,4 @@ Each maps to a verified command (invoke from the repo root):
 
 The alternative — immediately building the natural-language layer over `tools.py` — is also viable and matches roadmap item 10, but it would depend on the same per-game model and would add interface complexity before the underlying analytical surface is as rich as it can cheaply be. After the bracket milestone, the natural order is: **play-in + partial-season conditioning → NL orchestration over `tools.py` → live data → website.**
 
-**Bottom line on progress:** the analytical engine is genuinely done and usable today (prediction, simulation, diagnostics, and a tool registry all verified running) — roughly **80% of the way to a tangible, interactive analytical product**, but only about **35–40% of the way to the full Sports AI vision** (AI assistant + live data + website). With the working tree stabilized and the bracket simulator added, you would have something you could sit down and explore, and a clean foundation for the AI layer.
+**Bottom line on progress:** the analytical engine is genuinely done and usable today (prediction, simulation, diagnostics, and a tool registry all verified running) — roughly **80% of the way to a tangible, interactive analytical product**, but only about **35–40% of the way to the full Backboard vision** (AI assistant + live data + website). With the working tree stabilized and the bracket simulator added, you would have something you could sit down and explore, and a clean foundation for the AI layer.

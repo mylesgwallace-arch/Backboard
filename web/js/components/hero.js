@@ -8,6 +8,9 @@
 //   * ripped accent word        -> CSS clip-path polygons along one tear line
 //   * halftone, paper grain     -> CSS gradients / SVG-noise data URIs
 //   * player cutout placeholder -> inline SVG silhouette in a team jersey
+//   * footage on the color slab -> a muted <video> reprinted as live
+//     halftone dots in CSS (see "Footage" in web/hero.css); wireHero() owns
+//     loading and playback
 // Tear shapes come from a seeded generator, so they are identical on every
 // render instead of jittering between page loads.
 //
@@ -112,6 +115,9 @@ function escapeText(value) {
 
 /** Placeholder cutout: a player bust in a tank-top jersey, palette-driven. */
 function silhouette(jerseyNumber, wordmark) {
+  // Anton at 40px fits 8 letters between the armhole trims; longer words
+  // shrink so they never run into the trim.
+  const wordmarkSize = Math.min(40, Math.floor(330 / Math.max(wordmark.length, 1)));
   return `
     <svg class="hero-figure-svg" viewBox="0 0 520 720" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">
       <defs>
@@ -162,10 +168,26 @@ function silhouette(jerseyNumber, wordmark) {
       <use href="#hero-jersey-shape" fill="url(#hero-ht-dark)" mask="url(#hero-shade-mask)"/>
       <path fill="none" stroke="var(--hero-c1)" stroke-width="9" stroke-linejoin="round" d="M222 256 C232 298 246 320 260 326 C274 320 288 298 298 256"/>
       <path fill="none" stroke="var(--hero-c1)" stroke-width="9" stroke-linejoin="round" d="M194 258 C188 328 170 380 148 418 M326 258 C332 328 350 380 372 418"/>
-      <text x="260" y="404" text-anchor="middle" class="hero-figure-wordmark" fill="var(--hero-on-c2)">${escapeText(wordmark)}</text>
+      <text x="260" y="404" text-anchor="middle" class="hero-figure-wordmark" style="font-size:${wordmarkSize}px" fill="var(--hero-on-c2)">${escapeText(wordmark)}</text>
       <text x="260" y="560" text-anchor="middle" class="hero-figure-number" fill="var(--hero-on-c2)" stroke="var(--hero-c1)" stroke-width="5" paint-order="stroke">${escapeText(jerseyNumber)}</text>
     </svg>
   `;
+}
+
+/**
+ * The slab's footage layer. Sources carry `data-src` only, so nothing is
+ * downloaded until wireHero() decides this viewer should get motion; until
+ * then (and for phones, reduced motion or Save-Data) the poster is printed
+ * instead.
+ */
+function renderFootage({ poster, sources }) {
+  return `
+    <div class="hero-footage">
+      <video class="hero-footage-video" muted loop playsinline preload="none" tabindex="-1"
+        disablepictureinpicture disableremoteplayback poster="${escapeText(poster)}">
+        ${sources.map((source) => `<source data-src="${escapeText(source.src)}" type="${escapeText(source.type)}">`).join("")}
+      </video>
+    </div>`;
 }
 
 /**
@@ -177,6 +199,9 @@ function silhouette(jerseyNumber, wordmark) {
  * @param {{href: string, label: string}} props.cta  the single primary action
  * @param {{value: string, label: string}} [props.stat]  stat badge
  * @param {{src: string, alt: string}} [props.photo]     real player cutout
+ * @param {{poster: string, sources: {src: string, type: string}[]}} [props.footage]
+ *        ambient loop printed into the color slab; call wireHero() after
+ *        mounting to load and play it
  * @param {object}   [props.palette]    {c1, c2, onC1, onC2, accent} (see heroPalette)
  * @param {string}   [props.jerseyNumber] placeholder jersey number
  * @param {string}   [props.wordmark]     placeholder jersey wordmark
@@ -189,9 +214,10 @@ export function renderHero({
   cta,
   stat,
   photo,
+  footage,
   palette,
   jerseyNumber = "00",
-  wordmark = "BLACKTOP",
+  wordmark = "BACKBOARD",
 }) {
   const [top, ransom, accent] = headline;
   const rip = ripPolygons(23);
@@ -212,7 +238,7 @@ export function renderHero({
       </svg>
 
       <div class="hero-layer hero-block hero-block--c2" aria-hidden="true"></div>
-      <div class="hero-layer hero-block hero-block--c1" aria-hidden="true"></div>
+      <div class="hero-layer hero-block hero-block--c1${footage ? " has-footage" : ""}" aria-hidden="true">${footage ? renderFootage(footage) : ""}</div>
 
       <div class="hero-visual" aria-hidden="${photo ? "false" : "true"}">
         <div class="hero-backing"><div class="hero-backing-paper"></div></div>
@@ -253,6 +279,117 @@ export function renderHero({
           <span class="hero-badge-value">${escapeText(stat.value)}</span>
           <span class="hero-badge-label">${escapeText(stat.label)}</span>
         </div>` : ""}
+
+      ${footage ? `
+        <button type="button" class="hero-footage-toggle" data-state="playing" aria-label="Pause background video" title="Pause background video" hidden>
+          <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>
+          <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+        </button>` : ""}
     </section>
   `;
+}
+
+/**
+ * Loads and plays a rendered hero's footage, but only for viewers who get
+ * motion: tablet/desktop widths (the slab is a small strip on phones),
+ * no prefers-reduced-motion and no Save-Data. Everyone else keeps the
+ * printed poster. The download starts after the page has loaded and gone
+ * idle, playback pauses while the hero is off screen or the tab is hidden,
+ * and the toggle gives a persistent pause (WCAG 2.2.2). Listeners are
+ * dropped when the hero is removed from `root`.
+ */
+export function wireHero(root) {
+  const video = root.querySelector(".hero-footage-video");
+  const toggle = root.querySelector(".hero-footage-toggle");
+  if (!video || !toggle) return;
+
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const wideEnough = window.matchMedia("(min-width: 861px)");
+  const saveData = Boolean(navigator.connection && navigator.connection.saveData);
+  const listeners = new AbortController();
+  const { signal } = listeners;
+  let loaded = false;
+  let ready = false;
+  let userPaused = false;
+  let inView = true;
+  let observer = null;
+  // The router swaps the hero slot's contents on navigation; stop everything
+  // once this hero's video is no longer in the page.
+  const mutations = new MutationObserver(() => {
+    if (!video.isConnected) teardown();
+  });
+
+  const motionAllowed = () => !reducedMotion.matches && wideEnough.matches && !saveData;
+
+  const syncToggle = () => {
+    const label = video.paused ? "Play background video" : "Pause background video";
+    toggle.dataset.state = video.paused ? "paused" : "playing";
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
+  };
+
+  const update = () => {
+    if (!video.isConnected) {
+      teardown();
+      return;
+    }
+    if (!ready || !motionAllowed()) {
+      toggle.hidden = true;
+      if (!video.paused) video.pause();
+      return;
+    }
+    toggle.hidden = false;
+    if (!loaded) {
+      loaded = true;
+      video.querySelectorAll("source[data-src]").forEach((source) => {
+        source.src = source.dataset.src;
+      });
+      video.load();
+    }
+    if (userPaused || !inView || document.hidden) {
+      video.pause();
+    } else {
+      const attempt = video.play();
+      if (attempt && attempt.catch) attempt.catch(syncToggle);
+    }
+    syncToggle();
+  };
+
+  function teardown() {
+    listeners.abort();
+    if (observer) observer.disconnect();
+    mutations.disconnect();
+    video.pause();
+  }
+
+  video.addEventListener("play", syncToggle, { signal });
+  video.addEventListener("pause", syncToggle, { signal });
+  toggle.addEventListener("click", () => {
+    userPaused = !video.paused;
+    update();
+  }, { signal });
+  reducedMotion.addEventListener("change", update, { signal });
+  wideEnough.addEventListener("change", update, { signal });
+  document.addEventListener("visibilitychange", update, { signal });
+
+  if ("IntersectionObserver" in window) {
+    observer = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      update();
+    });
+    observer.observe(video);
+  }
+
+  mutations.observe(root, { childList: true });
+
+  // Defer the download until after first paint and the page's own loading.
+  const start = () => {
+    const whenIdle = window.requestIdleCallback || ((fn) => setTimeout(fn, 200));
+    whenIdle(() => {
+      ready = true;
+      update();
+    }, { timeout: 2000 });
+  };
+  if (document.readyState === "complete") start();
+  else window.addEventListener("load", start, { once: true, signal });
 }

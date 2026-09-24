@@ -1,5 +1,9 @@
 # Blacktop Tabloid — design brief
 
+The visual system for **Backboard** (the app was branded "NBA Sports AI"
+when revs 1 and 2 were written; "Blacktop Tabloid" is the name of the look,
+not the product).
+
 Status: **rev 2, implemented**. Rev 1 was committed before any CSS was
 written. Section 8 records the self-critique that produced rev 2. Section 9
 lists what the implementation settled, and section 10 lists the deviations.
@@ -347,6 +351,19 @@ No new API calls are made and no data is invented.
 12. **A pre-existing layout bug was fixed along the way.** The fixed 252px
     sidebar overflowed every phone view. Below 860px the rail now becomes a
     top bar with a scrolling nav strip.
+13. **Ambient motion in the hero** is an exception to rule 6 ("motion is a
+    thunk, not a show"): the footage loop plays continuously. It is kept
+    slow (half speed, crossfades, no cuts), it only runs for viewers who
+    haven't asked for reduced motion and aren't on a phone or Save-Data,
+    it pauses off screen, and it has a pause button.
+14. **The hero stacks below 981px, not 860px.** Between 861px and 980px the
+    sidebar leaves the hero under 700px wide, and the two-column collage
+    put the figure on top of the copy. Rendered-pixel checks found the deck
+    running onto the torn paper and the figure's arm from 861px to 1024px
+    (up to 8.1% of glyph pixels below 4.5:1). That overlap came from the
+    first hero pass. It is fixed, and every hero text element now passes
+    at 12 widths from 360px to 1920px, with the footage both still and
+    playing.
 
 ## 11. Landing hero (Dashboard)
 
@@ -367,15 +384,47 @@ carries the page's `<h1>`.
   and an accent word torn along one generated jagged line (two CSS
   `clip-path` polygons sharing an edge) with a paper sliver along the tear.
 - **Decorations:** SVG `clipPath` torn paper backing, halftone field on
-  the slab, tag pill, stat badge, hand-drawn arrow at the CTA. The component
-  also supports one optional slanted marker sticker (`sticker` prop); the
-  Dashboard doesn't use it. Phones keep only the backing, and the color
-  blocks stay inside the photo panel so the headline always sits on the
-  dark base.
+  the slab (replaced by the footage print when there is footage), tag pill,
+  stat badge, hand-drawn arrow at the CTA. The component also supports one
+  optional slanted marker sticker (`sticker` prop); the Dashboard doesn't
+  use it. The stacked layout keeps only the backing, and the color blocks
+  stay inside the photo panel so the headline always sits on the dark base.
+- **Footage:** `renderHero({ footage })` prints a muted loop
+  (`web/media/hero-loop.*`, see its README) into the `--hero-c1` slab as
+  **live halftone**: the grayscale video is blurred and lifted, a 9px 45°
+  dot screen is laid over it at half strength, `contrast(16)` thresholds
+  the mix so each dot grows with the darkness under it, and `multiply`
+  drops the white out. It is one collage layer: under the torn paper,
+  figure and badge, clipped to the slab's diagonal, and never behind copy.
+  * **Strength:** dots darken the slab by at most **0.22**
+    (`--hero-footage-ink`), the halftone cap in §5, and the print fades
+    toward the slab's lower half. Bolder settings (0.35–0.5) were tried;
+    they turn the slab brown and pull the eye away from the headline.
+  * **Motion:** a 10.7 s loop of three steady backboard/rim shots at half
+    speed with 1 s crossfades, no cuts and a seamless loop point.
+  * **Who gets motion:** only viewports ≥ 861px, without
+    `prefers-reduced-motion` and without Save-Data. Everyone else,
+    including all phones, gets the 8 KB poster printed the same way, and
+    the video is never requested (sources carry `data-src` until
+    `wireHero()` activates them).
+  * **Loading:** the download starts after the `load` event, at idle.
+    Playback pauses while the hero is off screen or the tab is hidden.
+  * **Control:** a 44px pause/play button (WCAG 2.2.2) sits on the slab
+    (top-right; bottom-left of the photo panel in the stacked layout, clear
+    of the figure's head). Its focus ring is the slab's computed ink
+    (`--hero-on-c1`, §6.7): ≥ 3.8:1 against the darkest print dot, 5.1–6.0
+    measured.
 - **Photo:** an SVG player-bust placeholder in the palette's jersey, with
-  halftone key-light and shade screens and a paper cut-out outline.
+  halftone key-light and shade screens and a paper cut-out outline. The
+  jersey reads **BACKBOARD**, the product name (it said BLACKTOP, which
+  looked like a misspelling of the brand next to the sidebar wordmark), and
+  the wordmark shrinks with its length so it never hits the armhole trim.
   `renderHero({ photo: { src, alt } })` swaps in a real transparent cutout
   (`.png` under `web/`).
+- **Layout:** two columns from 981px; below that (phones, and 861–980px
+  windows where the sidebar still takes 282px) the hero stacks. From
+  981–1100px the deck narrows to 28ch and the collage to 52% so the copy
+  never meets the paper or the figure.
 - **Stat:** 65.1% = `metrics.elo_boosted_ensemble.accuracy` (0.6508) over
   the 13,332-game chronological holdout in `models/baseline_metrics.json`.
   The API doesn't serve that file, so the value is a constant in

@@ -4,7 +4,7 @@
 // structured UI grows.
 
 import { getHealth, getTools, ask, runTool, ingest } from "../api.js";
-import { renderHero as heroMarkup } from "../components/hero.js";
+import { renderHero as heroMarkup, wireHero } from "../components/hero.js";
 
 export const meta = {
   title: "Dashboard",
@@ -71,7 +71,17 @@ export function renderHero(slot) {
     deck: "Win probabilities for any NBA matchup from a validated model, plus team form and full-season simulations.",
     cta: { href: "#/matchups", label: "Predict a matchup" },
     stat: { value: HOLDOUT_ACCURACY, label: `Picks right on ${HOLDOUT_GAMES} held-out games` },
+    // Ambient loop printed into the orange slab (see web/media/README.md).
+    // H.264 first (smaller here); VP9 for browsers without H.264.
+    footage: {
+      poster: "/media/hero-loop-poster.jpg",
+      sources: [
+        { src: "/media/hero-loop.mp4", type: 'video/mp4; codecs="avc1.64001E"' },
+        { src: "/media/hero-loop.webm", type: 'video/webm; codecs="vp9"' },
+      ],
+    },
   });
+  wireHero(slot);
 }
 
 export function render(container, { navigate } = {}) {
