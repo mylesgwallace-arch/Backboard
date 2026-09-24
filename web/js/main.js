@@ -54,22 +54,34 @@ function buildSidebar() {
     <div class="nav-section-label">Analytics</div>
     ${ROUTES.map(
       (route) => `
-        <div class="nav-item" data-path="${route.path}">
-          ${route.icon}
-          <span>${route.label}</span>
+        <a class="nav-item" href="#${route.path}" data-path="${route.path}">
+          ${route.icon.replace("<svg ", '<svg aria-hidden="true" focusable="false" ')}
+          <span class="nav-label">${route.label}</span>
           ${route.badge ? `<span class="nav-badge">${route.badge}</span>` : ""}
-        </div>
+        </a>
       `
     ).join("")}
   `;
+  // Nav items are real links (keyboard-focusable); the click handler still
+  // routes through navigate() exactly as before.
   nav.querySelectorAll(".nav-item").forEach((el) => {
-    el.addEventListener("click", () => navigate(el.dataset.path));
+    el.addEventListener("click", (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      navigate(el.dataset.path);
+    });
   });
 }
 
 function setActiveNav(path) {
   document.querySelectorAll(".nav-item").forEach((el) => {
-    el.classList.toggle("active", el.dataset.path === path);
+    const isActive = el.dataset.path === path;
+    el.classList.toggle("active", isActive);
+    if (isActive) {
+      el.setAttribute("aria-current", "page");
+    } else {
+      el.removeAttribute("aria-current");
+    }
   });
 }
 
@@ -79,12 +91,29 @@ function setTopbar(route) {
   document.querySelector("#topbar-subtitle").textContent = meta.subtitle || "";
 }
 
+// Optional page hero: a page module may export `renderHero(slot, ctx)`.
+// When it does, the hero (with its own <h1>) stands in for the masthead.
+function setHero(route, ctx) {
+  const slot = document.querySelector("#app-hero");
+  const topbar = document.querySelector(".app-topbar");
+  const hasHero = typeof route.page.renderHero === "function";
+  slot.hidden = !hasHero;
+  topbar.hidden = hasHero;
+  if (hasHero) {
+    route.page.renderHero(slot, ctx);
+  } else {
+    slot.innerHTML = "";
+  }
+}
+
 function mountRoute(path) {
   const route = ROUTES.find((r) => r.path === path) || ROUTES[0];
+  const ctx = { navigate, query: currentQuery() };
   setActiveNav(route.path);
   setTopbar(route);
+  setHero(route, ctx);
   const content = document.querySelector("#app-content");
-  route.page.render(content, { navigate, query: currentQuery() });
+  route.page.render(content, ctx);
 }
 
 async function loadSidebarStatus() {
@@ -105,7 +134,9 @@ function init() {
   buildSidebar();
   loadSidebarStatus();
   onRouteChange(mountRoute);
-  startRouter("/matchups"); // Matchup Predictor is the primary landing experience.
+  // The Dashboard's hero is the landing page; its one CTA leads to the
+  // Matchup Predictor.
+  startRouter("/dashboard");
 }
 
 document.addEventListener("DOMContentLoaded", init);

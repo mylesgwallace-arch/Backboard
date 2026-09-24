@@ -1,0 +1,549 @@
+/* ==========================================================================
+   Landing hero ("gameday cover") — markup from web/js/components/hero.js.
+   --------------------------------------------------------------------------
+   Collage rules for this section:
+   * Palette = two colors + a neutral: --hero-c1 (slab, trim, accent word),
+     --hero-c2 (band, jersey, one ransom chip), --hero-paper (cut paper).
+     Swap them per team with heroPalette(teamId) in hero.js.
+   * Decorative pieces are capped at six: torn photo backing, halftone
+     field, tag pill, slanted sticker, stat badge, hand-drawn arrow.
+     On phones only the backing and the sticker survive.
+   * Textures sit on paper and color slabs, never behind body copy.
+   * The badge number stays upright and flat; only type is collaged.
+   ========================================================================== */
+
+.hero {
+  /* Palette: brand default (spray orange + court blue on asphalt). */
+  --hero-base: #101114;
+  --hero-c1: var(--spray-orange, #ff5b14);
+  --hero-c2: #1f4bd1;          /* chalk on it 6.2:1 */
+  --hero-on-c1: var(--ink, #141312);
+  --hero-on-c2: var(--chalk, #f4f1ea);
+  --hero-accent: var(--hero-c1);   /* accent word on the base: >= 3:1 */
+  --hero-paper: #efe9da;
+  --hero-ink: var(--ink, #141312);
+  --hero-chalk: var(--chalk, #f4f1ea);
+  --hero-chalk-dim: var(--chalk-dim, #c2bdb2); /* 10.1:1 on --hero-base */
+
+  /* Headline scale: follows the hero's own width, capped by height so the
+     stack still fits a short laptop screen. */
+  --hero-size: clamp(3.4rem, min(15.5cqi, 18svh), 12.5rem);
+
+  /* Paper: fine fiber grain + a very soft, low-frequency crease mottle. */
+  --hero-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2 0 0 0 0 .17 0 0 0 0 .12 0 0 0 1.1 -.52'/%3E%3C/filter%3E%3Cfilter id='c' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011 .02' numOctaves='2' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .25 0 0 0 0 .21 0 0 0 0 .15 0 0 0 .55 -.28'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23c)'/%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
+  --hero-dots: radial-gradient(circle, rgba(0, 0, 0, 0.3) 0 1.7px, transparent 2.1px);
+
+  position: relative;
+  isolation: isolate;
+  container-type: inline-size;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(2.5rem, 7vh, 5rem) clamp(1.5rem, 5cqi, 4.5rem);
+  background:
+    radial-gradient(80% 70% at 18% 40%, rgba(255, 255, 255, 0.035), transparent 70%),
+    var(--hero-base);
+  color: var(--hero-chalk);
+}
+
+.hero-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* ---- Angled color blocks (background depth) ---------------------------- */
+
+.hero-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Each block's box is trimmed to the area it paints (instead of inset: 0
+   plus a clip), so nothing layout- or audit-wise sits behind the copy. */
+.hero-block--c1 {
+  z-index: -2;
+  left: 49%;
+  background: var(--hero-c1);
+  clip-path: polygon(23.5% 0, 100% 0, 100% 100%, 0 100%);
+}
+
+/* Halftone field printed into the slab, fading out toward the diagonal. */
+.hero-block--c1::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    var(--hero-dots) 0 0 / 9px 9px,
+    var(--hero-dots) 4.5px 4.5px / 9px 9px;
+  -webkit-mask: radial-gradient(90% 85% at 20% 92%, #000 0%, transparent 72%);
+  mask: radial-gradient(90% 85% at 20% 92%, #000 0%, transparent 72%);
+  opacity: 0.85;
+}
+
+.hero-block--c2 {
+  z-index: -3;
+  left: 43.5%;
+  right: 40.2%;
+  background: var(--hero-c2);
+  clip-path: polygon(73.6% 0, 100% 0, 26.4% 100%, 0 100%);
+}
+
+/* ---- Photo: torn paper backing + cutout -------------------------------- */
+
+.hero-visual {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 52%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Wrapper carries the shadow; the child carries the clip-path (a clip on
+   the same element would cut its own shadow off). */
+.hero-backing {
+  position: absolute;
+  right: 6%;
+  bottom: -3%;
+  width: 88%;
+  height: 78%;
+  transform: rotate(-3deg);
+  transform-origin: 80% 100%;
+  filter: drop-shadow(-10px 14px 0 rgba(0, 0, 0, 0.32));
+}
+
+.hero-backing-paper {
+  position: absolute;
+  inset: 0;
+  clip-path: url(#hero-torn-backing);
+  background:
+    var(--hero-grain) 0 0 / 240px 240px,
+    linear-gradient(118deg, transparent 38%, rgba(0, 0, 0, 0.06) 38.3%, transparent 41%),
+    linear-gradient(200deg, transparent 58%, rgba(255, 255, 255, 0.35) 58.2%, transparent 61%),
+    var(--hero-paper);
+}
+
+/* A second, lighter halftone screen on the paper (upper-left corner). */
+.hero-backing-paper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle, rgba(20, 19, 18, 0.16) 0 1.5px, transparent 1.9px) 0 0 / 8px 8px,
+    radial-gradient(circle, rgba(20, 19, 18, 0.16) 0 1.5px, transparent 1.9px) 4px 4px / 8px 8px;
+  -webkit-mask: linear-gradient(135deg, #000 0%, transparent 42%);
+  mask: linear-gradient(135deg, #000 0%, transparent 42%);
+}
+
+.hero-figure {
+  position: absolute;
+  right: -11%;
+  bottom: 0;
+  height: min(91%, 60rem);
+  aspect-ratio: 520 / 720;
+  /* Cut-out outline: four hard paper-colored shadows = a scissor border. */
+  filter:
+    drop-shadow(4px 0 0 var(--hero-paper))
+    drop-shadow(-4px 0 0 var(--hero-paper))
+    drop-shadow(0 -4px 0 var(--hero-paper))
+    drop-shadow(0 4px 0 var(--hero-paper))
+    drop-shadow(-14px 10px 0 rgba(0, 0, 0, 0.28));
+}
+
+.hero-figure-svg,
+.hero-figure-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+}
+
+.hero-figure-wordmark {
+  font-family: var(--font-headline);
+  font-size: 40px;
+  letter-spacing: 3px;
+}
+
+.hero-figure-number {
+  font-family: var(--font-headline);
+  font-size: 150px;
+}
+
+/* ---- Copy column -------------------------------------------------------- */
+
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  width: min(47%, 40rem);
+  /* On very wide screens, drift the copy in toward the collage so the
+     middle of the hero doesn't go dead. */
+  margin-left: clamp(0px, calc((100cqi - 1250px) * 0.4), 9rem);
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 1.4rem;
+  padding: 0.3rem 0.85rem 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--hero-paper);
+  color: var(--hero-ink);
+  font-family: var(--font-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+.hero-tag::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--hero-c1);
+  box-shadow: 0 0 0 2px var(--hero-ink);
+}
+
+.hero-title {
+  width: fit-content;
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-synthesis: none;
+  line-height: 0.86;
+  text-transform: uppercase;
+}
+
+.hero-title-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.hero-word {
+  display: block;
+}
+
+.hero-word--top {
+  font-size: var(--hero-size);
+  letter-spacing: -0.01em;
+  color: var(--hero-chalk);
+}
+
+/* Ransom-note word: each letter clipped from a different page. */
+.hero-word--ransom {
+  display: flex;
+  align-items: center;
+  gap: 0.07em;
+  margin: 0.1em 0 0.13em 0.04em;
+  font-size: calc(var(--hero-size) * 0.4);
+}
+
+.ransom-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 0.9em;
+  padding: 0.1em 0.14em 0.04em;
+  line-height: 1;
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.38);
+}
+
+.ransom-chip--1 {
+  background: var(--hero-grain) 0 0 / 240px 240px, var(--hero-paper);
+  color: var(--hero-ink);
+  transform: rotate(-3deg);
+}
+
+.ransom-chip--2 {
+  background: var(--hero-base);
+  color: var(--hero-chalk);
+  font-family: var(--font-stencil);
+  font-weight: 900;
+  outline: 2px solid var(--hero-chalk);
+  outline-offset: -5px;
+  transform: rotate(2.2deg) translateY(0.04em);
+}
+
+.ransom-chip--3 {
+  background: var(--hero-c2);
+  color: var(--hero-on-c2);
+  transform: rotate(-1.2deg) translateY(-0.03em);
+}
+
+/* The slanted "exclamation" sticker, tucked onto the end of the ransom row. */
+.hero-sticker {
+  position: relative;
+  z-index: 1;
+  margin-left: 0.45em;
+  padding: 0.28em 0.6em 0.22em;
+  background: var(--hero-c1);
+  color: var(--hero-on-c1);
+  border: 2px solid var(--hero-paper);
+  font-family: var(--font-marker);
+  font-weight: 400;
+  font-size: 0.5em;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: nowrap;
+  box-shadow: 4px 5px 0 rgba(0, 0, 0, 0.5);
+  transform: rotate(-9deg) translateY(-0.35em);
+}
+
+/* Accent word, torn across and pasted back a hair out of line. */
+.hero-word--accent {
+  display: grid;
+  font-size: var(--hero-size);
+  letter-spacing: -0.01em;
+  color: var(--hero-accent);
+}
+
+.rip-piece {
+  grid-area: 1 / 1;
+}
+
+.rip {
+  display: block;
+  padding: 0 0.04em;
+}
+
+/* A sliver of paper shows along the tear on the lower piece. */
+.rip-piece--bottom {
+  transform: translate(0.03em, 0.035em) rotate(0.8deg);
+  filter: drop-shadow(0 -3px 0 var(--hero-paper));
+}
+
+.hero-deck {
+  max-width: 34ch;
+  margin: 1.5rem 0 0;
+  color: var(--hero-chalk-dim);
+  font-family: var(--font-body);
+  font-size: clamp(1.02rem, 0.9rem + 0.35vw, 1.2rem);
+  line-height: 1.5;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 2rem;
+}
+
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 52px;
+  padding: 0.35rem 1.4rem 0.3rem 1.5rem;
+  background: var(--hero-chalk);
+  color: var(--hero-ink);
+  font-family: var(--font-label);
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: 5px 5px 0 var(--hero-c1);
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.hero-cta:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--hero-c1);
+}
+
+.hero-cta:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--hero-c1);
+}
+
+.hero-cta:focus-visible {
+  outline: 3px solid var(--highlighter, #ffe03d);
+  outline-offset: 4px;
+}
+
+.hero-arrow {
+  width: 92px;
+  height: 54px;
+  color: var(--hero-chalk-dim);
+  transform: translateY(-22px) rotate(-4deg);
+}
+
+/* ---- Stat badge --------------------------------------------------------- */
+
+.hero-badge {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 11%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.35rem;
+  width: 9.5rem;
+  aspect-ratio: 1;
+  padding: 1rem;
+  border-radius: 50%;
+  background: var(--hero-grain) 0 0 / 240px 240px, var(--hero-paper);
+  color: var(--hero-ink);
+  text-align: center;
+  box-shadow:
+    0 0 0 3px var(--hero-ink),
+    0 0 0 8px var(--hero-c1),
+    8px 12px 0 8px rgba(0, 0, 0, 0.35);
+}
+
+.hero-badge-value {
+  font-family: var(--font-headline);
+  font-size: 2.5rem;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-badge-label {
+  max-width: 7.4rem;
+  font-family: var(--font-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  line-height: 1.15;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---- Entrance: pieces get pasted down one after another ----------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-block--c1,
+  .hero-block--c2 {
+    animation: hero-slide 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .hero-block--c2 { animation-delay: 0.08s; }
+
+  .hero-backing,
+  .hero-figure,
+  .hero-tag,
+  .hero-word,
+  .hero-deck,
+  .hero-actions,
+  .hero-badge {
+    animation: hero-paste 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .hero-backing { animation-delay: 0.12s; }
+  .hero-figure { animation-delay: 0.2s; }
+  .hero-word--top { animation-delay: 0.26s; }
+  .hero-word--ransom { animation-delay: 0.34s; }
+  .hero-word--accent { animation-delay: 0.42s; }
+  .hero-deck { animation-delay: 0.5s; }
+  .hero-actions { animation-delay: 0.56s; }
+  .hero-badge { animation-delay: 0.62s; }
+
+  @keyframes hero-slide {
+    from { transform: translateX(6%); opacity: 0; }
+  }
+  @keyframes hero-paste {
+    from { translate: 0 18px; opacity: 0; }
+  }
+}
+
+/* ---- Tablet: tighten the columns ---------------------------------------- */
+
+@media (max-width: 1100px) and (min-width: 861px) {
+  .hero-copy { width: 52%; }
+  .hero-visual { width: 56%; }
+  .hero-badge { left: 47%; width: 8.5rem; }
+  .hero-badge-value { font-size: 2.1rem; }
+  .hero-arrow { display: none; }
+}
+
+/* ---- Phone: photo on top, type below, only backing + sticker remain ---- */
+
+@media (max-width: 860px) {
+  .hero {
+    --hero-size: clamp(3.3rem, 26cqi, 7rem);
+    --hero-visual-h: min(36svh, 340px);
+    min-height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0 16px 3rem;
+  }
+
+  /* On phones the color blocks stay inside the photo panel, so the
+     headline below always sits on the dark base. */
+  .hero-block--c1,
+  .hero-block--c2 {
+    left: 0;
+    right: 0;
+    bottom: auto;
+    height: var(--hero-visual-h);
+  }
+
+  .hero-block--c1 {
+    clip-path: polygon(30% 0, 100% 0, 100% 78%, 0 100%, 0 34%);
+  }
+
+  .hero-block--c1::before {
+    -webkit-mask: radial-gradient(90% 70% at 70% 10%, #000 0%, transparent 70%);
+    mask: radial-gradient(90% 70% at 70% 10%, #000 0%, transparent 70%);
+  }
+
+  .hero-block--c2 {
+    clip-path: polygon(0 20%, 25% 0, 29.5% 0, 0 28%);
+  }
+
+  /* The photo panel is clipped at its base so the cutout bleeds off the
+     bottom and right of its panel instead of floating. */
+  .hero-visual {
+    position: relative;
+    inset: auto;
+    width: auto;
+    height: var(--hero-visual-h);
+    margin: 0 -16px;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .hero-backing {
+    width: 74%;
+    height: 84%;
+    right: 4%;
+    bottom: -4%;
+  }
+
+  .hero-figure {
+    right: -12%;
+    height: 100%;
+  }
+
+  .hero-copy {
+    width: auto;
+    margin: 1.2rem 0 0;
+  }
+
+  .hero-tag,
+  .hero-arrow,
+  .hero-badge {
+    display: none;
+  }
+
+  .hero-deck { margin-top: 1rem; }
+  .hero-actions { margin-top: 1.3rem; }
+
+  .hero-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (forced-colors: active) {
+  .hero-cta { border: 2px solid ButtonText; }
+  .hero-word--accent { color: CanvasText; }
+}

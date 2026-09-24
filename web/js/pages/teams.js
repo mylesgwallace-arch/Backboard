@@ -15,6 +15,7 @@ import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
 import { renderComparisonRow } from "../components/comparisonBar.js";
 import { renderSeedProbabilityBars } from "../components/seedProbabilities.js";
 import { teamColor } from "../teamColors.js";
+import { clashingPair, teamSlabStyle } from "../colorInk.js";
 
 export const meta = {
   title: "Team Explorer",
@@ -23,6 +24,11 @@ export const meta = {
 
 const CURRENT_SEASON = 2025; // Latest season present in the repository's data (see PROJECT_CONTEXT.md).
 const TABS = ["Overview", "Performance", "Projections", "Head-to-Head"];
+
+// Streak stamp on the team header, derived from the team_form envelope this
+// page already loads (last-10 win rate). See web/DESIGN-BRIEF.md.
+const HOT_STREAK_MIN = 0.7;
+const COLD_STREAK_MAX = 0.3;
 
 export function render(container, ctx = {}) {
   container.innerHTML = `
@@ -144,11 +150,11 @@ function renderTeamExplorer({ team, teamId, recordAllTime, recordSeason, form, e
   const color = teamColor(teamId);
 
   return `
-    ${renderHeader({ team, color })}
+    ${renderHeader({ team, color, form })}
     ${renderKeyMetrics({ recordSeason, recordAllTime, form, elo })}
 
     <div class="card fade-in">
-      <div class="toolbar" style="border-bottom:1px solid var(--border); padding-bottom:0.8rem; margin-bottom:1rem;" id="team-tabs">
+      <div class="toolbar tab-strip" id="team-tabs">
         ${TABS.map(
           (tab, i) => `<button class="btn ${i === 0 ? "" : "btn-secondary"}" data-tab="${tab}">${tab}</button>`
         ).join("")}
@@ -170,22 +176,35 @@ function renderTeamExplorer({ team, teamId, recordAllTime, recordSeason, form, e
   `;
 }
 
-function renderHeader({ team, color }) {
+function renderHeader({ team, color, form }) {
   const name = team?.full_name || "Unknown team";
   const city = team?.city || "";
   const abbrev = team?.abbreviation || "";
+  const streak = deriveStreak(form);
   return `
-    <div class="card fade-in" style="border-top:3px solid ${color.primary};">
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
-        <div>
-          <div class="text-muted" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em;">${escapeHtml(city)}</div>
-          <h2 style="font-size:1.4rem; margin-top:0.2rem;">${escapeHtml(name)}</h2>
+    <section class="card team-hero fade-in" style="${teamSlabStyle(color.primary)} --team-alt:${color.secondary};" aria-labelledby="team-hero-name">
+      <div class="team-hero-body">
+        <div class="team-hero-id">
+          <div class="team-hero-city">${escapeHtml(city)}</div>
+          <h2 class="team-hero-name" id="team-hero-name">${escapeHtml(name)}</h2>
         </div>
-        <span class="badge" style="border-color:${color.primary}; color:${color.primary};">${escapeHtml(abbrev)}</span>
-        <button class="btn" id="predict-from-team-btn">Predict a matchup ▸</button>
+        <div class="team-hero-actions">
+          ${streak ? `<p class="stamp stamp--tilt team-streak">${streak}</p>` : ""}
+          <span class="badge team-abbrev-stamp">${escapeHtml(abbrev)}</span>
+          <button class="btn" id="predict-from-team-btn">Predict a matchup ▸</button>
+        </div>
       </div>
-    </div>
+    </section>
   `;
+}
+
+function deriveStreak(form) {
+  if (!form?.available) return "";
+  const rate = form.data.win_rate_rolling_10;
+  if (typeof rate !== "number") return "";
+  if (rate >= HOT_STREAK_MIN) return "Hot streak";
+  if (rate <= COLD_STREAK_MAX) return "Cold streak";
+  return "";
 }
 
 function renderKeyMetrics({ recordSeason, recordAllTime, form, elo }) {
@@ -436,17 +455,21 @@ function wireHeadToHeadTab(body, teams, teamId) {
     const data = res.data.data;
     const teamName = teams.find((t) => t.team_id === teamId)?.full_name || "This team";
     const opponentName = teams.find((t) => t.team_id === opponentId)?.full_name || "Opponent";
+    const { first: teamBarColor, second: opponentBarColor } = clashingPair(
+      teamColor(teamId),
+      teamColor(opponentId)
+    );
     mount.innerHTML = `
-      <div class="compare-values" style="margin-bottom:0.6rem;">
-        <span>${escapeHtml(teamName)}</span>
-        <span>${escapeHtml(opponentName)}</span>
+      <div class="compare-legend">
+        <span class="team-chip" style="${teamSlabStyle(teamBarColor)}">${escapeHtml(teamName)}</span>
+        <span class="team-chip" style="${teamSlabStyle(opponentBarColor)}">${escapeHtml(opponentName)}</span>
       </div>
       ${renderComparisonRow({
         label: `All-time regular-season head-to-head (${data.games} games)`,
         homeValue: data.team_a_wins,
         awayValue: data.team_b_wins,
-        homeColor: teamColor(teamId).primary,
-        awayColor: teamColor(opponentId).primary,
+        homeColor: teamBarColor,
+        awayColor: opponentBarColor,
         formatValue: (v) => `${v} wins`,
       })}
     `;

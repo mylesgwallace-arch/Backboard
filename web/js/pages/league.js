@@ -12,6 +12,8 @@ import { getSeasonSimulation } from "../api.js";
 import { fetchTeams } from "../components/teamSelect.js";
 import { renderLeagueSummaryCard } from "../components/leagueSummary.js";
 import { renderPlayoffField } from "../components/playoffField.js";
+import { teamColor } from "../teamColors.js";
+import { clashingPair, teamSlabStyle } from "../colorInk.js";
 
 export const meta = {
   title: "League Predictions",
@@ -34,8 +36,15 @@ const N_SIMULATIONS = 1000;
 // narrative threshold.
 const CUTOFF_WATCH_COUNT = 6;
 
+// "Headline of the day" story thresholds, applied to the gap in projected
+// mean wins between the league's #1 and #2 teams (see web/DESIGN-BRIEF.md).
+const RUNAWAY_LEAD_MIN = 4.0; // lead >= 4.0 wins → "RUNAWAY"
+const DOGFIGHT_LEAD_BELOW = 1.0; // lead < 1.0 wins → "DOGFIGHT AT THE TOP"
+
 export function render(container, ctx = {}) {
   container.innerHTML = `
+    <div id="league-headline-mount"></div>
+
     <div class="card fade-in">
       <div class="card-header">
         <div>
@@ -110,9 +119,11 @@ async function loadProjection(container, ctx, season) {
   const errorMount = container.querySelector("#league-error-mount");
   const resultMount = container.querySelector("#league-result-mount");
   const reloadBtn = container.querySelector("#league-reload-btn");
+  const headlineMount = container.querySelector("#league-headline-mount");
 
   errorMount.innerHTML = "";
   reloadBtn.disabled = true;
+  headlineMount.innerHTML = renderHeadlineSkeleton();
   statusEl.textContent =
     "Loading model projections — this may take up to a minute the first time this session (the model replays the full season history once, then every load is fast).";
   resultMount.innerHTML = renderResultSkeleton();
@@ -124,6 +135,7 @@ async function loadProjection(container, ctx, season) {
     reloadBtn.disabled = false;
     statusEl.textContent = "";
     resultMount.innerHTML = "";
+    headlineMount.innerHTML = "";
     errorMount.innerHTML = errorBanner(`Network error while contacting the API: ${err.message}`);
     return;
   }
@@ -133,6 +145,7 @@ async function loadProjection(container, ctx, season) {
 
   if (!res.ok || res.data?.status !== "success") {
     resultMount.innerHTML = "";
+    headlineMount.innerHTML = "";
     errorMount.innerHTML = errorBanner(
       res.data?.error?.message || "The league projection request failed. Please try again."
     );
@@ -141,13 +154,26 @@ async function loadProjection(container, ctx, season) {
 
   const projection = res.data.data.projection;
   const teams = await fetchTeams().catch(() => []);
+  const teamById = new Map(teams.map((t) => [t.team_id, t]));
+  headlineMount.innerHTML = renderHeadlineOfTheDay(projection, teamById);
   resultMount.innerHTML = renderResults(projection, teams);
+  wireResultInteractions(headlineMount, ctx);
   wireResultInteractions(resultMount, ctx);
 }
 
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
+
+function renderHeadlineSkeleton() {
+  return `
+    <div class="card clipping front-page fade-in" aria-hidden="true">
+      <div class="skeleton" style="height:28px; width:220px;"></div>
+      <div class="skeleton mt-2" style="height:72px; width:70%;"></div>
+      <div class="skeleton mt-1" style="height:18px; width:55%;"></div>
+    </div>
+  `;
+}
 
 function renderResultSkeleton() {
   return `
@@ -204,6 +230,109 @@ function renderResults(projection, teams) {
 }
 
 /**
+ * "Headline of the day": the biggest story in the projection already on the
+ * page. The story is the race at the top (#1's projected-win lead over #2),
+ * plus two teasers: the bubble team (direct-playoff odds closest to 50%)
+ * and the basement (league_summary.worst_team). No new data is fetched.
+ */
+function renderHeadlineOfTheDay(projection, teamById) {
+  const ranked = projection.projected_standings
+    .filter((row) => typeof row.mean_wins === "number")
+    .slice()
+    .sort((a, b) => b.mean_wins - a.mean_wins);
+  if (ranked.length < 2) return "";
+
+  const [top, second] = ranked;
+  const lead = top.mean_wins - second.mean_wins;
+  const topName = fullName(teamById, top.teamId);
+  const secondName = fullName(teamById, second.teamId);
+  // Two teams in one headline clash rather than blend (same rule as Matchups).
+  const { first: topColor, second: secondColor } = clashingPair(
+    teamColor(top.teamId),
+    teamColor(second.teamId)
+  );
+  const slab = (row) =>
+    `<span class="hl-team" style="${teamSlabStyle(row === top ? topColor : secondColor)}">${escapeHtml(nickname(teamById, row.teamId))}</span>`;
+
+  let tag;
+  let headline;
+  let deck;
+  if (lead >= RUNAWAY_LEAD_MIN) {
+    tag = "Runaway";
+    headline = `${slab(top)} <span class="scrawl">run away with it</span>`;
+    deck = `The ${escapeHtml(topName)} project to <strong>${top.mean_wins.toFixed(1)}</strong> wins,
+      <strong>${lead.toFixed(1)}</strong> clear of the ${escapeHtml(secondName)} (<strong>${second.mean_wins.toFixed(1)}</strong>).`;
+  } else if (lead < DOGFIGHT_LEAD_BELOW) {
+    tag = "Dogfight";
+    headline = `${slab(top)} <span class="scrawl">vs</span> ${slab(second)} <span class="scrawl">for the top</span>`;
+    deck = `Just <strong>${lead.toFixed(1)}</strong> projected wins separate the ${escapeHtml(topName)}
+      (<strong>${top.mean_wins.toFixed(1)}</strong>) and the ${escapeHtml(secondName)} (<strong>${second.mean_wins.toFixed(1)}</strong>).`;
+  } else {
+    tag = "On top";
+    headline = `${slab(top)} <span class="scrawl">on top</span>`;
+    deck = `The ${escapeHtml(topName)} lead the league at <strong>${top.mean_wins.toFixed(1)}</strong> projected wins,
+      <strong>${lead.toFixed(1)}</strong> ahead of the ${escapeHtml(secondName)}.`;
+  }
+
+  const bubble = projection.projected_standings
+    .filter((row) => typeof row.direct_playoff_probability === "number")
+    .slice()
+    .sort(
+      (a, b) =>
+        Math.abs(a.direct_playoff_probability - 0.5) - Math.abs(b.direct_playoff_probability - 0.5)
+    )[0];
+  const basement = projection.league_summary?.worst_team;
+  const seasonLabel = `${projection.season}-${String(projection.season + 1).slice(-2)}`;
+
+  return `
+    <section class="card clipping front-page fade-in" aria-labelledby="league-headline">
+      <div class="clipping-masthead">
+        <span class="kicker">Headline of the day</span>
+        <span class="clipping-meta">${seasonLabel} projection · ${projection.n_simulations.toLocaleString()} simulations</span>
+      </div>
+      <div class="front-page-grid">
+        <div class="front-page-lead">
+          <p class="stamp stamp--tilt front-page-tag">${tag}</p>
+          <h2 class="tabloid-headline" id="league-headline">${headline}</h2>
+          <p class="deck">${deck}</p>
+        </div>
+        <div class="front-page-teasers">
+          ${
+            bubble
+              ? `
+            <div class="teaser" data-team-link="${bubble.teamId}" role="link" tabindex="0">
+              <span class="teaser-kicker">Bubble watch</span>
+              <span class="teaser-team">${escapeHtml(fullName(teamById, bubble.teamId))}</span>
+              <span class="teaser-stat"><strong>${(bubble.direct_playoff_probability * 100).toFixed(0)}%</strong> direct-playoff odds · ${escapeHtml(bubble.conference)}</span>
+            </div>`
+              : ""
+          }
+          ${
+            basement
+              ? `
+            <div class="teaser" data-team-link="${basement.teamId}" role="link" tabindex="0">
+              <span class="teaser-kicker">The basement</span>
+              <span class="teaser-team">${escapeHtml(fullName(teamById, basement.teamId))}</span>
+              <span class="teaser-stat"><strong>${basement.mean_wins.toFixed(1)}</strong> projected wins, fewest in the league</span>
+            </div>`
+              : ""
+          }
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function fullName(teamById, teamId) {
+  return teamById.get(teamId)?.full_name || `Team ${teamId}`;
+}
+
+function nickname(teamById, teamId) {
+  const team = teamById.get(teamId);
+  return team?.name || team?.abbreviation || `Team ${teamId}`;
+}
+
+/**
  * "Closest to the playoff cutoff" — the teams whose direct_playoff_probability
  * is nearest to 50%, i.e. the model is least certain whether they finish in
  * the top 6 of their conference or not. Purely a proximity sort on a field
@@ -242,7 +371,7 @@ function renderCutoffWatch(east, west, teamById) {
             const oddsColor = playoffOddsColor(row.direct_playoff_probability);
             const team = teamById.get(row.teamId);
             return `
-              <div class="stat-tile" data-team-link="${row.teamId}" style="cursor:pointer;">
+              <div class="stat-tile watch-tile" data-team-link="${row.teamId}" role="link" tabindex="0" style="cursor:pointer;">
                 <div class="stat-label">${row.conference} · #${rankByTeam.get(row.teamId)} projected</div>
                 <div class="stat-value" style="font-size:1rem;">${escapeHtml(team?.full_name || row.teamId)}</div>
                 <div class="text-muted" style="font-size:0.76rem; margin-bottom:0.3rem;">${row.mean_wins.toFixed(1)} mean wins</div>
@@ -263,13 +392,13 @@ function renderStandingsTable(title, rows, teamById) {
   return `
     <div>
       <div class="section-title">${title}</div>
-      <table style="width:100%; border-collapse:collapse; font-size:0.84rem;">
+      <table class="data-table standings-table">
         <thead>
-          <tr style="text-align:left; color:var(--text-secondary); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em;">
-            <th style="padding:0.4rem 0.3rem;">#</th>
-            <th style="padding:0.4rem 0.3rem;">Team</th>
-            <th style="padding:0.4rem 0.3rem; text-align:right;">Mean wins</th>
-            <th style="padding:0.4rem 0.3rem; text-align:right;">Playoff odds</th>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Team</th>
+            <th scope="col" class="num">Mean wins</th>
+            <th scope="col" class="num">Playoff odds</th>
           </tr>
         </thead>
         <tbody>
@@ -277,13 +406,14 @@ function renderStandingsTable(title, rows, teamById) {
             .map((row, index) => {
               const team = teamById.get(row.teamId);
               const oddsColor = playoffOddsColor(row.direct_playoff_probability);
+              const cutoffClass = index === 6 ? ' class="is-below-cutoff"' : "";
               return `
-                <tr data-team-link="${row.teamId}" style="border-top:1px solid var(--border); cursor:pointer;">
-                  <td style="padding:0.5rem 0.3rem; color:var(--text-secondary);">${index + 1}</td>
-                  <td style="padding:0.5rem 0.3rem; font-weight:600;">${escapeHtml(team?.full_name || row.teamId)}</td>
-                  <td style="padding:0.5rem 0.3rem; text-align:right;">${row.mean_wins.toFixed(1)}</td>
-                  <td style="padding:0.5rem 0.3rem;">
-                    <div style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
+                <tr${cutoffClass} data-team-link="${row.teamId}" tabindex="0">
+                  <td class="rank">${index + 1}</td>
+                  <td class="team">${escapeHtml(team?.full_name || row.teamId)}</td>
+                  <td class="num">${row.mean_wins.toFixed(1)}</td>
+                  <td class="num">
+                    <div class="odds-cell">
                       <span>${(row.direct_playoff_probability * 100).toFixed(0)}%</span>
                       <div class="compare-track" style="width:60px;">
                         <div class="compare-fill home" style="width:${row.direct_playoff_probability * 100}%; background:${oddsColor};"></div>
@@ -296,6 +426,7 @@ function renderStandingsTable(title, rows, teamById) {
             .join("")}
         </tbody>
       </table>
+      <p class="table-note"><span class="cutoff-key" aria-hidden="true"></span> Direct-playoff line: top 6 seeds</p>
     </div>
   `;
 }
@@ -315,6 +446,13 @@ function wireResultInteractions(resultMount, ctx) {
   resultMount.querySelectorAll("[data-team-link]").forEach((el) => {
     el.addEventListener("click", () => {
       ctx.navigate("/teams", { team: el.dataset.teamLink });
+    });
+    // Team links are focusable (role="link"), so Enter opens them too.
+    el.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        ctx.navigate("/teams", { team: el.dataset.teamLink });
+      }
     });
   });
 }

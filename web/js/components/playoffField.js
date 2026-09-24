@@ -17,10 +17,10 @@ export function renderPlayoffField(seedings, teamById, { title, subtitle, clicka
           const team = teamById.get(row.teamId);
           const color = teamColor(row.teamId).primary;
           const nameAttrs = clickableTeams
-            ? ` data-team-link="${row.teamId}" style="cursor:pointer;"`
+            ? ` data-team-link="${row.teamId}" role="link" tabindex="0" style="cursor:pointer;"`
             : "";
           return `
-            <div class="compare-row">
+            <div class="compare-row seed-row">
               <div class="compare-row-head">
                 <span class="metric-name"${nameAttrs}>Seed ${row.seed} — ${escapeHtml(team?.full_name || row.teamId)}</span>
                 <span>${(row.probability * 100).toFixed(0)}%</span>
