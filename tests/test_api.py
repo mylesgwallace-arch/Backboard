@@ -9,6 +9,7 @@ to prove the end-to-end path works against the repository database.
 
 import json
 import threading
+import urllib.error
 import urllib.request
 
 import pytest
@@ -250,6 +251,74 @@ def test_socket_serves_static_css_and_js_assets():
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/js/api.js") as resp:
             assert resp.status == 200
             assert resp.headers.get("Content-Type").startswith("text/javascript")
+    finally:
+        server.shutdown()
+
+
+@pytest.mark.parametrize("header, expected", [
+    (None, None),
+    ("bytes=0-99", (0, 99)),
+    ("bytes=0-", (0, 1023)),
+    ("bytes=1000-5000", (1000, 1023)),
+    ("bytes=-4", (1020, 1023)),
+    ("bytes=-5000", (0, 1023)),
+    ("BYTES=10-19", (10, 19)),
+    ("bytes=1024-", "unsatisfiable"),
+    ("bytes=-0", "unsatisfiable"),
+    ("bytes=5-2", None),          # invalid spec: ignored, whole file
+    ("bytes=0-1,4-5", None),      # multi-range: ignored, whole file
+    ("bytes=--5", None),
+    ("bytes=-", None),
+    ("items=0-5", None),
+])
+def test_parse_byte_range(header, expected):
+    assert api._parse_byte_range(header, 1024) == expected
+
+
+def test_parse_byte_range_on_empty_file():
+    assert api._parse_byte_range("bytes=0-", 0) == "unsatisfiable"
+    assert api._parse_byte_range(None, 0) is None
+
+
+def test_socket_serves_video_with_byte_ranges(tmp_path, monkeypatch):
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(bytes(range(256)) * 4)  # 1024 bytes
+    monkeypatch.setattr(api, "WEB_DIR", tmp_path)
+    server = api.ThreadingHTTPServer(("127.0.0.1", 0), api._Handler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{port}/clip.mp4"
+    try:
+        with urllib.request.urlopen(url) as resp:
+            assert resp.status == 200
+            assert resp.headers.get("Content-Type") == "video/mp4"
+            assert resp.headers.get("Accept-Ranges") == "bytes"
+            assert len(resp.read()) == 1024
+
+        request = urllib.request.Request(url, headers={"Range": "bytes=10-19"})
+        with urllib.request.urlopen(request) as resp:
+            assert resp.status == 206
+            assert resp.headers.get("Content-Range") == "bytes 10-19/1024"
+            assert resp.read() == bytes(range(10, 20))
+
+        request = urllib.request.Request(url, headers={"Range": "bytes=-4"})
+        with urllib.request.urlopen(request) as resp:
+            assert resp.status == 206
+            assert resp.headers.get("Content-Range") == "bytes 1020-1023/1024"
+
+        request = urllib.request.Request(url, headers={"Range": "bytes=5-2"})
+        with urllib.request.urlopen(request) as resp:
+            assert resp.status == 200
+            assert len(resp.read()) == 1024
+
+        request = urllib.request.Request(url, headers={"Range": "bytes=5000-"})
+        try:
+            urllib.request.urlopen(request)
+            raise AssertionError("expected HTTP 416")
+        except urllib.error.HTTPError as err:
+            assert err.code == 416
+            assert err.headers.get("Content-Range") == "bytes */1024"
     finally:
         server.shutdown()
 
