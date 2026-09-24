@@ -69,16 +69,47 @@ export function teamSlabStyle(background) {
   return `--team-color:${background}; --team-ink:${readableInk(background)}; --team-dots:${halftoneDotColor(background)};`;
 }
 
+/** Perceptual color distance: CIE76 ΔE between two hex colors (sRGB → Lab). */
+export function colorDistance(a, b) {
+  const la = toLab(a);
+  const lb = toLab(b);
+  if (!la || !lb) return Infinity;
+  return Math.hypot(la[0] - lb[0], la[1] - lb[1], la[2] - lb[2]);
+}
+
+function toLab(hex) {
+  const rgb = channels(hex);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map((v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  // sRGB (D65) → XYZ, normalized by the D65 white point.
+  const x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047;
+  const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883;
+  const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const [fx, fy, fz] = [f(x), f(y), f(z)];
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+
 /**
- * "Clash, don't blend": when two teams on screen share a near-identical
- * primary (e.g. Bulls/Raptors #CE1141), the second team switches to its own
- * secondary color so the halves stay distinguishable. Colors always come from
+ * "Clash, don't blend": when two teams on screen have look-alike primaries
+ * (perceptual ΔE below `minDistance`, e.g. Bulls/Raptors #CE1141 or
+ * Knicks/76ers #006BB6), the second team switches to its own secondary color
+ * if that is more distinct. Genuinely different hues (Celtics green vs Bulls
+ * red) are left alone: that collision is the point. Colors always come from
  * the palettes passed in (teamColors.js); nothing is invented.
  */
-export function clashingPair(firstPalette, secondPalette, minRatio = 1.3) {
+export function clashingPair(firstPalette, secondPalette, minDistance = 20) {
   const first = firstPalette.primary;
   let second = secondPalette.primary;
-  if (contrastRatio(first, second) < minRatio && secondPalette.secondary) {
+  const primaryDistance = colorDistance(first, second);
+  if (
+    primaryDistance < minDistance &&
+    secondPalette.secondary &&
+    colorDistance(first, secondPalette.secondary) > primaryDistance
+  ) {
     second = secondPalette.secondary;
   }
   return { first, second };
