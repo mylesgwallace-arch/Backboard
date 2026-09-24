@@ -91,12 +91,29 @@ function setTopbar(route) {
   document.querySelector("#topbar-subtitle").textContent = meta.subtitle || "";
 }
 
+// Optional page hero: a page module may export `renderHero(slot, ctx)`.
+// When it does, the hero (with its own <h1>) stands in for the masthead.
+function setHero(route, ctx) {
+  const slot = document.querySelector("#app-hero");
+  const topbar = document.querySelector(".app-topbar");
+  const hasHero = typeof route.page.renderHero === "function";
+  slot.hidden = !hasHero;
+  topbar.hidden = hasHero;
+  if (hasHero) {
+    route.page.renderHero(slot, ctx);
+  } else {
+    slot.innerHTML = "";
+  }
+}
+
 function mountRoute(path) {
   const route = ROUTES.find((r) => r.path === path) || ROUTES[0];
+  const ctx = { navigate, query: currentQuery() };
   setActiveNav(route.path);
   setTopbar(route);
+  setHero(route, ctx);
   const content = document.querySelector("#app-content");
-  route.page.render(content, { navigate, query: currentQuery() });
+  route.page.render(content, ctx);
 }
 
 async function loadSidebarStatus() {
@@ -117,7 +134,9 @@ function init() {
   buildSidebar();
   loadSidebarStatus();
   onRouteChange(mountRoute);
-  startRouter("/matchups"); // Matchup Predictor is the primary landing experience.
+  // The Dashboard's hero is the landing page; its one CTA leads to the
+  // Matchup Predictor.
+  startRouter("/dashboard");
 }
 
 document.addEventListener("DOMContentLoaded", init);

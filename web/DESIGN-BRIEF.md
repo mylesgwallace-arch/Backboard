@@ -347,3 +347,36 @@ No new API calls are made and no data is invented.
 12. **A pre-existing layout bug was fixed along the way.** The fixed 252px
     sidebar overflowed every phone view. Below 860px the rail now becomes a
     top bar with a scrolling nav strip.
+
+## 11. Landing hero (Dashboard)
+
+A full-viewport "gameday cover" is the app's landing screen (`#/dashboard`
+is now the default route). Code: `web/js/components/hero.js` (markup) and
+`web/hero.css` (styles). A page opts in by exporting `renderHero(slot, ctx)`;
+`main.js` mounts it in `#app-hero` and hides the masthead, since the hero
+carries the page's `<h1>`.
+
+- **Palette:** two colors plus a neutral, all custom properties on `.hero`:
+  `--hero-c1` (slab, trim, accent word), `--hero-c2` (band, jersey, one
+  ransom chip), `--hero-paper`. The brand default is spray orange + court
+  blue `#1f4bd1` (chalk on it 6.2:1). `heroPalette(teamId)` swaps in any team
+  from `teamColors.js`. It swaps primary/secondary when the primary nearly
+  vanishes on the base, picks text on each color by computed contrast, and
+  picks an accent-word color that reaches 3:1 on the base.
+- **Headline:** three stacked words: solid chalk, ransom-note letter chips,
+  and an accent word torn along one generated jagged line (two CSS
+  `clip-path` polygons sharing an edge) with a paper sliver along the tear.
+- **Decorations (max six):** SVG `clipPath` torn paper backing, halftone
+  field on the slab, tag pill, one slanted marker sticker ("called it!"),
+  stat badge, hand-drawn arrow at the CTA. Phones keep only the backing and
+  the sticker, and the color blocks stay inside the photo panel so the
+  headline always sits on the dark base.
+- **Photo:** an SVG player-bust placeholder in the palette's jersey, with
+  halftone key-light and shade screens and a paper cut-out outline.
+  `renderHero({ photo: { src, alt } })` swaps in a real transparent cutout
+  (`.png` under `web/`).
+- **Stat:** 65.1% = `metrics.elo_boosted_ensemble.accuracy` (0.6508) over
+  the 13,332-game chronological holdout in `models/baseline_metrics.json`.
+  The API doesn't serve that file, so the value is a constant in
+  `dashboard.js` to update if the production model changes. The number
+  stays upright and flat, per §6.

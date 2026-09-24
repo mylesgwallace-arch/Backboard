@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800&family=Big+Shoulders+Stencil+Display:wght@900&family=Permanent+Marker&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/hero.css">
 </head>
 <body>
   <div id="app-shell">
@@ -40,6 +41,9 @@
     </aside>
 
     <main class="app-main">
+      <!-- Pages that export renderHero() get a full-viewport hero here, and
+           the hero's own <h1> replaces the masthead below. -->
+      <div id="app-hero" hidden></div>
       <header class="app-topbar">
         <div class="masthead-kicker" aria-hidden="true">
           <span class="kicker-tag">NBA Sports AI</span>

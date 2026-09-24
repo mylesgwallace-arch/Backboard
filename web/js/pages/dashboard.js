@@ -4,6 +4,7 @@
 // structured UI grows.
 
 import { getHealth, getTools, ask, runTool, ingest } from "../api.js";
+import { renderHero as heroMarkup } from "../components/hero.js";
 
 export const meta = {
   title: "Dashboard",
@@ -42,6 +43,25 @@ const QUICK_LINKS = [
     available: true,
   },
 ];
+
+// Holdout accuracy of the production model (elo_boosted_ensemble) from
+// models/baseline_metrics.json: metrics.elo_boosted_ensemble.accuracy =
+// 0.6508 over test_games = 13,332 (chronological 20% holdout). The API
+// doesn't expose this file, so update these two values if the model changes.
+const HOLDOUT_ACCURACY = "65.1%";
+const HOLDOUT_GAMES = "13,332";
+
+/** Landing hero, mounted by main.js above the page (replaces the masthead). */
+export function renderHero(slot) {
+  slot.innerHTML = heroMarkup({
+    tag: "Gameday edition",
+    headline: ["Know", "WHO", "Wins."],
+    sticker: "called it!",
+    deck: "Win probabilities for any NBA matchup from a validated model, plus team form and full-season simulations.",
+    cta: { href: "#/matchups", label: "Predict a matchup" },
+    stat: { value: HOLDOUT_ACCURACY, label: `Picks right on ${HOLDOUT_GAMES} held-out games` },
+  });
+}
 
 export function render(container, { navigate } = {}) {
   container.innerHTML = `
