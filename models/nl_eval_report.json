@@ -1,0 +1,1192 @@
+{
+  "summary": {
+    "mode": "deterministic",
+    "questions": 62,
+    "audit_routing_correct": 1.0,
+    "hard_routing_correct": 1.0,
+    "held_out_routing_correct": 1.0,
+    "held_out_v2_routing_correct": 1.0,
+    "wrong_tool_answers": 0,
+    "success_status": 1.0,
+    "grounded": 1.0,
+    "numbers_checked": 698,
+    "follow_up_routing_correct": true,
+    "ambiguous_declined": 1.0
+  },
+  "rows": [
+    {
+      "group": "audit",
+      "question": "Who would win between the Celtics and Lakers?",
+      "expected_tools": [
+        "predict_matchup"
+      ],
+      "tools": [
+        "predict_matchup"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 2,
+      "unsupported_numbers": [],
+      "seconds": 9.31,
+      "answer": "Model output (predictions and simulations, not facts):\n- Boston Celtics are favored. The frozen production model (elo_boosted_ensemble) gives Boston Celtics (home) 69.3% and Los Angeles Lakers (away) 30.7%, using each team's latest data.\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on."
+    },
+    {
+      "group": "audit",
+      "question": "What would the model have predicted for the Celtics vs Lakers on 2026-04-12?",
+      "expected_tools": [
+        "predict_matchup"
+      ],
+      "tools": [
+        "predict_matchup"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 3,
+      "unsupported_numbers": [],
+      "seconds": 7.27,
+      "answer": "Model output (predictions and simulations, not facts):\n- Boston Celtics are favored. The frozen production model (elo_boosted_ensemble) gives Boston Celtics (home) 70.5% and Los Angeles Lakers (away) 29.5%, using data as of 2026-04-12.\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on."
+    },
+    {
+      "group": "audit",
+      "question": "What drives the model's pick?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 11,
+      "unsupported_numbers": [],
+      "seconds": 0.37,
+      "answer": "How reliable (stored validation evidence):\n- The production model (elo_boosted_ensemble) was chosen by log_loss on a chronological holdout of 13332 games from 2015-03-28: accuracy 65.1%, log loss 0.6228, Brier score 0.2166, expected calibration error 0.0310.\n- Top drivers (permutation importance, boosted component): elo_delta 63.4%; plusMinusPoints_rolling_10 14.3%; win_rate_rolling_10 3.2%; rest_days 2.5%; player_points_rolling_10 2.1%."
+    },
+    {
+      "group": "audit",
+      "question": "How good is the prediction model overall?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 11,
+      "unsupported_numbers": [],
+      "seconds": 0.36,
+      "answer": "How reliable (stored validation evidence):\n- The production model (elo_boosted_ensemble) was chosen by log_loss on a chronological holdout of 13332 games from 2015-03-28: accuracy 65.1%, log loss 0.6228, Brier score 0.2166, expected calibration error 0.0310.\n- Top drivers (permutation importance, boosted component): elo_delta 63.4%; plusMinusPoints_rolling_10 14.3%; win_rate_rolling_10 3.2%; rest_days 2.5%; player_points_rolling_10 2.1%."
+    },
+    {
+      "group": "audit",
+      "question": "What is the head-to-head record between the Celtics and Lakers?",
+      "expected_tools": [
+        "head_to_head"
+      ],
+      "tools": [
+        "head_to_head"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 1,
+      "unsupported_numbers": [],
+      "seconds": 0.37,
+      "answer": "Facts (from the database):\n- Boston Celtics vs Los Angeles Lakers in the 2025-26 regular season: 2-0 in 2 games."
+    },
+    {
+      "group": "audit",
+      "question": "Who is projected to be the league's best and worst team in 2025?",
+      "expected_tools": [
+        "simulate_season"
+      ],
+      "tools": [
+        "simulate_season"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 5,
+      "unsupported_numbers": [],
+      "seconds": 45.01,
+      "answer": "Model output (predictions and simulations, not facts):\n- In the 2025 season replay (1000 simulations) the strongest projected team is Oklahoma City Thunder (63.6 mean wins) and the weakest Washington Wizards (20.0); the league-average projection is 41.0 wins.\n\nUncertainty & limits:\n- simulate_season: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- simulate_season: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "audit",
+      "question": "What are OKC's projected wins and playoff odds?",
+      "expected_tools": [
+        "team_projection"
+      ],
+      "tools": [
+        "team_projection"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 12,
+      "unsupported_numbers": [],
+      "seconds": 0.57,
+      "answer": "Model output (predictions and simulations, not facts):\n- Oklahoma City Thunder: 63.6 mean wins (5th-95th percentile 58-70) in the 2025 replay, top-6 (direct playoff) probability 100.0%; seed 1 95.3%, seed 2 4.2%, seed 3 0.5%, seed 4 0.0%, seed 5 0.0%, seed 6 0.0%; out of the top six 0.0%.\n\nUncertainty & limits:\n- team_projection: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- team_projection: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "audit",
+      "question": "Who is projected to get the East's #1 seed?",
+      "expected_tools": [
+        "simulate_season"
+      ],
+      "tools": [
+        "simulate_season"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 17,
+      "unsupported_numbers": [],
+      "seconds": 0.57,
+      "answer": "Model output (predictions and simulations, not facts):\n- In the 2025 season replay (1000 simulations) the strongest projected team is Oklahoma City Thunder (63.6 mean wins) and the weakest Washington Wizards (20.0); the league-average projection is 41.0 wins.\n- Most likely East seeds: 1. Boston Celtics (65.7%); 2. Cleveland Cavaliers (31.6%); 3. Detroit Pistons (28.3%); 4. New York Knicks (30.3%); 5. Atlanta Hawks (22.6%); 6. Atlanta Hawks (22.0%).\n- Most likely West seeds: 1. Oklahoma City Thunder (95.3%); 2. Houston Rockets (27.0%); 3. Minnesota Timberwolves (22.2%); 4. Denver Nuggets (19.7%); 5. Los Angeles Lakers (17.8%); 6. San Antonio Spurs (19.6%).\n\nUncertainty & limits:\n- simulate_season: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- simulate_season: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "audit",
+      "question": "What is the projected playoff field?",
+      "expected_tools": [
+        "simulate_season"
+      ],
+      "tools": [
+        "simulate_season"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 17,
+      "unsupported_numbers": [],
+      "seconds": 0.59,
+      "answer": "Model output (predictions and simulations, not facts):\n- In the 2025 season replay (1000 simulations) the strongest projected team is Oklahoma City Thunder (63.6 mean wins) and the weakest Washington Wizards (20.0); the league-average projection is 41.0 wins.\n- Most likely East seeds: 1. Boston Celtics (65.7%); 2. Cleveland Cavaliers (31.6%); 3. Detroit Pistons (28.3%); 4. New York Knicks (30.3%); 5. Atlanta Hawks (22.6%); 6. Atlanta Hawks (22.0%).\n- Most likely West seeds: 1. Oklahoma City Thunder (95.3%); 2. Houston Rockets (27.0%); 3. Minnesota Timberwolves (22.2%); 4. Denver Nuggets (19.7%); 5. Los Angeles Lakers (17.8%); 6. San Antonio Spurs (19.6%).\n\nUncertainty & limits:\n- simulate_season: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- simulate_season: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "audit",
+      "question": "What is Boston's probability of making the direct playoffs?",
+      "expected_tools": [
+        "team_projection"
+      ],
+      "tools": [
+        "team_projection"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 12,
+      "unsupported_numbers": [],
+      "seconds": 0.57,
+      "answer": "Model output (predictions and simulations, not facts):\n- Boston Celtics: 57.1 mean wins (5th-95th percentile 51-64) in the 2025 replay, top-6 (direct playoff) probability 100.0%; seed 1 65.7%, seed 2 21.1%, seed 3 9.7%, seed 4 3.0%, seed 5 0.4%, seed 6 0.1%; out of the top six 0.0%.\n\nUncertainty & limits:\n- team_projection: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- team_projection: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "audit",
+      "question": "What are the Knicks' exact seed probabilities?",
+      "expected_tools": [
+        "team_projection"
+      ],
+      "tools": [
+        "team_projection"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 12,
+      "unsupported_numbers": [],
+      "seconds": 0.57,
+      "answer": "Model output (predictions and simulations, not facts):\n- New York Knicks: 50.6 mean wins (5th-95th percentile 44-58) in the 2025 replay, top-6 (direct playoff) probability 96.5%; seed 1 7.2%, seed 2 17.4%, seed 3 24.9%, seed 4 30.3%, seed 5 11.8%, seed 6 4.9%; out of the top six 3.5%.\n\nUncertainty & limits:\n- team_projection: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- team_projection: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "audit",
+      "question": "Does the simulator actually predict real seasons well?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 20,
+      "unsupported_numbers": [],
+      "seconds": 0.35,
+      "answer": "How reliable (stored validation evidence):\n- Forward-projection backtest on [2022, 2023, 2024, 2025] (never used for tuning): 0% of the season played -> mean error 8.68 wins (carry-current-pace 10.19), 5-95% range covered 86%; 25% of the season played -> mean error 5.49 wins (carry-current-pace 5.95), 5-95% range covered 87%; 50% of the season played -> mean error 4.05 wins (carry-current-pace 3.95), 5-95% range covered 90%; 75% of the season played -> mean error 2.19 wins (carry-current-pace 2.38), 5-95% range covered 92%."
+    },
+    {
+      "group": "audit",
+      "question": "What is the league-average projected win total?",
+      "expected_tools": [
+        "simulate_season"
+      ],
+      "tools": [
+        "simulate_season"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 5,
+      "unsupported_numbers": [],
+      "seconds": 0.57,
+      "answer": "Model output (predictions and simulations, not facts):\n- In the 2025 season replay (1000 simulations) the strongest projected team is Oklahoma City Thunder (63.6 mean wins) and the weakest Washington Wizards (20.0); the league-average projection is 41.0 wins.\n\nUncertainty & limits:\n- simulate_season: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- simulate_season: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "audit",
+      "question": "What was Boston's actual 2025 record?",
+      "expected_tools": [
+        "team_record"
+      ],
+      "tools": [
+        "team_record"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 4,
+      "unsupported_numbers": [],
+      "seconds": 0.39,
+      "answer": "Facts (from the database):\n- Boston Celtics went 56-26 in the 2025-26 regular season (82 games)."
+    },
+    {
+      "group": "audit",
+      "question": "What is the numeric team id for the Lakers?",
+      "expected_tools": [
+        "resolve_team_name"
+      ],
+      "tools": [
+        "resolve_team_name"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 1,
+      "unsupported_numbers": [],
+      "seconds": 0.35,
+      "answer": "Facts (from the database):\n- Los Angeles Lakers has teamId 1610612747."
+    },
+    {
+      "group": "audit",
+      "question": "What tables are in the database and are they populated?",
+      "expected_tools": [
+        "describe_database"
+      ],
+      "tools": [
+        "describe_database"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 13,
+      "unsupported_numbers": [],
+      "seconds": 0.38,
+      "answer": "Facts (from the database):\n- Database tables: games (73,279 rows, 23 columns); player_statistics (1,669,922 rows, 40 columns); player_statistics_extended (838,803 rows, 110 columns); players (6,692 rows, 20 columns); team_histories (140 rows, 7 columns); team_statistics (146,560 rows, 59 columns); team_statistics_extended (79,724 rows, 104 columns)."
+    },
+    {
+      "group": "audit",
+      "question": "What do the raw data files look like?",
+      "expected_tools": [
+        "describe_raw_files"
+      ],
+      "tools": [
+        "describe_raw_files"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 26,
+      "unsupported_numbers": [],
+      "seconds": 0.35,
+      "answer": "Facts (from the database):\n- Raw data files: draft_pick_trades_raw.csv (0.1 MB, 7 columns); drafts_raw.csv (0.4 MB, 9 columns); Games.csv (11.2 MB, 23 columns); LeagueSchedule24_25.csv (0.1 MB, 15 columns); LeagueSchedule25_26.csv (0.2 MB, 17 columns); nba_player_movement_raw.csv (1.5 MB, 9 columns); PlayByPlay.parquet (932.9 MB); player_stats_raw.csv (2.2 MB, 15 columns); player_trades_raw.csv (0.4 MB, 7 columns); Players.csv (0.5 MB, 20 columns); players_raw.csv (0.1 MB, 1 columns); PlayerStatistics.csv (389.7 MB, 40 columns); PlayerStatisticsExtended.csv (453.3 MB, 110 columns); roster_change_events_valid.csv (0.0 MB, 7 columns); TeamHistories.csv (0.0 MB, 7 columns); TeamStatistics.csv (36.0 MB, 59 columns); TeamStatisticsExtended.csv (38.2 MB, 104 columns)."
+    },
+    {
+      "group": "audit",
+      "question": "Which features matter most to the model?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 11,
+      "unsupported_numbers": [],
+      "seconds": 0.35,
+      "answer": "How reliable (stored validation evidence):\n- The production model (elo_boosted_ensemble) was chosen by log_loss on a chronological holdout of 13332 games from 2015-03-28: accuracy 65.1%, log loss 0.6228, Brier score 0.2166, expected calibration error 0.0310.\n- Top drivers (permutation importance, boosted component): elo_delta 63.4%; plusMinusPoints_rolling_10 14.3%; win_rate_rolling_10 3.2%; rest_days 2.5%; player_points_rolling_10 2.1%."
+    },
+    {
+      "group": "audit",
+      "question": "What is the model's calibration error?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 6,
+      "unsupported_numbers": [],
+      "seconds": 0.35,
+      "answer": "How reliable (stored validation evidence):\n- The production model (elo_boosted_ensemble) was chosen by log_loss on a chronological holdout of 13332 games from 2015-03-28: accuracy 65.1%, log loss 0.6228, Brier score 0.2166, expected calibration error 0.0310."
+    },
+    {
+      "group": "audit",
+      "question": "How do all the candidate models compare?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 15,
+      "unsupported_numbers": [],
+      "seconds": 0.36,
+      "answer": "How reliable (stored validation evidence):\n- The production model (elo_boosted_ensemble) was chosen by log_loss on a chronological holdout of 13332 games from 2015-03-28: accuracy 65.1%, log loss 0.6228, Brier score 0.2166, expected calibration error 0.0310.\n- Holdout comparison (log loss): elo_boosted_ensemble 0.6228; boosted_hybrid 0.6258; elo 0.6262; elo_augmented_logistic_tuned 0.6280; elo_augmented_logistic 0.6280; calibrated_boosted_hybrid 0.6294; player_history_logistic 0.6455; rolling_logistic 0.6460; home_win_rate 0.6930."
+    },
+    {
+      "group": "audit",
+      "question": "What is player 203507's descriptive impact estimate?",
+      "expected_tools": [
+        "player_impact"
+      ],
+      "tools": [
+        "player_impact"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 4,
+      "unsupported_numbers": [],
+      "seconds": 0.38,
+      "answer": "Model output (predictions and simulations, not facts):\n- Player-impact diagnostic for personId 203507 (moderate confidence, 10 prior games): minutes-weighted net rating -10.45, expected 27.7 minutes, estimated team net-rating change -6.03. This is an association, not a causal forecast.\n\nUncertainty & limits:\n- player_impact: This is a descriptive association estimate, NOT a causal forecast of roster or trade impact.\n- player_impact: It is not a feature of the validated production prediction model."
+    },
+    {
+      "group": "audit",
+      "question": "What does the model say about a Celtics vs Lakers game, and what is player 203507's impact diagnostic?",
+      "expected_tools": [
+        "player_scenario"
+      ],
+      "tools": [
+        "player_scenario"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 3,
+      "unsupported_numbers": [],
+      "seconds": 7.37,
+      "answer": "Model output (predictions and simulations, not facts):\n- The production model gives Boston Celtics 69.3% against Los Angeles Lakers; the player's association-only diagnostic (net rating -10.45, estimated change -6.03) is not used to change it.\n\nUncertainty & limits:\n- player_scenario: The player-impact estimate is association-only and is NOT translated into the model's feature matrix.\n- player_scenario: It is not a causal forecast of a roster change."
+    },
+    {
+      "group": "audit",
+      "question": "Is the roster-change file data/raw/roster_change_events_valid.csv valid, and what does it contain?",
+      "expected_tools": [
+        "validate_roster_file"
+      ],
+      "tools": [
+        "validate_roster_file"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 3,
+      "unsupported_numbers": [],
+      "seconds": 0.38,
+      "answer": "Facts (from the database):\n- data/raw/roster_change_events_valid.csv is valid: 8 events (8 adds, 0 removes) for 7 teams and 8 players, 2025-06-30T00:00:00+00:00 to 2025-08-05T00:00:00+00:00."
+    },
+    {
+      "group": "audit",
+      "question": "What tools does the analytical engine expose?",
+      "expected_tools": [
+        "list_tools"
+      ],
+      "tools": [
+        "list_tools"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 1,
+      "unsupported_numbers": [],
+      "seconds": 0.36,
+      "answer": "Facts (from the database):\n- 26 tools: predict_matchup (prediction); simulate_season (simulation); team_projection (simulation); player_impact (player_diagnostic); player_scenario (player_diagnostic); team_record (database_query); head_to_head (database_query); team_form (model_input); team_elo_rating (model_input); resolve_team_name (utility); list_teams (utility); resolve_player (utility); query_database (database_query); describe_database (database_query); project_rest_of_season (simulation); team_strength (model_input); simulate_era_swap (simulation); team_season_roster (database_query); player_season_stats (database_query); describe_raw_files (utility); validate_roster_file (utility); data_status (utility); team_roster (database_query); predict_margin (prediction); playoff_odds (simulation); validation_report (diagnostic)."
+    },
+    {
+      "group": "hard",
+      "question": "Who is most likely to win the 2025-26 title, and how reliable are the model's title odds?",
+      "expected_tools": [
+        "playoff_odds",
+        "validation_report"
+      ],
+      "tools": [
+        "playoff_odds",
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 29,
+      "unsupported_numbers": [],
+      "seconds": 1.26,
+      "answer": "Model output (predictions and simulations, not facts):\n- Title odds for 2025-26 (actual seeds, exact bracket probabilities): Oklahoma City Thunder 42.0% (lost in the conf finals); San Antonio Spurs 24.8% (lost in the finals); Boston Celtics 13.3% (lost in the first round); Detroit Pistons 11.2% (lost in the conf semifinals); Denver Nuggets 2.9% (lost in the first round).\n\nHow reliable (stored validation evidence):\n- Playoff replay 2014-2025: game log loss 0.639 vs 0.680 baseline over 953 games; series log loss 0.563 vs 0.586 (165 series), series picked right 70.3% vs 72.7% for 'higher seed always'; actual champions got 23.4% title probability on average and were the favorite 36% of the time.\n\nUncertainty & limits:\n- playoff_odds: Replay 2014-2025 (bubble excluded): playoff games log loss 0.639 vs 0.680 for a constant home-win rate; series log loss 0.563 vs 0.586 for 'higher seed wins at the historical rate', but the model picks the series winner less often than 'higher seed always wins' (70.3% vs 72.7%). Later rounds and the Finals are where it is weakest.\n- playoff_odds: Across 11 postseasons the eventual champion got 23% title probability on average before the playoffs (uniform: 6.25%) and was the model's favorite 4 times."
+    },
+    {
+      "group": "hard",
+      "question": "What is the predicted score of Nuggets vs Suns, and who wins?",
+      "expected_tools": [
+        "predict_margin",
+        "predict_matchup"
+      ],
+      "tools": [
+        "predict_margin",
+        "predict_matchup"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 18,
+      "unsupported_numbers": [],
+      "seconds": 7.37,
+      "answer": "Model output (predictions and simulations, not facts):\n- Denver Nuggets are favored. The frozen production model (elo_boosted_ensemble) gives Denver Nuggets (home) 79.1% and Phoenix Suns (away) 20.9%, using each team's latest data.\n- Predicted score: Denver Nuggets 123.9, Phoenix Suns 116.2 (home margin +7.7, 80% range -10.4 to +22.9; total 240.0, 80% range 216.1 to 264.3).\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on.\n- predict_margin: Holdout (13,332 games from 2015-03-28): margin MAE 10.57 points vs 10.68 for a straight line in the Elo gap and 11.66 for a constant home edge (R2 0.15). Single-game margins are mostly noise.\n- predict_margin: Total points: MAE 14.96, no better than averaging the two teams' recent scoring (14.94). Treat the total as that simple average."
+    },
+    {
+      "group": "hard",
+      "question": "Compare the Knicks and Celtics: 2025 records, head-to-head, and who is favored if the Knicks host the Celtics?",
+      "expected_tools": [
+        "head_to_head",
+        "predict_matchup",
+        "team_record"
+      ],
+      "tools": [
+        "head_to_head",
+        "predict_matchup",
+        "team_record"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 11,
+      "unsupported_numbers": [],
+      "seconds": 7.38,
+      "answer": "Facts (from the database):\n- New York Knicks vs Boston Celtics in the 2025-26 regular season: 3-1 in 4 games.\n- New York Knicks went 53-29 in the 2025-26 regular season (82 games).\n- Boston Celtics went 56-26 in the 2025-26 regular season (82 games).\n\nModel output (predictions and simulations, not facts):\n- New York Knicks are favored. The frozen production model (elo_boosted_ensemble) gives New York Knicks (home) 54.7% and Boston Celtics (away) 45.3%, using each team's latest data.\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on."
+    },
+    {
+      "group": "hard",
+      "question": "As of January 15, 2026, what did the rest-of-season projection look like for the Spurs?",
+      "expected_tools": [
+        "project_rest_of_season"
+      ],
+      "tools": [
+        "project_rest_of_season"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 16,
+      "unsupported_numbers": [],
+      "seconds": 0.77,
+      "answer": "Model output (predictions and simulations, not facts):\n- From 2026-01-15 (602 games played, 628 simulated with strength frozen that day): San Antonio Spurs were 27-13 and projected to 51.5 wins (5th-95th percentile 44-58), top-6 probability 81.2%.\n\nUncertainty & limits:\n- project_rest_of_season: Backtested on 2022-2025 (models/forward_projection_backtest.json): mean absolute error in final wins is about 8.7 preseason, 5.5 at a quarter of the season, 4.0 at the halfway point and 2.2 at three quarters. At the halfway point it is no better than carrying each team's current win percentage forward (3.95).\n- project_rest_of_season: No roster changes, injuries or trades after the cutoff are modeled; the frozen strength does not update."
+    },
+    {
+      "group": "hard",
+      "question": "Who did the Philadelphia 76ers add this offseason, and how strong are teams right now?",
+      "expected_tools": [
+        "team_roster",
+        "team_strength"
+      ],
+      "tools": [
+        "team_roster",
+        "team_strength"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 41,
+      "unsupported_numbers": [],
+      "seconds": 0.87,
+      "answer": "Facts (from the database):\n- Philadelphia 76ers since their last game on 2026-04-12 (transaction feed as of 2026-09-24): arrived LeBron James (31.7 min, 19.9 pts per game), Kentavious Caldwell-Pope (20.4 min, 8.4 pts per game), Jaylen Brown (36.1 min, 30.4 pts per game), Anfernee Simons (4.4 min, 2.4 pts per game), Dean Wade (18.8 min, 4.4 pts per game), Ariel Hukporti (6.7 min, 2.9 pts per game), Caleb Love (11.9 min, 6.3 pts per game), Rayan Rupert (32.7 min, 13.8 pts per game), 1642889 (0.0 min, 0.0 pts per game); departed Paul George, Andre Drummond, Kelly Oubre Jr., Quentin Grimes, Dalen Terry.\n\nModel output (predictions and simulations, not facts):\n- Current strength (chance to beat an average opponent, frozen production model): Oklahoma City Thunder 77.1% (Elo 1747); San Antonio Spurs 74.4% (Elo 1703); Boston Celtics 70.5% (Elo 1682); Detroit Pistons 68.6% (Elo 1658); Denver Nuggets 67.0% (Elo 1653); weakest: Memphis Grizzlies 24.7%; Brooklyn Nets 24.1%; Washington Wizards 22.2%.\n\nUncertainty & limits:\n- team_strength: A schedule-free summary, not a win projection: real schedules are unbalanced.\n- team_strength: Roster adjustment did not improve preseason projections in the 2015-2025 backtest (MAE 7.77 -> 7.80 wins, game log loss 0.6734 -> 0.6744); the production model puts little weight on roster-derived inputs. Treat the adjusted column as bookkeeping."
+    },
+    {
+      "group": "hard",
+      "question": "How many points per game did Stephen Curry average in 2015-16?",
+      "expected_tools": [
+        "player_season_stats"
+      ],
+      "tools": [
+        "player_season_stats"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 9,
+      "unsupported_numbers": [],
+      "seconds": 0.38,
+      "answer": "Facts (from the database):\n- Stephen Curry in the 2015-16 regular season (Golden State Warriors): 79 games, 30.1 points, 5.4 rebounds, 6.7 assists in 33.6 minutes per game; shooting 50.4% from the field, 45.4% from three, 90.7% from the line."
+    },
+    {
+      "group": "hard",
+      "question": "What were Michael Jordan's per-game stats in 1992-93?",
+      "expected_tools": [
+        "player_season_stats"
+      ],
+      "tools": [
+        "player_season_stats"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 9,
+      "unsupported_numbers": [],
+      "seconds": 0.37,
+      "answer": "Facts (from the database):\n- Michael Jordan in the 1992-93 regular season (Chicago Bulls): 78 games, 32.6 points, 6.7 rebounds, 5.5 assists in 39.3 minutes per game; shooting 49.5% from the field, 35.2% from three, 83.7% from the line."
+    },
+    {
+      "group": "hard",
+      "question": "What were the Thunder's title odds when the 2024-25 playoffs started, and did they win?",
+      "expected_tools": [
+        "playoff_odds"
+      ],
+      "tools": [
+        "playoff_odds"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 21,
+      "unsupported_numbers": [],
+      "seconds": 0.61,
+      "answer": "Model output (predictions and simulations, not facts):\n- Title odds for 2024-25 (actual seeds, exact bracket probabilities): Oklahoma City Thunder 50.0% (won the title); Boston Celtics 28.2% (lost in the conf semifinals); Cleveland Cavaliers 6.8% (lost in the conf semifinals); Los Angeles Clippers 3.5% (lost in the first round); Minnesota Timberwolves 3.4% (lost in the conf finals).\n- Oklahoma City Thunder: reach the first round 100.0%, conference finals 79.1%, Finals 68.0%, title 50.0%; actual result: won the title.\n\nUncertainty & limits:\n- playoff_odds: Replay 2014-2025 (bubble excluded): playoff games log loss 0.639 vs 0.680 for a constant home-win rate; series log loss 0.563 vs 0.586 for 'higher seed wins at the historical rate', but the model picks the series winner less often than 'higher seed always wins' (70.3% vs 72.7%). Later rounds and the Finals are where it is weakest.\n- playoff_odds: Across 11 postseasons the eventual champion got 23% title probability on average before the playoffs (uniform: 6.25%) and was the model's favorite 4 times."
+    },
+    {
+      "group": "hard",
+      "question": "Is the database up to date?",
+      "expected_tools": [
+        "data_status"
+      ],
+      "tools": [
+        "data_status"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 8,
+      "unsupported_numbers": [],
+      "seconds": 0.4,
+      "answer": "Facts (from the database):\n- Latest completed game 2026-06-13 20:30:00; latest model feature row 2026-04-12 20:30:00; latest roster transaction 2026-08-13; 0 games of the 2026-27 schedule are loaded."
+    },
+    {
+      "group": "hard",
+      "question": "What are Stephen Curry's impact diagnostic and his 2024-25 per-game stats?",
+      "expected_tools": [
+        "player_impact",
+        "player_season_stats"
+      ],
+      "tools": [
+        "player_impact",
+        "player_season_stats"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 13,
+      "unsupported_numbers": [],
+      "seconds": 0.4,
+      "answer": "Facts (from the database):\n- Stephen Curry in the 2024-25 regular season (Golden State Warriors): 70 games, 24.5 points, 4.4 rebounds, 6.0 assists in 32.0 minutes per game; shooting 44.8% from the field, 39.7% from three, 93.3% from the line.\n\nModel output (predictions and simulations, not facts):\n- Player-impact diagnostic for personId 201939 (moderate confidence, 10 prior games): minutes-weighted net rating +0.54, expected 27.3 minutes, estimated team net-rating change +0.30. This is an association, not a causal forecast.\n\nUncertainty & limits:\n- player_impact: This is a descriptive association estimate, NOT a causal forecast of roster or trade impact.\n- player_impact: It is not a feature of the validated production prediction model."
+    },
+    {
+      "group": "hard",
+      "question": "How would the 1993 Chicago Bulls change if they had 2016 Steph Curry instead of B.J. Armstrong?",
+      "expected_tools": [
+        "simulate_era_swap"
+      ],
+      "tools": [
+        "simulate_era_swap"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 41,
+      "unsupported_numbers": [],
+      "seconds": 27.89,
+      "answer": "Model output (predictions and simulations, not facts):\n- What-if: Chicago Bulls 1992-93 with Stephen Curry (2015-16, translated) in place of B.J. Armstrong. WHAT-IF estimate, not a historical fact: net rating +2.94 per 100 possessions (80% range +2.46 to +3.45), about +5.1 wins (80% range +4.3 to +6.0) against the unchanged team's simulated 59.5 (actual record: 57 wins, net rating 6.6).\n- Title probability 21.4% with the real roster vs 47.8% with the swap ([actual roster, calibrated swap]; bracket seeded by simulated record (the era's division-winner seeding rule is not modeled)).\n- Stephen Curry's 2015-16 line translated into that era: 40.4 points, 10.0 assists and 8.3 three-point attempts per 100 possessions at 66.2% true shooting, taking B.J. Armstrong's 12.6% of team minutes.\n\nHow reliable (stored validation evidence):\n- Confidence: Low.\n- Cross-era translation cannot be validated: there is no ground truth for how a player would have played in another era.\n- Within adjacent seasons, box-score-valued roster changes explain only part of real changes: held-out 2010-2025 error 2.87 vs 3.10 points without them (correlation 0.48); residual SD 3.6 points.\n- Last season's player values alone predict a team's next season worse than its own previous rating (4.50 vs 3.40 MAE); they help only in combination.\n\nUncertainty & limits:\n- Upper scenario if box-score value transferred in full (not validated): net rating +13.55, +17.3 wins.\n- Assumption: Stephen Curry plays exactly the minutes B.J. Armstrong played (12.6% of team minutes) and produces the translated per-100 line at those minutes.\n- Assumption: A player's value relative to their league carries across eras (rules, pace, spacing, and defensive schemes are absorbed only through league means and spreads).\n- Assumption: No fit, usage, chemistry or coaching interaction effects; everyone else is unchanged.\n- Assumption: Box scores capture offense far better than defense.\n- A single year was read as the season ending that year (e.g. '1993' as 1992-93); name the season as '1992-93' to be explicit.\n- simulate_era_swap: Confidence is Low: cross-era translation has no ground truth; within adjacent seasons box-score-valued roster changes cut the error in predicting a team's rating change only from 3.10 to 2.87 points (2010-2025 held out).\n- simulate_era_swap: Both seasons must be 1985-86 or later (complete team box scores)."
+    },
+    {
+      "group": "held_out",
+      "question": "Which team wins if the Bucks play at the Heat?",
+      "expected_tools": [
+        "predict_matchup"
+      ],
+      "tools": [
+        "predict_matchup"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 2,
+      "unsupported_numbers": [],
+      "seconds": 7.17,
+      "answer": "Model output (predictions and simulations, not facts):\n- Miami Heat are favored. The frozen production model (elo_boosted_ensemble) gives Miami Heat (home) 74.9% and Milwaukee Bucks (away) 25.1%, using each team's latest data.\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on."
+    },
+    {
+      "group": "held_out",
+      "question": "Give me the Lakers' 2024 regular season record.",
+      "expected_tools": [
+        "team_record"
+      ],
+      "tools": [
+        "team_record"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 4,
+      "unsupported_numbers": [],
+      "seconds": 0.4,
+      "answer": "Facts (from the database):\n- Los Angeles Lakers went 49-31 in the 2024-25 regular season (80 games)."
+    },
+    {
+      "group": "held_out",
+      "question": "How often has Boston beaten New York all-time?",
+      "expected_tools": [
+        "head_to_head"
+      ],
+      "tools": [
+        "head_to_head"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 3,
+      "unsupported_numbers": [],
+      "seconds": 0.38,
+      "answer": "Facts (from the database):\n- Boston Celtics vs New York Knicks all-time in the regular season: 309-193 in 502 games."
+    },
+    {
+      "group": "held_out",
+      "question": "What's the chance Denver makes the top six in 2025?",
+      "expected_tools": [
+        "team_projection"
+      ],
+      "tools": [
+        "team_projection"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 12,
+      "unsupported_numbers": [],
+      "seconds": 0.58,
+      "answer": "Model output (predictions and simulations, not facts):\n- Denver Nuggets: 50.3 mean wins (5th-95th percentile 43-57) in the 2025 replay, top-6 (direct playoff) probability 85.2%; seed 1 0.9%, seed 2 21.5%, seed 3 18.3%, seed 4 19.7%, seed 5 14.7%, seed 6 10.1%; out of the top six 14.8%.\n\nUncertainty & limits:\n- team_projection: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- team_projection: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "held_out",
+      "question": "Show me the projected standings for 2024.",
+      "expected_tools": [
+        "simulate_season"
+      ],
+      "tools": [
+        "simulate_season"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 5,
+      "unsupported_numbers": [],
+      "seconds": 0.58,
+      "answer": "Model output (predictions and simulations, not facts):\n- In the 2024 season replay (1000 simulations) the strongest projected team is Oklahoma City Thunder (61.7 mean wins) and the weakest Washington Wizards (19.1); the league-average projection is 40.9 wins.\n\nUncertainty & limits:\n- simulate_season: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- simulate_season: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "held_out",
+      "question": "What is Nikola Jokic averaging in 2025-26?",
+      "expected_tools": [
+        "player_season_stats"
+      ],
+      "tools": [
+        "player_season_stats"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 9,
+      "unsupported_numbers": [],
+      "seconds": 0.36,
+      "answer": "Facts (from the database):\n- Nikola Jokic in the 2025-26 regular season (Denver Nuggets): 65 games, 27.7 points, 12.9 rebounds, 10.7 assists in 34.7 minutes per game; shooting 56.9% from the field, 38.0% from three, 83.1% from the line."
+    },
+    {
+      "group": "held_out",
+      "question": "Is the win-probability model well calibrated?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 6,
+      "unsupported_numbers": [],
+      "seconds": 0.36,
+      "answer": "How reliable (stored validation evidence):\n- The production model (elo_boosted_ensemble) was chosen by log_loss on a chronological holdout of 13332 games from 2015-03-28: accuracy 65.1%, log loss 0.6228, Brier score 0.2166, expected calibration error 0.0310."
+    },
+    {
+      "group": "held_out",
+      "question": "Who are the title favorites for 2024-25?",
+      "expected_tools": [
+        "playoff_odds"
+      ],
+      "tools": [
+        "playoff_odds"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 17,
+      "unsupported_numbers": [],
+      "seconds": 0.6,
+      "answer": "Model output (predictions and simulations, not facts):\n- Title odds for 2024-25 (actual seeds, exact bracket probabilities): Oklahoma City Thunder 50.0% (won the title); Boston Celtics 28.2% (lost in the conf semifinals); Cleveland Cavaliers 6.8% (lost in the conf semifinals); Los Angeles Clippers 3.5% (lost in the first round); Minnesota Timberwolves 3.4% (lost in the conf finals).\n\nUncertainty & limits:\n- playoff_odds: Replay 2014-2025 (bubble excluded): playoff games log loss 0.639 vs 0.680 for a constant home-win rate; series log loss 0.563 vs 0.586 for 'higher seed wins at the historical rate', but the model picks the series winner less often than 'higher seed always wins' (70.3% vs 72.7%). Later rounds and the Finals are where it is weakest.\n- playoff_odds: Across 11 postseasons the eventual champion got 23% title probability on average before the playoffs (uniform: 6.25%) and was the model's favorite 4 times."
+    },
+    {
+      "group": "held_out",
+      "question": "What changed on the Knicks roster this summer?",
+      "expected_tools": [
+        "team_roster"
+      ],
+      "tools": [
+        "team_roster"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 4,
+      "unsupported_numbers": [],
+      "seconds": 0.49,
+      "answer": "Facts (from the database):\n- New York Knicks since their last game on 2026-04-12 (transaction feed as of 2026-09-24): arrived Andre Drummond (15.1 min, 4.6 pts per game); departed Mitchell Robinson, Ariel Hukporti, Trey Jemison III."
+    },
+    {
+      "group": "held_out",
+      "question": "Predict the final score: Warriors at Kings.",
+      "expected_tools": [
+        "predict_margin"
+      ],
+      "tools": [
+        "predict_margin",
+        "predict_matchup"
+      ],
+      "routing_correct": true,
+      "extra_tools": [
+        "predict_matchup"
+      ],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 18,
+      "unsupported_numbers": [],
+      "seconds": 7.34,
+      "answer": "Model output (predictions and simulations, not facts):\n- Sacramento Kings are favored. The frozen production model (elo_boosted_ensemble) gives Sacramento Kings (home) 51.2% and Golden State Warriors (away) 48.8%, using each team's latest data.\n- Predicted score: Sacramento Kings 117.4, Golden State Warriors 116.0 (home margin +1.4, 80% range -16.7 to +16.6; total 233.4, 80% range 209.5 to 257.6).\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on.\n- predict_margin: Holdout (13,332 games from 2015-03-28): margin MAE 10.57 points vs 10.68 for a straight line in the Elo gap and 11.66 for a constant home edge (R2 0.15). Single-game margins are mostly noise.\n- predict_margin: Total points: MAE 14.96, no better than averaging the two teams' recent scoring (14.94). Treat the total as that simple average."
+    },
+    {
+      "group": "held_out",
+      "question": "How strong is every team at the moment?",
+      "expected_tools": [
+        "team_strength"
+      ],
+      "tools": [
+        "team_strength"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 19,
+      "unsupported_numbers": [],
+      "seconds": 0.54,
+      "answer": "Model output (predictions and simulations, not facts):\n- Current strength (chance to beat an average opponent, frozen production model): Oklahoma City Thunder 77.1% (Elo 1747); San Antonio Spurs 74.4% (Elo 1703); Boston Celtics 70.5% (Elo 1682); Detroit Pistons 68.6% (Elo 1658); Denver Nuggets 67.0% (Elo 1653); weakest: Memphis Grizzlies 24.7%; Brooklyn Nets 24.1%; Washington Wizards 22.2%.\n\nUncertainty & limits:\n- team_strength: A schedule-free summary, not a win projection: real schedules are unbalanced.\n- team_strength: Roster adjustment did not improve preseason projections in the 2015-2025 backtest (MAE 7.77 -> 7.80 wins, game log loss 0.6734 -> 0.6744); the production model puts little weight on roster-derived inputs. Treat the adjusted column as bookkeeping."
+    },
+    {
+      "group": "held_out",
+      "question": "Which schema tables exist?",
+      "expected_tools": [
+        "describe_database"
+      ],
+      "tools": [
+        "describe_database"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 13,
+      "unsupported_numbers": [],
+      "seconds": 0.4,
+      "answer": "Facts (from the database):\n- Database tables: games (73,279 rows, 23 columns); player_statistics (1,669,922 rows, 40 columns); player_statistics_extended (838,803 rows, 110 columns); players (6,692 rows, 20 columns); team_histories (140 rows, 7 columns); team_statistics (146,560 rows, 59 columns); team_statistics_extended (79,724 rows, 104 columns)."
+    },
+    {
+      "group": "held_out",
+      "question": "How did the 2025 playoff bracket odds look for the Knicks?",
+      "expected_tools": [
+        "playoff_odds"
+      ],
+      "tools": [
+        "playoff_odds"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 21,
+      "unsupported_numbers": [],
+      "seconds": 0.59,
+      "answer": "Model output (predictions and simulations, not facts):\n- Title odds for 2025-26 (actual seeds, exact bracket probabilities): Oklahoma City Thunder 42.0% (lost in the conf finals); San Antonio Spurs 24.8% (lost in the finals); Boston Celtics 13.3% (lost in the first round); Detroit Pistons 11.2% (lost in the conf semifinals); Denver Nuggets 2.9% (lost in the first round).\n- New York Knicks: reach the first round 100.0%, conference finals 22.9%, Finals 10.1%, title 2.0%; actual result: won the title.\n\nUncertainty & limits:\n- playoff_odds: Replay 2014-2025 (bubble excluded): playoff games log loss 0.639 vs 0.680 for a constant home-win rate; series log loss 0.563 vs 0.586 for 'higher seed wins at the historical rate', but the model picks the series winner less often than 'higher seed always wins' (70.3% vs 72.7%). Later rounds and the Finals are where it is weakest.\n- playoff_odds: Across 11 postseasons the eventual champion got 23% title probability on average before the playoffs (uniform: 6.25%) and was the model's favorite 4 times."
+    },
+    {
+      "group": "held_out",
+      "question": "What is the Celtics' Elo rating?",
+      "expected_tools": [
+        "team_elo_rating"
+      ],
+      "tools": [
+        "team_elo_rating"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 2,
+      "unsupported_numbers": [],
+      "seconds": 4.03,
+      "answer": "Model output (predictions and simulations, not facts):\n- Boston Celtics's Elo rating after its latest game is 1682.3 (every team starts at 1500; only differences between teams are meaningful).\n\nUncertainty & limits:\n- team_elo_rating: A single team's Elo rating has no fixed meaning on its own; it is only comparable relative to other teams' ratings computed the same way."
+    },
+    {
+      "group": "held_out",
+      "question": "How has the Thunder played lately?",
+      "expected_tools": [
+        "team_form"
+      ],
+      "tools": [
+        "team_form"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 5,
+      "unsupported_numbers": [],
+      "seconds": 0.94,
+      "answer": "Facts (from the database):\n- Oklahoma City Thunder's rolling form entering its game of 2026-04-12 (previous 10 games): won 80%, scored 123.1 and allowed 107.6 per game (margin +15.5)."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "Who's favored when the Celtics visit the Knicks?",
+      "expected_tools": [
+        "predict_matchup"
+      ],
+      "tools": [
+        "predict_matchup"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 2,
+      "unsupported_numbers": [],
+      "seconds": 7.18,
+      "answer": "Model output (predictions and simulations, not facts):\n- New York Knicks are favored. The frozen production model (elo_boosted_ensemble) gives New York Knicks (home) 54.7% and Boston Celtics (away) 45.3%, using each team's latest data.\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "How many games did the Pistons win in 2025-26?",
+      "expected_tools": [
+        "team_record"
+      ],
+      "tools": [
+        "team_record"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 4,
+      "unsupported_numbers": [],
+      "seconds": 0.41,
+      "answer": "Facts (from the database):\n- Detroit Pistons went 60-22 in the 2025-26 regular season (82 games)."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "Did Boston or Philadelphia win more of their meetings in 2024?",
+      "expected_tools": [
+        "head_to_head"
+      ],
+      "tools": [
+        "head_to_head"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 2,
+      "unsupported_numbers": [],
+      "seconds": 0.39,
+      "answer": "Facts (from the database):\n- Boston Celtics vs Philadelphia 76ers in the 2024-25 regular season: 3-1 in 4 games."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "What seed will Houston probably get in 2025?",
+      "expected_tools": [
+        "team_projection"
+      ],
+      "tools": [
+        "team_projection"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 12,
+      "unsupported_numbers": [],
+      "seconds": 0.6,
+      "answer": "Model output (predictions and simulations, not facts):\n- Houston Rockets: 51.2 mean wins (5th-95th percentile 44-58) in the 2025 replay, top-6 (direct playoff) probability 88.7%; seed 1 1.7%, seed 2 27.0%, seed 3 20.3%, seed 4 16.7%, seed 5 13.6%, seed 6 9.4%; out of the top six 11.3%.\n\nUncertainty & limits:\n- team_projection: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- team_projection: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "Which teams are expected to make the playoffs in 2023?",
+      "expected_tools": [
+        "simulate_season"
+      ],
+      "tools": [
+        "simulate_season"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 17,
+      "unsupported_numbers": [],
+      "seconds": 0.6,
+      "answer": "Model output (predictions and simulations, not facts):\n- In the 2023 season replay (1000 simulations) the strongest projected team is Boston Celtics (59.8 mean wins) and the weakest Detroit Pistons (16.3); the league-average projection is 41.0 wins.\n- Most likely East seeds: 1. Boston Celtics (84.1%); 2. Milwaukee Bucks (40.4%); 3. Milwaukee Bucks (26.1%); 4. Cleveland Cavaliers (21.1%); 5. New York Knicks (19.8%); 6. Miami Heat (19.4%).\n- Most likely West seeds: 1. Denver Nuggets (36.1%); 2. Denver Nuggets (25.0%); 3. Oklahoma City Thunder (18.1%); 4. Los Angeles Clippers (15.1%); 5. Phoenix Suns (14.7%); 6. Sacramento Kings (14.1%).\n\nUncertainty & limits:\n- simulate_season: Season projections are descriptive outputs of the validated per-game model; they are not causal claims and do not account for roster changes or coaching decisions not present in pregame features.\n- simulate_season: Replay mode: each game's pregame probability already reflects that season's earlier results, so this is a game-by-game replay of the season as it unfolded, not a forecast made on one date; its win ranges show game luck only. For a genuine forecast from a date use project_rest_of_season."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "What were Luka Doncic's numbers in 2023-24?",
+      "expected_tools": [
+        "player_season_stats"
+      ],
+      "tools": [
+        "player_season_stats"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 9,
+      "unsupported_numbers": [],
+      "seconds": 0.38,
+      "answer": "Facts (from the database):\n- Luka Doncic in the 2023-24 regular season (Dallas Mavericks): 66 games, 33.9 points, 9.4 rebounds, 10.0 assists in 37.3 minutes per game; shooting 48.4% from the field, 37.5% from three, 78.4% from the line."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "Which features does the win model rely on most?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 11,
+      "unsupported_numbers": [],
+      "seconds": 0.37,
+      "answer": "How reliable (stored validation evidence):\n- The production model (elo_boosted_ensemble) was chosen by log_loss on a chronological holdout of 13332 games from 2015-03-28: accuracy 65.1%, log loss 0.6228, Brier score 0.2166, expected calibration error 0.0310.\n- Top drivers (permutation importance, boosted component): elo_delta 63.4%; plusMinusPoints_rolling_10 14.3%; win_rate_rolling_10 3.2%; rest_days 2.5%; player_points_rolling_10 2.1%."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "Who was the favorite to win the 2023-24 championship?",
+      "expected_tools": [
+        "playoff_odds"
+      ],
+      "tools": [
+        "playoff_odds"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 17,
+      "unsupported_numbers": [],
+      "seconds": 0.62,
+      "answer": "Model output (predictions and simulations, not facts):\n- Title odds for 2023-24 (actual seeds, exact bracket probabilities): Boston Celtics 46.0% (won the title); Denver Nuggets 15.8% (lost in the conf semifinals); Oklahoma City Thunder 9.1% (lost in the conf semifinals); Minnesota Timberwolves 6.9% (lost in the conf finals); New York Knicks 6.5% (lost in the conf semifinals).\n\nUncertainty & limits:\n- playoff_odds: Replay 2014-2025 (bubble excluded): playoff games log loss 0.639 vs 0.680 for a constant home-win rate; series log loss 0.563 vs 0.586 for 'higher seed wins at the historical rate', but the model picks the series winner less often than 'higher seed always wins' (70.3% vs 72.7%). Later rounds and the Finals are where it is weakest.\n- playoff_odds: Across 11 postseasons the eventual champion got 23% title probability on average before the playoffs (uniform: 6.25%) and was the model's favorite 4 times."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "Who joined the Lakers since last season?",
+      "expected_tools": [
+        "team_roster"
+      ],
+      "tools": [
+        "team_roster"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 27,
+      "unsupported_numbers": [],
+      "seconds": 0.54,
+      "answer": "Facts (from the database):\n- Los Angeles Lakers since their last game on 2026-04-12 (transaction feed as of 2026-09-24): arrived Kevon Looney (5.6 min, 0.7 pts per game), Collin Sexton (29.1 min, 19.6 pts per game), Quentin Grimes (24.8 min, 10.3 pts per game), Matisse Thybulle (21.3 min, 8.1 pts per game), Ziaire Williams (13.9 min, 8.7 pts per game), Sandro Mamukelashvili (22.5 min, 13.2 pts per game), Jaden Hardy (11.3 min, 6.5 pts per game), Walker Kessler (15.3 min, 7.2 pts per game), 1641751 (0.0 min, 0.0 pts per game), 1643418 (0.0 min, 0.0 pts per game), 1643758 (0.0 min, 0.0 pts per game); departed LeBron James, Marcus Smart, Luke Kennard, Deandre Ayton, Rui Hachimura, Jaxson Hayes."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "By how many points should the Nuggets beat the Jazz?",
+      "expected_tools": [
+        "predict_margin"
+      ],
+      "tools": [
+        "predict_margin",
+        "predict_matchup"
+      ],
+      "routing_correct": true,
+      "extra_tools": [
+        "predict_matchup"
+      ],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 18,
+      "unsupported_numbers": [],
+      "seconds": 7.47,
+      "answer": "Model output (predictions and simulations, not facts):\n- Denver Nuggets are favored. The frozen production model (elo_boosted_ensemble) gives Denver Nuggets (home) 92.6% and Utah Jazz (away) 7.4%, using each team's latest data.\n- Predicted score: Denver Nuggets 135.1, Utah Jazz 120.5 (home margin +14.6, 80% range -3.5 to +29.8; total 255.5, 80% range 231.6 to 279.7).\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on.\n- predict_margin: Holdout (13,332 games from 2015-03-28): margin MAE 10.57 points vs 10.68 for a straight line in the Elo gap and 11.66 for a constant home edge (R2 0.15). Single-game margins are mostly noise.\n- predict_margin: Total points: MAE 14.96, no better than averaging the two teams' recent scoring (14.94). Treat the total as that simple average."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "What does Denver's recent form look like?",
+      "expected_tools": [
+        "team_form"
+      ],
+      "tools": [
+        "team_form"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 5,
+      "unsupported_numbers": [],
+      "seconds": 0.9,
+      "answer": "Facts (from the database):\n- Denver Nuggets's rolling form entering its game of 2026-04-12 (previous 10 games): won 100%, scored 131.2 and allowed 120.1 per game (margin +11.1)."
+    },
+    {
+      "group": "held_out_v2",
+      "question": "How accurate is the margin model?",
+      "expected_tools": [
+        "validation_report"
+      ],
+      "tools": [
+        "validation_report"
+      ],
+      "routing_correct": true,
+      "extra_tools": [],
+      "status": "success",
+      "grounded": true,
+      "numbers_checked": 3,
+      "unsupported_numbers": [],
+      "seconds": 0.36,
+      "answer": "How reliable (stored validation evidence):\n- Margin model holdout MAE 10.57 points vs 10.68 (Elo line) and 11.66 (constant home edge)."
+    }
+  ],
+  "follow_up": {
+    "questions": [
+      "Who is favored in Celtics vs Lakers?",
+      "What would the model have predicted for that matchup on 2026-04-12?"
+    ],
+    "tools": [
+      "predict_matchup"
+    ],
+    "routing_correct": true,
+    "used_context_teams": [
+      {
+        "home_team_id": 1610612738,
+        "away_team_id": 1610612747,
+        "game_date": "2026-04-12"
+      }
+    ],
+    "status": "success",
+    "grounded": true,
+    "answer": "Model output (predictions and simulations, not facts):\n- Boston Celtics are favored. The frozen production model (elo_boosted_ensemble) gives Boston Celtics (home) 70.5% and Los Angeles Lakers (away) 29.5%, using data as of 2026-04-12.\n\nUncertainty & limits:\n- predict_matchup: A single-game probability is not a guarantee of the outcome.\n- predict_matchup: The model does not incorporate player availability or roster changes beyond the pregame rolling features it was validated on."
+  },
+  "ambiguous": [
+    {
+      "question": "How many points did Curry average in 2015?",
+      "status": "error",
+      "declined_or_clarified": true,
+      "answer": "I could not answer that: 'Curry' matches 6 players: Dell Curry (1986-2001, personId 209); Stephen Curry (2009-present, personId 201939); Michael Curry (1993-2004, personId 688); Seth Curry (2013-present, personId 203552); Eddy Curry (2001-2012, personId 2201). Which one do you mean?"
+    },
+    {
+      "question": "Who is favored in Los Angeles vs Denver?",
+      "status": "error",
+      "declined_or_clarified": true,
+      "answer": "I could not answer that: 'Los Angeles' could mean Los Angeles Clippers or Los Angeles Lakers; please name the team."
+    },
+    {
+      "question": "What is the meaning of life?",
+      "status": "error",
+      "declined_or_clarified": true,
+      "answer": "I could not answer that: I could not map that question to a supported analytical tool. Try a matchup ('Who is favored in Celtics vs Lakers?'), a projection, playoff or title odds, a team record, a head-to-head series, a player's season stats, or how accurate the model is."
+    }
+  ]
+}

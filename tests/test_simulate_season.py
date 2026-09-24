@@ -443,3 +443,53 @@ def test_load_pregame_probabilities_returns_valid_ensemble_values(monkeypatch):
     np.testing.assert_allclose(
         probabilities["home_win_probability"], np.array([0.55])
     )
+
+def test_load_team_names_uses_the_name_a_franchise_had_that_season(tmp_path):
+    import sqlite3
+
+    from src.simulate_season import load_team_names
+
+    db_path = tmp_path / "nba.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "CREATE TABLE team_histories (teamId INTEGER, teamCity TEXT, teamName TEXT, "
+            "teamAbbrev TEXT, seasonFounded INTEGER, seasonActiveTill INTEGER, league TEXT)"
+        )
+        connection.executemany(
+            "INSERT INTO team_histories VALUES (?, ?, ?, ?, ?, ?, 'NBA')",
+            [
+                (1610612760, "Seattle", "SuperSonics", "SEA  ", 1967, 2007),
+                (1610612760, "Oklahoma City", "Thunder", "OKC  ", 2008, 2100),
+            ],
+        )
+        connection.commit()
+
+    assert load_team_names(2005, db_path=db_path)[1610612760]["teamName"] == "Seattle SuperSonics"
+    current = load_team_names(db_path=db_path)[1610612760]
+    assert current == {"teamName": "Oklahoma City Thunder", "teamAbbreviation": "OKC"}
+    assert load_team_names(db_path=tmp_path / "missing" / "nba.db") == {}
+
+
+def test_project_season_attaches_team_names_everywhere():
+    probabilities = _synthetic_probabilities()
+    names = {
+        1610612738: {"teamName": "Boston Celtics", "teamAbbreviation": "BOS"},
+        1610612760: {"teamName": "Oklahoma City Thunder", "teamAbbreviation": "OKC"},
+    }
+
+    projection = project_season(
+        probabilities, 2025, n_simulations=50, random_state=1, team_names=names
+    )
+
+    by_id = {row["teamId"]: row for row in projection["projected_standings"]}
+    assert by_id[1610612738]["teamName"] == "Boston Celtics"
+    # Teams without a name entry keep their id only.
+    assert "teamName" not in by_id[1610612747]
+    assert all(
+        "teamName" in slot
+        for slot in projection["projected_seedings"]
+        if slot["teamId"] in names
+    )
+    best = projection["league_summary"]["best_team"]
+    if best["teamId"] in names:
+        assert best["teamName"] == names[best["teamId"]]["teamName"]

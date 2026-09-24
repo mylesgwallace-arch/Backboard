@@ -5,7 +5,7 @@
 // polished dashboard. No simulation logic lives here — every number comes
 // directly from the `simulate_season` tool envelope.
 
-import { getTools, getSeasonSimulation } from "../api.js";
+import { getTools, getSeasonSimulation, projectRestOfSeason } from "../api.js";
 import { fetchTeams } from "../components/teamSelect.js";
 import { renderSeedProbabilityBars } from "../components/seedProbabilities.js";
 import { renderLeagueSummaryCard } from "../components/leagueSummary.js";
@@ -65,7 +65,21 @@ export function render(container, ctx = {}) {
             </select>
           </div>
         </div>
+        <div class="field">
+          <label for="sim-mode-select">Mode</label>
+          <div class="select-wrap">
+            <select class="select" id="sim-mode-select">
+              <option value="replay">Game-by-game replay (knows the season as it happened)</option>
+              <option value="asof">Project from a date (only what was known then)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" id="sim-date-field" style="display:none">
+          <label for="sim-date-input">Cutoff date</label>
+          <input type="date" class="input" id="sim-date-input">
+        </div>
       </div>
+      <p class="text-muted mt-1" id="sim-mode-note" style="font-size:0.85rem;"></p>
       <div class="predict-actions">
         <button class="btn" id="run-sim-btn">Run Season Simulation</button>
         <span id="sim-status" class="text-muted"></span>
@@ -128,22 +142,46 @@ function wireRunButton(container, ctx) {
   const resultMount = container.querySelector("#sim-result-mount");
   const seasonSelect = container.querySelector("#sim-season-select");
   const countSelect = container.querySelector("#sim-count-select");
+  const modeSelect = container.querySelector("#sim-mode-select");
+  const dateField = container.querySelector("#sim-date-field");
+  const dateInput = container.querySelector("#sim-date-input");
+  const modeNote = container.querySelector("#sim-mode-note");
+
+  const syncMode = () => {
+    const asOf = modeSelect.value === "asof";
+    const season = Number(seasonSelect.value);
+    // `.field` sets its own display, which beats the hidden attribute.
+    dateField.style.display = asOf ? "" : "none";
+    if (!dateInput.value || !dateInput.value.startsWith(String(season + 1))) {
+      dateInput.value = `${season + 1}-01-15`;
+    }
+    modeNote.textContent = asOf
+      ? "Games before the cutoff keep their real results; every later game uses the production model with team strength frozen at the cutoff, plus a calibrated per-team strength uncertainty. Backtested on 2022-2025: about 8.7 wins average error preseason, 4.0 at mid-season (no better than carrying current win% forward), 2.2 with a quarter of the season left."
+      : "Replay mode gives each game the model's pregame probability, which already reflects every earlier result that season. It is a replay check, not a forecast made on one date.";
+  };
+  modeSelect.addEventListener("change", syncMode);
+  seasonSelect.addEventListener("change", syncMode);
+  syncMode();
 
   btn.addEventListener("click", async () => {
     const season = Number(seasonSelect.value);
     const nSimulations = Number(countSelect.value);
+    const asOf = modeSelect.value === "asof" ? dateInput.value : null;
 
     errorMount.innerHTML = "";
     btn.disabled = true;
     const originalLabel = btn.textContent;
     btn.innerHTML = '<span class="spinner"></span> Running simulation…';
-    statusEl.textContent =
-      "This may take up to a minute the first time, while the model replays the full season history. It will be much faster on later runs.";
+    statusEl.textContent = asOf
+      ? "Projecting from the cutoff date (a few seconds the first time)."
+      : "This may take up to a minute the first time, while the model replays the full season history. It will be much faster on later runs.";
     resultMount.innerHTML = renderResultSkeleton();
 
     let res;
     try {
-      res = await getSeasonSimulation({ season, nSimulations });
+      res = asOf
+        ? await projectRestOfSeason({ season, asOf, nSimulations })
+        : await getSeasonSimulation({ season, nSimulations });
     } catch (err) {
       btn.disabled = false;
       btn.textContent = originalLabel;
@@ -199,8 +237,12 @@ function renderResults(projection, teams) {
   const teamById = new Map(teams.map((t) => [t.team_id, t]));
   const east = projection.projected_standings.filter((r) => r.conference === "East");
   const west = projection.projected_standings.filter((r) => r.conference === "West");
+  const cutoffNote = projection.as_of
+    ? `<div class="info-banner scouting-note fade-in"><span class="note-label">Projected from ${escapeHtml(projection.as_of)}</span><p class="model-insight">${projection.games_completed} games already played (real results kept), ${projection.games_remaining} simulated. Strength uncertainty (log-odds SD) ${projection.strength_sd.toFixed(2)}.</p></div>`
+    : "";
 
   return `
+    ${cutoffNote}
     ${renderLeagueSummaryCard(projection.league_summary, teamById, projection.season, projection.n_simulations)}
     ${renderPlayoffField(projection.projected_seedings, teamById)}
     <div class="card fade-in">
@@ -219,6 +261,7 @@ function renderResults(projection, teams) {
 }
 
 function renderStandingsTable(title, rows, teamById) {
+  const hasRecord = rows.some((row) => row.current_wins != null);
   return `
     <div>
       <div class="section-title">${title}</div>
@@ -227,12 +270,13 @@ function renderStandingsTable(title, rows, teamById) {
           <tr>
             <th scope="col">Seed</th>
             <th scope="col">Team</th>
+            ${hasRecord ? '<th scope="col" class="num">Record then</th>' : ""}
             <th scope="col" class="num">Mean wins</th>
             <th scope="col" class="num">Playoff odds</th>
           </tr>
         </thead>
         <tbody>
-          ${rows.map((row, index) => renderStandingsRow(row, index, teamById)).join("")}
+          ${rows.map((row, index) => renderStandingsRow(row, index, teamById, hasRecord)).join("")}
         </tbody>
       </table>
       <p class="table-note"><span class="cutoff-key" aria-hidden="true"></span> Direct-playoff line: top 6 seeds</p>
@@ -240,7 +284,7 @@ function renderStandingsTable(title, rows, teamById) {
   `;
 }
 
-function renderStandingsRow(row, index, teamById) {
+function renderStandingsRow(row, index, teamById, hasRecord = false) {
   const team = teamById.get(row.teamId);
   const oddsColor = playoffOddsColor(row.direct_playoff_probability);
   // The dashed playoff-cutoff court line sits above the first team outside
@@ -250,8 +294,9 @@ function renderStandingsRow(row, index, teamById) {
     <tr class="standings-row${cutoffClass}" data-team-id="${row.teamId}">
       <td class="rank">${index + 1}</td>
       <td class="team">
-        <button type="button" class="row-toggle" aria-expanded="false">${escapeHtml(team?.full_name || row.teamId)}</button>
+        <button type="button" class="row-toggle" aria-expanded="false">${escapeHtml(team?.full_name || row.teamName || row.teamId)}</button>
       </td>
+      ${hasRecord ? `<td class="num">${row.current_wins}-${row.current_losses}</td>` : ""}
       <td class="num">${row.mean_wins.toFixed(1)}</td>
       <td class="num">
         <div class="odds-cell">
@@ -263,7 +308,7 @@ function renderStandingsRow(row, index, teamById) {
       </td>
     </tr>
     <tr class="standings-detail-row" data-detail-for="${row.teamId}" style="display:none;">
-      <td colspan="4">
+      <td colspan="${hasRecord ? 5 : 4}">
         <div class="stat-grid stat-grid--3">
           <div class="stat-tile">
             <div class="stat-label">Median wins</div>

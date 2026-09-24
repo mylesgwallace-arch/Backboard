@@ -46,9 +46,39 @@ try:
         resolve_team_name_to_id,
     )
     from src.train_baseline_model import build_game_dataset
-    from src.simulate_season import load_pregame_probabilities, project_season
+    from src.simulate_season import (
+        attach_team_names,
+        load_pregame_probabilities,
+        load_team_names,
+        project_season,
+    )
     from src.player_impact import summarize_player_impact
     from src.player_scenario import analyze_single_player_scenario
+    from src.player_lookup import find_players, player_season_stats, resolve_player_id
+    from src.db_query import QueryRejected, describe_database, run_query
+    from src.roster_change_data import load_roster_change_events, summarize_roster_change_events
+    from src.forward_projection import (
+        frozen_matchup_probabilities,
+        load_model_inputs,
+        project_from_date,
+        season_schedule,
+        strength_freshness,
+        strength_table,
+    )
+    from src.roster_state import (
+        adjusted_snapshots,
+        build_roster_state,
+        load_transactions,
+        roster_change_summary,
+    )
+    from src.playoffs import (
+        actual_bracket_odds,
+        load_postseason_games,
+        postseason_cutoff,
+        season_playoff_odds,
+    )
+    from src.margin_model import load_margin_bundle, predict_margin
+    from src import era_swap
 except ImportError:  # pragma: no cover - direct-script support
     from main import (
         FEATURES_PATH,
@@ -64,18 +94,58 @@ except ImportError:  # pragma: no cover - direct-script support
         resolve_team_name_to_id,
     )
     from train_baseline_model import build_game_dataset
-    from simulate_season import load_pregame_probabilities, project_season
+    from simulate_season import (
+        attach_team_names,
+        load_pregame_probabilities,
+        load_team_names,
+        project_season,
+    )
     from player_impact import summarize_player_impact
     from player_scenario import analyze_single_player_scenario
+    from player_lookup import find_players, player_season_stats, resolve_player_id
+    from db_query import QueryRejected, describe_database, run_query
+    from roster_change_data import load_roster_change_events, summarize_roster_change_events
+    from forward_projection import (
+        frozen_matchup_probabilities,
+        load_model_inputs,
+        project_from_date,
+        season_schedule,
+        strength_freshness,
+        strength_table,
+    )
+    from roster_state import (
+        adjusted_snapshots,
+        build_roster_state,
+        load_transactions,
+        roster_change_summary,
+    )
+    from playoffs import (
+        actual_bracket_odds,
+        load_postseason_games,
+        postseason_cutoff,
+        season_playoff_odds,
+    )
+    from margin_model import load_margin_bundle, predict_margin
+    import era_swap
 
 
 ROOT = Path(__file__).resolve().parents[1]
+VALIDATION_REPORTS = {
+    "production_model": ROOT / "models" / "baseline_metrics.json",
+    "season_forward_projection": ROOT / "models" / "forward_projection_backtest.json",
+    "playoffs": ROOT / "models" / "playoff_validation.json",
+    "margin": ROOT / "models" / "margin_metrics.json",
+    "era_swap": ROOT / "models" / "era_swap_model.json",
+}
 
 PRODUCTION_MODEL = "elo_boosted_ensemble"
 
 # Cache of pregame probabilities so repeated simulation tool calls within one
 # process do not re-run the (expensive) chronological Elo replay every time.
 PROBABILITIES_CACHE = {}
+# Cache of the feature table + paired games + frozen model used to score
+# hypothetical games (forward projections, playoff brackets).
+MODEL_INPUTS_CACHE = {}
 
 
 class ToolUnavailable(Exception):
@@ -104,6 +174,22 @@ def _cached_probabilities(
 def clear_probability_cache():
     """Clear the in-process pregame probability cache (mainly for tests)."""
     PROBABILITIES_CACHE.clear()
+    MODEL_INPUTS_CACHE.clear()
+
+
+def _cached_model_inputs():
+    if "inputs" not in MODEL_INPUTS_CACHE:
+        MODEL_INPUTS_CACHE["inputs"] = load_model_inputs()
+    return MODEL_INPUTS_CACHE["inputs"]
+
+
+def _cached_margin_bundle():
+    if "margin" not in MODEL_INPUTS_CACHE:
+        try:
+            MODEL_INPUTS_CACHE["margin"] = load_margin_bundle()
+        except FileNotFoundError as exc:
+            raise ToolUnavailable(str(exc))
+    return MODEL_INPUTS_CACHE["margin"]
 
 
 # ---------------------------------------------------------------------------
@@ -112,11 +198,18 @@ def clear_probability_cache():
 
 INT_TYPE = "int"
 STR_TYPE = "str"
+BOOL_TYPE = "bool"
 
 PLAYOFF_LIMITATION = (
     "Season projections are descriptive outputs of the validated per-game model; "
     "they are not causal claims and do not account for roster changes or "
     "coaching decisions not present in pregame features."
+)
+REPLAY_LIMITATION = (
+    "Replay mode: each game's pregame probability already reflects that season's "
+    "earlier results, so this is a game-by-game replay of the season as it "
+    "unfolded, not a forecast made on one date; its win ranges show game luck "
+    "only. For a genuine forecast from a date use project_rest_of_season."
 )
 
 
@@ -137,6 +230,21 @@ def _resolve_home_away(parameters):
     if home_team_id == away_team_id:
         raise ValueError("Home and away teams must be different.")
     return home_team_id, away_team_id
+
+
+def _person_id_or_name(parameters, id_key="person_id", name_key="player"):
+    """Resolve a player reference to a personId from id or name.
+
+    An ambiguous or unknown name raises ``ValueError`` (a structured error
+    envelope listing the candidates) instead of silently picking one.
+    """
+    person_id = parameters.get(id_key)
+    if person_id is None:
+        name = parameters.get(name_key)
+        if not name:
+            raise ValueError(f"Provide either '{id_key}' or '{name_key}'.")
+        person_id = resolve_player_id(name, season=parameters.get("season"))
+    return int(person_id)
 
 
 # ---------------------------------------------------------------------------
@@ -160,12 +268,13 @@ def _execute_predict_matchup(parameters):
 
 def _run_projection(parameters):
     probabilities = _cached_probabilities()
-    return project_season(
+    projection = project_season(
         probabilities,
         parameters["season"],
         n_simulations=parameters.get("n_simulations", 1000),
         random_state=parameters.get("random_state", 42),
     )
+    return attach_team_names(projection, load_team_names(parameters["season"]))
 
 
 def _execute_simulate_season(parameters):
@@ -199,9 +308,10 @@ def _execute_team_projection(parameters):
 
 def _execute_player_impact(parameters):
     """Return the association-only player-impact diagnostic for one player."""
+    person_id = _person_id_or_name(parameters)
     try:
         diagnostic = summarize_player_impact(
-            parameters["person_id"],
+            person_id,
             before=parameters.get("before"),
             window=parameters.get("window", 10),
         )
@@ -220,11 +330,12 @@ def _execute_player_impact(parameters):
 def _execute_player_scenario(parameters):
     """Describe a player's estimated impact in a matchup without altering the model."""
     home_team_id, away_team_id = _resolve_home_away(parameters)
+    person_id = _person_id_or_name(parameters)
     try:
         result = analyze_single_player_scenario(
             home_team_id,
             away_team_id,
-            parameters["person_id"],
+            person_id,
             game_date=parameters.get("game_date"),
             window=parameters.get("window", 10),
         )
@@ -408,6 +519,433 @@ def _execute_list_teams(parameters):
     return {"teams": teams, "count": len(teams)}
 
 
+def _execute_resolve_player(parameters):
+    """Resolve a player name to personId candidates (never silently picks)."""
+    result = find_players(
+        parameters["name"],
+        season=parameters.get("season"),
+        limit=parameters.get("limit", 10),
+    )
+    if result["match_count"] == 0:
+        raise ToolUnavailable(f"No player found matching '{parameters['name']}'.")
+    return result
+
+
+def _execute_query_database(parameters):
+    """Run one guarded, read-only SQL query against nba.db."""
+    try:
+        return run_query(
+            parameters["sql"],
+            max_rows=parameters.get("max_rows", 200),
+        )
+    except QueryRejected as exc:
+        raise ToolError(str(exc))
+
+
+def _execute_describe_database(parameters):
+    """List nba.db tables with row counts and column names/types."""
+    try:
+        return describe_database(parameters.get("table"))
+    except QueryRejected as exc:
+        raise ToolError(str(exc))
+
+
+def _cached_transactions():
+    if "transactions" not in MODEL_INPUTS_CACHE:
+        MODEL_INPUTS_CACHE["transactions"] = load_transactions()
+    return MODEL_INPUTS_CACHE["transactions"]
+
+
+def _today():
+    return pd.Timestamp.today().normalize()
+
+
+def _execute_project_rest_of_season(parameters):
+    """Project final standings from the actual record on a cutoff date."""
+    season = parameters["season"]
+    inputs = _cached_model_inputs()
+    try:
+        schedule = season_schedule(inputs, season)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    snapshots = None
+    roster_note = None
+    if parameters.get("roster_adjusted"):
+        snapshots, state, applied = adjusted_snapshots(
+            parameters["as_of"], inputs.features, transactions=_cached_transactions()
+        )
+        roster_note = {
+            "transactions_applied": len(applied),
+            "teams_with_changes": sum(
+                1 for team in state.values() if team["arrived"] or team["departed"]
+            ),
+            "warning": "Roster adjustment did not improve preseason projections in the "
+                       "2015-2025 backtest (models/roster_adjustment_backtest.json).",
+        }
+    try:
+        projection = project_from_date(
+            season,
+            parameters["as_of"],
+            inputs,
+            n_simulations=parameters.get("n_simulations", 1000),
+            random_state=parameters.get("random_state", 42),
+            team_names=load_team_names(season),
+            schedule=schedule,
+            snapshots=snapshots,
+        )
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    projection["strength_freshness"] = strength_freshness(inputs, schedule, parameters["as_of"])
+    result = {"projection": projection}
+    if roster_note:
+        result["roster_adjustment"] = roster_note
+    if parameters.get("team_id") is not None or parameters.get("team"):
+        team_id = _team_id_or_name(parameters, "team_id", "team")
+        row = next(
+            (row for row in projection["projected_standings"] if row["teamId"] == team_id),
+            None,
+        )
+        if row is None:
+            raise ToolUnavailable(
+                f"Team {team_id} has no games in season {season}."
+            )
+        result["team_id"] = team_id
+        result["team_projection"] = row
+    return result
+
+
+def _execute_team_strength(parameters):
+    """Schedule-free current strength of every team, optionally roster-adjusted."""
+    inputs = _cached_model_inputs()
+    as_of = pd.Timestamp(parameters["as_of"]) if parameters.get("as_of") else _today()
+    team_ids = list(range(NBA_TEAM_ID_MIN, NBA_TEAM_ID_MAX + 1))
+    rows = strength_table(inputs, as_of, team_ids=team_ids)
+    names = load_team_names()
+    result = {"as_of": str(as_of.date()), "teams": rows}
+    if parameters.get("roster_adjusted"):
+        snapshots, state, applied = adjusted_snapshots(
+            as_of, inputs.features, transactions=_cached_transactions()
+        )
+        adjusted = {
+            row["teamId"]: row
+            for row in strength_table(inputs, as_of, team_ids=team_ids, snapshots=snapshots)
+        }
+        changes = {row["teamId"]: row for row in roster_change_summary(state)}
+        for row in rows:
+            row["roster_adjusted_win_probability_vs_average"] = (
+                adjusted[row["teamId"]]["win_probability_vs_average"]
+            )
+            row["roster_changes"] = changes.get(row["teamId"])
+        result["transactions_applied"] = len(applied)
+        result["latest_transaction"] = (
+            None if not applied else max(event["date"] for event in applied)
+        )
+    for row in rows:
+        info = names.get(row["teamId"])
+        if info:
+            row["teamName"] = info["teamName"]
+    return result
+
+
+def _cached_era_model():
+    if "era" not in MODEL_INPUTS_CACHE:
+        MODEL_INPUTS_CACHE["era"] = era_swap.build_era_model()
+    return MODEL_INPUTS_CACHE["era"]
+
+
+def _execute_simulate_era_swap(parameters):
+    """What-if: a historical team-season with one player replaced by another's translated season."""
+    season = parameters["season"]
+    in_season = parameters["in_season"]
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    out_id = parameters.get("out_person_id")
+    if out_id is None:
+        if not parameters.get("out_player"):
+            raise ValueError("Provide 'out_player' or 'out_person_id' (the player removed).")
+        out_id = resolve_player_id(parameters["out_player"], season=season)
+    in_id = parameters.get("in_person_id")
+    if in_id is None:
+        if not parameters.get("in_player"):
+            raise ValueError("Provide 'in_player' or 'in_person_id' (the player added).")
+        in_id = resolve_player_id(parameters["in_player"], season=in_season)
+    method = parameters.get("method", "zscore")
+    if method not in ("zscore", "ratio"):
+        raise ToolError("method must be 'zscore' or 'ratio'.")
+    model = _cached_era_model()
+    try:
+        result = era_swap.simulate_swap(
+            model, _cached_probabilities(), _cached_model_inputs(), team_id, season,
+            int(out_id), int(in_id), in_season, method=method,
+            n_simulations=parameters.get("n_simulations", 1000),
+            random_state=parameters.get("random_state", 42),
+        )
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    names = load_team_names(season)
+    team_name = names.get(team_id, {}).get("teamName", str(team_id))
+    return {
+        "report": era_swap.transparency_report(result, team_name, model["reports"]),
+        "effect": result["effect"],
+        "scenarios": result["scenarios"],
+        "team_name": team_name,
+    }
+
+
+def _execute_team_season_roster(parameters):
+    """Who played for a team in a regular season, with games, minutes and points (factual)."""
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    season = parameters["season"]
+    with sqlite3.connect(TEAM_DB_PATH) as connection:
+        rows = connection.execute(
+            """
+            SELECT ps.personId, MAX(ps.firstName), MAX(ps.lastName), COUNT(*),
+                   SUM(CAST(ps.numMinutes AS REAL)), SUM(COALESCE(ps.points, 0))
+            FROM player_statistics ps
+            LEFT JOIN games g ON g.gameId = ps.gameId
+            WHERE ps.playerteamId = ?
+              AND COALESCE(ps.gameType, g.gameType) = 'Regular Season'
+              AND ps.gameDateTimeEst >= ? AND ps.gameDateTimeEst < ?
+              AND CAST(ps.numMinutes AS REAL) > 0
+            GROUP BY ps.personId
+            ORDER BY SUM(CAST(ps.numMinutes AS REAL)) DESC
+            """,
+            (team_id, f"{season}-09-01", f"{season + 1}-07-01"),
+        ).fetchall()
+    if not rows:
+        raise ToolUnavailable(f"No regular-season box scores for teamId {team_id} in {season}.")
+    players = [
+        {"person_id": int(person), "name": f"{first} {last}".strip(), "games": int(games),
+         "minutes_per_game": round(minutes / games, 1), "points_per_game": round(points / games, 1)}
+        for person, first, last, games, minutes, points in rows
+    ]
+    return {"team_id": team_id, "season": season, "players": players, "count": len(players)}
+
+
+def _execute_player_season_stats(parameters):
+    """Regular-season per-game averages for one player-season (factual)."""
+    person_id = _person_id_or_name(parameters)
+    stats = player_season_stats(person_id, parameters["season"])
+    if stats is None:
+        raise ToolUnavailable(
+            f"personId {person_id} has no regular-season minutes in the "
+            f"{parameters['season']} season."
+        )
+    return stats
+
+
+RAW_DIR = ROOT / "data" / "raw"
+
+
+def _execute_describe_raw_files(parameters):
+    """List the raw source files with size and (for CSVs) their header columns."""
+    if not RAW_DIR.exists():
+        raise ToolUnavailable(f"{RAW_DIR} does not exist.")
+    files = []
+    for path in sorted(RAW_DIR.iterdir()):
+        if not path.is_file():
+            continue
+        entry = {
+            "name": path.name,
+            "size_mb": round(path.stat().st_size / 1_000_000, 1),
+            "format": path.suffix.lstrip(".").lower(),
+        }
+        if path.suffix.lower() == ".csv":
+            with path.open("r", encoding="utf-8", errors="replace") as handle:
+                entry["columns"] = [column.strip() for column in handle.readline().split(",")]
+            entry["column_count"] = len(entry["columns"])
+        files.append(entry)
+    return {"directory": "data/raw", "files": files, "count": len(files)}
+
+
+def _execute_validate_roster_file(parameters):
+    """Validate a roster-change CSV under data/ or templates/ against the contract."""
+    relative = parameters["path"].replace("\\", "/").lstrip("/")
+    target = (ROOT / relative).resolve()
+    allowed = [(ROOT / "data").resolve(), (ROOT / "templates").resolve()]
+
+    def inside(base):
+        try:
+            target.relative_to(base)
+            return True
+        except ValueError:
+            return False
+
+    if not any(inside(base) for base in allowed):
+        raise ToolError("Only CSV files under data/ or templates/ can be validated.")
+    if target.suffix.lower() != ".csv":
+        raise ToolError("The roster-change file must be a .csv file.")
+    if not target.exists():
+        raise ToolUnavailable(f"{relative} does not exist.")
+    try:
+        events = load_roster_change_events(target)
+    except ValueError as exc:
+        return {"path": relative, "valid": False, "problem": str(exc)}
+    summary = summarize_roster_change_events(events)
+    return {"path": relative, "valid": True, "summary": summary}
+
+
+def _execute_data_status(parameters):
+    """How current each data source is, and whether the upcoming schedule is loaded."""
+    inputs = _cached_model_inputs()
+    today = _today()
+    upcoming = today.year if today.month >= 7 else today.year - 1
+    with sqlite3.connect(TEAM_DB_PATH) as connection:
+        latest_game = connection.execute(
+            "SELECT MAX(gameDateTimeEst) FROM games WHERE winner IS NOT NULL"
+        ).fetchone()[0]
+        upcoming_games = connection.execute(
+            "SELECT COUNT(*), SUM(winner IS NOT NULL) FROM games "
+            "WHERE gameType = 'Regular Season' AND gameDateTimeEst >= ? AND gameDateTimeEst < ?",
+            (f"{upcoming}-09-01", f"{upcoming + 1}-07-01"),
+        ).fetchone()
+        has_log = connection.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='data_ingestion_log'"
+        ).fetchone()[0]
+        log = connection.execute(
+            "SELECT fetched_at, source_url, rows_loaded, validation_status "
+            "FROM data_ingestion_log ORDER BY id DESC LIMIT 5"
+        ).fetchall() if has_log else []
+    transactions = _cached_transactions()
+    return {
+        "today": str(today.date()),
+        "latest_completed_game": latest_game,
+        "latest_feature_row": str(inputs.features["gameDateTimeEst"].max()),
+        "latest_transaction": (
+            None if transactions.empty else str(transactions["event_timestamp"].max().date())
+        ),
+        "transaction_count": int(len(transactions)),
+        "upcoming_season": upcoming,
+        "upcoming_season_regular_season_games_in_database": int(upcoming_games[0] or 0),
+        "upcoming_season_games_with_results": int(upcoming_games[1] or 0),
+        "recent_ingestions": [
+            {"fetched_at": row[0], "source": row[1], "rows_loaded": row[2], "status": row[3]}
+            for row in log
+        ],
+        "how_to_update": {
+            "schedule": "python src/live_data.py --source <LeagueSchedule26_27.csv or URL> "
+                        "(add --dry-run first to validate)",
+            "results_and_box_scores": "replace data/raw/*.csv with an updated export, then "
+                                      "python src/load_data.py, python src/create_indexes.py "
+                                      "and python src/build_features.py. load_data replaces "
+                                      "the games table, so re-ingest the schedule afterwards.",
+            "transactions": "python src/roster_change_data.py --normalize-player-movement "
+                            "data/raw/nba_player_movement_raw.csv, or add rows to "
+                            "data/manual/roster_transactions.csv",
+        },
+    }
+
+
+def _execute_team_roster(parameters):
+    """Arrivals/departures for one team since its last game (factual bookkeeping)."""
+    inputs = _cached_model_inputs()
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    as_of = pd.Timestamp(parameters["as_of"]) if parameters.get("as_of") else _today()
+    state, applied = build_roster_state(
+        as_of, inputs.features, transactions=_cached_transactions(), team_ids=[team_id]
+    )
+    if team_id not in state:
+        raise ToolUnavailable(f"No pregame history for teamId={team_id} on or before {as_of.date()}.")
+    return {
+        "team_id": team_id,
+        "as_of": str(as_of.date()),
+        "roster": state[team_id],
+        "transactions_applied": [event for event in applied if event["team_id"] == team_id],
+    }
+
+
+def _execute_predict_margin(parameters):
+    """Predicted margin/total/scores plus the production win probability."""
+    home_team_id, away_team_id = _resolve_home_away(parameters)
+    inputs = _cached_model_inputs()
+    game_date = parameters.get("game_date")
+    cutoff = pd.Timestamp(game_date) if game_date else None
+    try:
+        result = predict_margin(
+            home_team_id, away_team_id, inputs, _cached_margin_bundle(), game_date=cutoff
+        )
+        probability = frozen_matchup_probabilities(
+            pd.DataFrame({"homeTeamId": [home_team_id], "awayTeamId": [away_team_id]}),
+            cutoff, inputs,
+        )["home_win_probability"].iloc[0]
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    result["production_home_win_probability"] = round(float(probability), 6)
+    result["production_model"] = PRODUCTION_MODEL
+    return result
+
+
+def _execute_playoff_odds(parameters):
+    """Round-by-round and title odds: real bracket if seeded, else simulated season."""
+    season = parameters["season"]
+    names = load_team_names(season)
+    inputs = _cached_model_inputs()
+    as_of = parameters.get("as_of")
+    games, _ = load_postseason_games(season)
+    postseason_started = not games.empty and (
+        as_of is None or pd.Timestamp(as_of) >= postseason_cutoff(games)
+    )
+    if postseason_started:
+        try:
+            result = actual_bracket_odds(season, inputs, team_names=names)
+        except ValueError as exc:
+            raise ToolUnavailable(str(exc))
+    else:
+        if as_of is None:
+            raise ToolError(
+                f"The {season} postseason is not in the database; provide 'as_of' "
+                "to simulate the rest of the season and the playoffs."
+            )
+        try:
+            result = season_playoff_odds(
+                season, as_of, inputs,
+                n_simulations=parameters.get("n_simulations", 1000),
+                random_state=parameters.get("random_state", 42),
+                team_names=names,
+            )
+        except ValueError as exc:
+            raise ToolUnavailable(str(exc))
+    if parameters.get("team_id") is not None or parameters.get("team"):
+        team_id = _team_id_or_name(parameters, "team_id", "team")
+        row = next((row for row in result["teams"] if row["teamId"] == team_id), None)
+        if row is None:
+            raise ToolUnavailable(f"Team {team_id} is not in the {season} playoff picture.")
+        result["team_id"] = team_id
+        result["team_odds"] = row
+    return result
+
+
+def _execute_validation_report(parameters):
+    """Return a stored validation report (factual record of past evaluations)."""
+    component = parameters["component"]
+    path = VALIDATION_REPORTS.get(component)
+    if path is None:
+        raise ToolError(
+            f"Unknown component '{component}'. Choose one of: "
+            f"{', '.join(sorted(VALIDATION_REPORTS))}."
+        )
+    if not path.exists():
+        raise ToolUnavailable(f"{path.name} has not been generated yet.")
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if component == "production_model":
+        report = {
+            key: report.get(key)
+            for key in ("recommended_model", "recommendation_metric", "split_start",
+                        "train_games", "test_games", "metrics", "calibration",
+                        "feature_importance", "elo")
+        }
+    elif component == "playoffs":
+        report = {key: value for key, value in report.items() if key != "series_detail"}
+    elif component == "season_forward_projection":
+        report = {
+            "calibration_seasons": report.get("calibration_seasons"),
+            "strength_sd_by_season_fraction": report.get("strength_sd_by_season_fraction"),
+            "calibrated": report["calibrated_strength_uncertainty"]["summary_by_checkpoint"],
+            "game_noise_only": report["game_noise_only"]["summary_by_checkpoint"],
+            "evaluation_seasons": report["calibrated_strength_uncertainty"]["seasons"],
+        }
+    return {"component": component, "source": f"models/{path.name}", "report": report}
+
+
 # ---------------------------------------------------------------------------
 # Tool registry
 # ---------------------------------------------------------------------------
@@ -472,7 +1010,7 @@ TOOLS = {
             "The schedule is the repository's full historical schedule, and "
             "the projection applies to that schedule's structure.",
         ],
-        "limitations": [PLAYOFF_LIMITATION],
+        "limitations": [PLAYOFF_LIMITATION, REPLAY_LIMITATION],
         "execute": _execute_simulate_season,
     },
     "team_projection": {
@@ -500,7 +1038,7 @@ TOOLS = {
             "The team is one of the 30 current NBA franchises.",
             "All game probabilities are leakage-safe pregame probabilities.",
         ],
-        "limitations": [PLAYOFF_LIMITATION],
+        "limitations": [PLAYOFF_LIMITATION, REPLAY_LIMITATION],
         "execute": _execute_team_projection,
     },
     "player_impact": {
@@ -512,8 +1050,14 @@ TOOLS = {
         "category": "player_diagnostic",
         "model": "player-impact association diagnostic (descriptive)",
         "parameters": [
-            {"name": "person_id", "type": INT_TYPE, "required": True,
-             "description": "NBA player personId."},
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "NBA player personId (or give 'player')."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Player name, e.g. 'Steven Adams'. Must resolve "
+                            "to exactly one player (see resolve_player)."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Optional season used only to disambiguate a "
+                            "player name."},
             {"name": "before", "type": STR_TYPE, "required": False,
              "description": "Optional cutoff date (YYYY-MM-DD); only prior "
                             "appearances are used."},
@@ -551,8 +1095,10 @@ TOOLS = {
              "description": "Numeric teamId of the away team."},
             {"name": "away_team", "type": STR_TYPE, "required": False,
              "description": "Current franchise name or city of the away team."},
-            {"name": "person_id", "type": INT_TYPE, "required": True,
-             "description": "NBA player personId to evaluate."},
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "NBA player personId to evaluate (or give 'player')."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Player name; must resolve to exactly one player."},
             {"name": "game_date", "type": STR_TYPE, "required": False,
              "description": "Optional cutoff date (YYYY-MM-DD)."},
             {"name": "window", "type": INT_TYPE, "required": False,
@@ -723,6 +1269,501 @@ TOOLS = {
         ],
         "execute": _execute_list_teams,
     },
+    "resolve_player": {
+        "name": "resolve_player",
+        "description": (
+            "Resolve a player name to NBA personId candidates, with career "
+            "span and regular-season games for each. Returns a single "
+            "person_id only when exactly one player matches."
+        ),
+        "category": "utility",
+        "model": "nba.db players + player_statistics tables (factual lookup)",
+        "parameters": [
+            {"name": "name", "type": STR_TYPE, "required": True,
+             "description": "Full or partial player name, e.g. 'Stephen Curry', "
+                            "'steph curry' or 'Curry'."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Optional season start year; keeps only players "
+                            "active that season (separates namesakes)."},
+            {"name": "limit", "type": INT_TYPE, "required": False,
+             "description": "Maximum candidates returned (default 10)."},
+        ],
+        "assumptions": [
+            "An exact normalized full-name match (accents, punctuation and "
+            "Jr./II suffixes ignored) wins; otherwise every typed word must "
+            "start a word of the player's name.",
+        ],
+        "limitations": [
+            "Nicknames that are not name prefixes (e.g. 'King James') are not "
+            "resolved.",
+            "When several players match, person_id is null and the caller "
+            "must choose from the ranked candidates.",
+        ],
+        "execute": _execute_resolve_player,
+    },
+    "query_database": {
+        "name": "query_database",
+        "description": (
+            "Run one read-only SQL SELECT against the repository database "
+            "(nba.db) and return the columns and rows. Writes, schema changes, "
+            "PRAGMA and ATTACH are impossible."
+        ),
+        "category": "database_query",
+        "model": "nba.db (read-only SQLite connection, factual query)",
+        "parameters": [
+            {"name": "sql", "type": STR_TYPE, "required": True,
+             "description": "A single SELECT or WITH ... SELECT statement. "
+                            "Use describe_database to see tables and columns."},
+            {"name": "max_rows", "type": INT_TYPE, "required": False,
+             "description": "Row cap (default 200, hard maximum 5000)."},
+        ],
+        "assumptions": [
+            "Results are exactly what the database holds; nothing is "
+            "modeled or adjusted.",
+        ],
+        "limitations": [
+            "Queries time out after 20 seconds and results are truncated at "
+            "max_rows (the response says when).",
+            "Some gameType labels are null in the player/team box-score tables "
+            "for 2021-22; join games and use COALESCE(t.gameType, "
+            "games.gameType) for regular-season filters.",
+            "Advanced metrics (player_statistics_extended, "
+            "team_statistics_extended) start in 1996-97.",
+        ],
+        "execute": _execute_query_database,
+    },
+    "describe_database": {
+        "name": "describe_database",
+        "description": (
+            "List the nba.db tables with row counts and column names/types, "
+            "or describe one table."
+        ),
+        "category": "database_query",
+        "model": "nba.db schema (factual lookup)",
+        "parameters": [
+            {"name": "table", "type": STR_TYPE, "required": False,
+             "description": "Optional table name to describe."},
+        ],
+        "assumptions": [],
+        "limitations": [
+            "Column types are SQLite declared types from the CSV import and "
+            "may be loose (e.g. numMinutes is stored as text in some rows).",
+        ],
+        "execute": _execute_describe_database,
+    },
+    "project_rest_of_season": {
+        "name": "project_rest_of_season",
+        "description": (
+            "Project a season's final standings from the actual win-loss "
+            "record on a cutoff date: games before the date keep their real "
+            "results, remaining games are simulated with production-model "
+            "probabilities computed from information available at the cutoff "
+            "only."
+        ),
+        "category": "simulation",
+        "model": "elo_boosted_ensemble (strength frozen at cutoff) + Monte Carlo",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "NBA season start year, e.g. 2024."},
+            {"name": "as_of", "type": STR_TYPE, "required": True,
+             "description": "Cutoff date YYYY-MM-DD. Use the season's first "
+                            "game date for a preseason projection."},
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Optional teamId to highlight in the result."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Optional current franchise name or city."},
+            {"name": "n_simulations", "type": INT_TYPE, "required": False,
+             "description": "Number of Monte Carlo simulations (default 1000)."},
+            {"name": "random_state", "type": INT_TYPE, "required": False,
+             "description": "Random seed for reproducible runs (default 42)."},
+            {"name": "roster_adjusted", "type": BOOL_TYPE, "required": False,
+             "description": "Experimental: recompute each team's roster-derived "
+                            "inputs from transactions since its last game "
+                            "(default false; did not improve the backtest)."},
+        ],
+        "assumptions": [
+            "Every remaining game uses the same probability predict_matchup "
+            "would give with game_date = the cutoff: each team's latest "
+            "pregame feature row on or before it and Elo from games strictly "
+            "before it. Team strength is frozen at the cutoff.",
+            "Simulations add a per-team strength shock (log-odds SD 0.6 "
+            "preseason, 0.4 from a quarter of the season on) so the win "
+            "ranges reflect uncertainty about team strength, not just game "
+            "luck. The SD was chosen on 2015-2021 seasons only.",
+        ],
+        "limitations": [
+            "Backtested on 2022-2025 (models/forward_projection_backtest.json): "
+            "mean absolute error in final wins is about 8.7 preseason, 5.5 at "
+            "a quarter of the season, 4.0 at the halfway point and 2.2 at "
+            "three quarters. At the halfway point it is no better than "
+            "carrying each team's current win percentage forward (3.95).",
+            "No roster changes, injuries or trades after the cutoff are "
+            "modeled; the frozen strength does not update.",
+            "The schedule is the season's games in the repository. An upcoming "
+            "season can be projected once its schedule is ingested "
+            "(python src/live_data.py --source <schedule.csv>); results "
+            "ingested after the last feature rebuild are counted in the record "
+            "but not in the frozen strength (see strength_freshness).",
+        ],
+        "execute": _execute_project_rest_of_season,
+    },
+    "team_strength": {
+        "name": "team_strength",
+        "description": (
+            "Current strength of all 30 teams as the production model sees it: "
+            "Elo rating and the chance to beat an average opponent (mean of home "
+            "and road win probabilities against every other team). Optionally "
+            "also a roster-adjusted version reflecting transactions since each "
+            "team's last game."
+        ),
+        "category": "model_input",
+        "model": "elo_boosted_ensemble (strength frozen at as_of)",
+        "parameters": [
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Date YYYY-MM-DD (default today: the latest data)."},
+            {"name": "roster_adjusted", "type": BOOL_TYPE, "required": False,
+             "description": "Also compute the roster-adjusted chance and list "
+                            "each team's arrivals/departures (default false)."},
+        ],
+        "assumptions": [
+            "Strength is frozen at the latest pregame data on or before as_of; "
+            "in the offseason that is each team's last regular-season game.",
+            "Roster adjustment changes only the roster-derived inputs (player "
+            "production sums and active-player counts); team form and Elo are "
+            "team properties and are not changed.",
+        ],
+        "limitations": [
+            "A schedule-free summary, not a win projection: real schedules "
+            "are unbalanced.",
+            "Roster adjustment did not improve preseason projections in the "
+            "2015-2025 backtest (MAE 7.77 -> 7.80 wins, game log loss "
+            "0.6734 -> 0.6744); the production model puts little weight on "
+            "roster-derived inputs. Treat the adjusted column as bookkeeping.",
+            "Transactions come from the NBA player-movement feed through "
+            "2026-08-13 (plus data/manual/roster_transactions.csv if present). "
+            "Unsigned free agents and retirements stay with their last team.",
+        ],
+        "execute": _execute_team_strength,
+    },
+    "simulate_era_swap": {
+        "name": "simulate_era_swap",
+        "description": (
+            "WHAT-IF simulation: replace one player on a historical team-season "
+            "with another player's season translated into that era (e.g. the "
+            "1992-93 Bulls with 2015-16 Stephen Curry instead of B.J. Armstrong), "
+            "and report the projected change in net rating, wins and playoff/title "
+            "odds with data, method, assumptions and confidence. Not a factual or "
+            "causal claim."
+        ),
+        "category": "simulation",
+        "model": "box-score era translation + team model calibrated on real roster changes + "
+                 "elo_boosted_ensemble season/playoff Monte Carlo",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "teamId of the host team (use this for relocated "
+                            "franchises, e.g. 1610612760 = Seattle SuperSonics)."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the host team."},
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "Host team's season START year (1992 = 1992-93)."},
+            {"name": "out_player", "type": STR_TYPE, "required": False,
+             "description": "Name of the player removed (must have played for the "
+                            "host team that season)."},
+            {"name": "out_person_id", "type": INT_TYPE, "required": False,
+             "description": "personId of the player removed."},
+            {"name": "in_player", "type": STR_TYPE, "required": False,
+             "description": "Name of the player added."},
+            {"name": "in_person_id", "type": INT_TYPE, "required": False,
+             "description": "personId of the player added."},
+            {"name": "in_season", "type": INT_TYPE, "required": True,
+             "description": "Season START year of the added player's production "
+                            "(2015 = 2015-16)."},
+            {"name": "method", "type": STR_TYPE, "required": False,
+             "description": "Era translation: 'zscore' (default) or 'ratio'."},
+            {"name": "n_simulations", "type": INT_TYPE, "required": False,
+             "description": "Monte Carlo seasons (default 1000)."},
+            {"name": "random_state", "type": INT_TYPE, "required": False,
+             "description": "Random seed (default 42)."},
+        ],
+        "assumptions": [
+            "The added player takes exactly the removed player's minutes and "
+            "produces their translated per-100 line; everyone else is unchanged.",
+            "Era translation keeps each rate the same number of league standard "
+            "deviations from the league mean (players with 500+ minutes).",
+            "Only about a fifth of a box-score-valued change is assumed to show up "
+            "in real net rating (realization factor fit on real roster changes, "
+            "1986-2009); the unscaled 'full transfer' figure is reported as an "
+            "unvalidated upper scenario.",
+        ],
+        "limitations": [
+            "Confidence is Low: cross-era translation has no ground truth; within "
+            "adjacent seasons box-score-valued roster changes cut the error in "
+            "predicting a team's rating change only from 3.10 to 2.87 points "
+            "(2010-2025 held out).",
+            "Both seasons must be 1985-86 or later (complete team box scores).",
+            "Box scores capture offense far better than defense; no fit, usage or "
+            "chemistry effects.",
+            "The unchanged team is the host season's game-by-game replay, which "
+            "already knows that season's results; playoffs are seeded by simulated "
+            "record (old division-winner seeding rules are not modeled) and skipped "
+            "when the modern conference alignment does not match that season.",
+            "The first call in a server process takes about a minute (model inputs "
+            "and the season probabilities are loaded once).",
+        ],
+        "execute": _execute_simulate_era_swap,
+    },
+    "team_season_roster": {
+        "name": "team_season_roster",
+        "description": (
+            "The players who appeared for a team in one regular season, ordered by "
+            "minutes, with games, minutes and points per game."
+        ),
+        "category": "database_query",
+        "model": "nba.db player_statistics (factual query)",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "teamId (use this for relocated franchises)."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city."},
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "Season start year, e.g. 1992 for 1992-93."},
+        ],
+        "assumptions": ["Only games with minutes played are counted."],
+        "limitations": ["A player traded mid-season is listed with each team separately."],
+        "execute": _execute_team_season_roster,
+    },
+    "player_season_stats": {
+        "name": "player_season_stats",
+        "description": (
+            "A player's regular-season per-game averages for one season: games, "
+            "minutes, points, rebounds, assists, steals, blocks, turnovers and "
+            "shooting percentages, plus the team(s) played for."
+        ),
+        "category": "database_query",
+        "model": "nba.db player_statistics (factual query)",
+        "parameters": [
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "NBA personId (or give 'player')."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Player name; must resolve to exactly one player."},
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "Season start year, e.g. 2015 for 2015-16."},
+        ],
+        "assumptions": [
+            "Only regular-season games with minutes played are counted.",
+            "Percentages are season totals (made / attempted), not averages of "
+            "per-game percentages.",
+        ],
+        "limitations": [
+            "Steals and blocks were not recorded before 1973-74, turnovers "
+            "before 1977-78, and three-pointers before 1979-80; those are "
+            "returned as null for earlier seasons.",
+        ],
+        "execute": _execute_player_season_stats,
+    },
+    "describe_raw_files": {
+        "name": "describe_raw_files",
+        "description": (
+            "List the raw source files under data/raw with their size and, for "
+            "CSV files, their column headers."
+        ),
+        "category": "utility",
+        "model": "data/raw directory listing (factual)",
+        "parameters": [],
+        "assumptions": [],
+        "limitations": [
+            "Row counts are not computed (several files are hundreds of MB); "
+            "use describe_database for loaded table sizes.",
+        ],
+        "execute": _execute_describe_raw_files,
+    },
+    "validate_roster_file": {
+        "name": "validate_roster_file",
+        "description": (
+            "Validate a roster-change CSV (event_id, event_timestamp, team_id, "
+            "person_id, change_type, source, source_url) and summarize what it "
+            "contains."
+        ),
+        "category": "utility",
+        "model": "roster_change_data contract validation (factual)",
+        "parameters": [
+            {"name": "path", "type": STR_TYPE, "required": True,
+             "description": "Repository-relative path of a CSV under data/ or "
+                            "templates/, e.g. data/raw/roster_change_events_valid.csv."},
+        ],
+        "assumptions": [
+            "Uses the same contract checks as the roster-change pipeline.",
+        ],
+        "limitations": [
+            "Only files inside data/ or templates/ can be read.",
+        ],
+        "execute": _execute_validate_roster_file,
+    },
+    "data_status": {
+        "name": "data_status",
+        "description": (
+            "Report how current the data is: latest completed game, latest "
+            "feature row, latest roster transaction, and whether the upcoming "
+            "season's schedule has been ingested."
+        ),
+        "category": "utility",
+        "model": "nba.db + feature file + transaction files (factual status)",
+        "parameters": [],
+        "assumptions": [
+            "The upcoming season is the one starting this calendar year once "
+            "July has begun.",
+        ],
+        "limitations": [
+            "Nothing is fetched from the internet; updates are manual commands "
+            "(listed in how_to_update).",
+        ],
+        "execute": _execute_data_status,
+    },
+    "team_roster": {
+        "name": "team_roster",
+        "description": (
+            "Who has left and who has joined a team since its last game, from "
+            "box scores plus timestamped transactions, with each player's "
+            "recent per-game minutes/points/assists/rebounds."
+        ),
+        "category": "database_query",
+        "model": "nba.db box scores + roster transactions (factual bookkeeping)",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Date YYYY-MM-DD (default today)."},
+        ],
+        "assumptions": [
+            "The starting roster is everyone with a box-score row in the team's "
+            "last ten regular-season games before its latest pregame snapshot.",
+            "A later 'add' moves a player to the new team; a 'remove' (waive, "
+            "trade) takes the player off.",
+        ],
+        "limitations": [
+            "Unsigned free agents and retired players still count for their "
+            "last team (the feed has no contract-expiry events).",
+            "Players with no NBA box-score history show zero production.",
+            "Transactions after the feed's last date (2026-08-13) are missing "
+            "unless added to data/manual/roster_transactions.csv.",
+        ],
+        "execute": _execute_team_roster,
+    },
+    "predict_margin": {
+        "name": "predict_margin",
+        "description": (
+            "Predict a game's score margin, total points and final score, with "
+            "80% intervals, alongside the production model's win probability."
+        ),
+        "category": "prediction",
+        "model": "margin/total regressors (models/margin_model.pkl) + elo_boosted_ensemble",
+        "parameters": [
+            {"name": "home_team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId of the home team."},
+            {"name": "home_team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the home team."},
+            {"name": "away_team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId of the away team."},
+            {"name": "away_team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the away team."},
+            {"name": "game_date", "type": STR_TYPE, "required": False,
+             "description": "Optional cutoff date (YYYY-MM-DD); only pregame "
+                            "information before it is used."},
+        ],
+        "assumptions": [
+            "Inputs are the same pregame features and Elo gap the production "
+            "model uses, frozen at game_date exactly as predict_matchup does.",
+            "The win probability is the frozen production model's; the margin "
+            "model is a separate regressor and never changes it.",
+        ],
+        "limitations": [
+            "Holdout (13,332 games from 2015-03-28): margin MAE 10.57 points "
+            "vs 10.68 for a straight line in the Elo gap and 11.66 for a "
+            "constant home edge (R2 0.15). Single-game margins are mostly noise.",
+            "Total points: MAE 14.96, no better than averaging the two teams' "
+            "recent scoring (14.94). Treat the total as that simple average.",
+            "The 80% intervals are the 10th-90th percentile of 2015-2026 "
+            "residuals (margin about -18 to +15 points around the prediction). "
+            "An interval fitted before the holdout covered only 75% of it.",
+            "The margin and the win probability are different models; they "
+            "disagree on the favorite in about 7% of games.",
+        ],
+        "execute": _execute_predict_margin,
+    },
+    "playoff_odds": {
+        "name": "playoff_odds",
+        "description": (
+            "Championship and round-by-round playoff odds (play-in, first "
+            "round, conference semifinals/finals, Finals, title). Uses the real "
+            "seeded bracket once the postseason has started, otherwise simulates "
+            "the rest of the regular season from 'as_of' and then the bracket."
+        ),
+        "category": "simulation",
+        "model": "elo_boosted_ensemble (strength frozen) + exact series math / Monte Carlo",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "NBA season start year, e.g. 2025 for 2025-26."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Cutoff date YYYY-MM-DD. Omit (or give a date on/after "
+                            "the postseason start) for the real bracket."},
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Optional teamId to highlight."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Optional current franchise name or city."},
+            {"name": "n_simulations", "type": INT_TYPE, "required": False,
+             "description": "Monte Carlo simulations when simulating (default 1000)."},
+            {"name": "random_state", "type": INT_TYPE, "required": False,
+             "description": "Random seed (default 42)."},
+        ],
+        "assumptions": [
+            "Every playoff/play-in game uses the production model probability "
+            "with team strength frozen at the end of the regular season (or at "
+            "as_of); strength does not update during the playoffs.",
+            "Series probabilities are exact for the home-court pattern (2-2-1-1-1; "
+            "2-3-2 Finals 1985-2013; best-of-5 first rounds 1984-2002). Play-in "
+            "from 2020-21: 7v8, 9v10, loser v winner.",
+            "Simulated standings break ties at random; real NBA tiebreakers "
+            "are not modeled.",
+        ],
+        "limitations": [
+            "Replay 2014-2025 (bubble excluded): playoff games log loss 0.639 vs "
+            "0.680 for a constant home-win rate; series log loss 0.563 vs 0.586 "
+            "for 'higher seed wins at the historical rate', but the model picks "
+            "the series winner less often than 'higher seed always wins' "
+            "(70.3% vs 72.7%). Later rounds and the Finals are where it is weakest.",
+            "Across 11 postseasons the eventual champion got 23% title "
+            "probability on average before the playoffs (uniform: 6.25%) and "
+            "was the model's favorite 4 times.",
+            "Late-season rest and injuries distort the last-10-game form the "
+            "model freezes (e.g. the 2021-22 champion Warriors got 1.2%).",
+        ],
+        "execute": _execute_playoff_odds,
+    },
+    "validation_report": {
+        "name": "validation_report",
+        "description": (
+            "Return the stored validation evidence for a component: the "
+            "production model's holdout metrics, the forward season-projection "
+            "backtest, the playoff replay, or the margin model."
+        ),
+        "category": "diagnostic",
+        "model": "stored validation reports under models/ (factual record)",
+        "parameters": [
+            {"name": "component", "type": STR_TYPE, "required": True,
+             "description": "One of: production_model, season_forward_projection, "
+                            "playoffs, margin, era_swap."},
+        ],
+        "assumptions": [
+            "Reports are the saved outputs of the validation runs, not re-run "
+            "on request.",
+        ],
+        "limitations": [
+            "A report reflects the data and code at the time it was generated.",
+        ],
+        "execute": _execute_validation_report,
+    },
 }
 
 
@@ -763,6 +1804,15 @@ def validate_parameters(schema, parameters):
                 cleaned[name] = int(value)
                 continue
             raise ToolError(f"Parameter '{name}' must be an integer.")
+        elif spec["type"] == BOOL_TYPE:
+            if isinstance(value, bool):
+                cleaned[name] = value
+            elif isinstance(value, str) and value.strip().lower() in ("true", "false", "1", "0"):
+                cleaned[name] = value.strip().lower() in ("true", "1")
+            elif isinstance(value, int) and value in (0, 1):
+                cleaned[name] = bool(value)
+            else:
+                raise ToolError(f"Parameter '{name}' must be true or false.")
         else:
             if not isinstance(value, str):
                 raise ToolError(f"Parameter '{name}' must be a string.")

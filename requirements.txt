@@ -8,3 +8,8 @@ scikit-learn==1.9.0
 requests==2.34.2
 beautifulsoup4==4.15.0
 pytest==9.1.1
+
+# Optional: only needed for the LLM planner (BACKBOARD_NL_MODE=llm). Not
+# installed in the validated environment; the deterministic planner and the
+# whole test suite run without it.
+# anthropic

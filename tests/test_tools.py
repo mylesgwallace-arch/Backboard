@@ -537,3 +537,235 @@ def test_envelope_carries_operation_model_assumptions_limitations():
         assert tools[name]["model"]
         assert isinstance(tools[name]["assumptions"], list)
         assert isinstance(tools[name]["limitations"], list)
+
+def test_new_phase_one_tools_are_registered_with_metadata():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    for name in ("resolve_player", "query_database", "describe_database",
+                 "project_rest_of_season"):
+        assert name in tools
+        assert tools[name]["description"]
+        assert tools[name]["limitations"]
+    # person_id is no longer the only way to name a player.
+    impact_params = {p["name"]: p for p in tools["player_impact"]["parameters"]}
+    assert impact_params["person_id"]["required"] is False
+    assert "player" in impact_params
+
+
+def test_player_impact_accepts_a_player_name(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        "src.tools.resolve_player_id",
+        lambda name, season=None: captured.setdefault("id", 201939),
+    )
+    monkeypatch.setattr(
+        "src.tools.summarize_player_impact",
+        lambda person_id, before=None, window=10: {
+            "person_id": person_id, "prior_games": 10,
+            "player_net_rating": 5.0, "estimated_net_rating_change": 3.5,
+        },
+    )
+
+    result = execute_tool("player_impact", {"player": "Stephen Curry"})
+
+    assert result["status"] == "success"
+    assert result["data"]["diagnostic"]["person_id"] == 201939
+
+
+def test_player_impact_ambiguous_name_is_a_structured_error(monkeypatch):
+    def ambiguous(name, season=None):
+        raise ValueError("Player name 'Curry' matches 6 players: ...")
+
+    monkeypatch.setattr("src.tools.resolve_player_id", ambiguous)
+
+    result = execute_tool("player_impact", {"player": "Curry"})
+
+    assert result["status"] == "error"
+    assert "matches 6 players" in result["error"]["message"]
+
+
+def test_player_impact_requires_id_or_name():
+    result = execute_tool("player_impact", {})
+    assert result["status"] == "error"
+    assert "person_id" in result["error"]["message"]
+
+
+def test_resolve_player_unavailable_when_nothing_matches(monkeypatch):
+    monkeypatch.setattr(
+        "src.tools.find_players",
+        lambda name, season=None, limit=10: {"match_count": 0, "candidates": []},
+    )
+    result = execute_tool("resolve_player", {"name": "Nobody"})
+    assert result["status"] == "unavailable"
+
+
+def test_query_database_rejects_writes_as_structured_error():
+    result = execute_tool("query_database", {"sql": "DELETE FROM games"})
+    assert result["status"] == "error"
+    assert "read-only" in result["error"]["message"]
+
+
+def test_project_rest_of_season_highlights_requested_team(monkeypatch):
+    fake_projection = {
+        "season": 2024,
+        "as_of": "2025-01-15",
+        "projected_standings": [
+            {"teamId": 1610612738, "mean_wins": 58.5, "current_wins": 28},
+            {"teamId": 1610612760, "mean_wins": 66.0, "current_wins": 34},
+        ],
+    }
+    captured = {}
+
+    def fake_project(season, as_of, inputs, **kwargs):
+        captured.update({"season": season, "as_of": as_of, **kwargs})
+        return fake_projection
+
+    monkeypatch.setattr("src.tools.project_from_date", fake_project)
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools.season_schedule", lambda inputs, season: "schedule")
+    monkeypatch.setattr(
+        "src.tools.strength_freshness",
+        lambda inputs, schedule, as_of: {"features_stale": False},
+    )
+
+    result = execute_tool(
+        "project_rest_of_season",
+        {"season": 2024, "as_of": "2025-01-15", "team_id": 1610612738},
+    )
+
+    assert result["status"] == "success"
+    assert result["data"]["team_projection"]["mean_wins"] == 58.5
+    assert captured["as_of"] == "2025-01-15"
+    assert captured["n_simulations"] == 1000
+
+
+def test_phase_two_tools_are_registered():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    for name in ("predict_margin", "playoff_odds", "validation_report"):
+        assert name in tools
+        assert tools[name]["limitations"]
+
+
+def test_predict_margin_reports_production_probability_alongside(monkeypatch):
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools._cached_margin_bundle", lambda: {})
+    monkeypatch.setattr(
+        "src.tools.predict_margin",
+        lambda home, away, inputs, bundle, game_date=None: {
+            "home_team_id": home, "away_team_id": away, "predicted_home_margin": 4.2,
+        },
+    )
+    monkeypatch.setattr(
+        "src.tools.frozen_matchup_probabilities",
+        lambda pairs, cutoff, inputs: pd.DataFrame({"home_win_probability": [0.63]}),
+    )
+
+    result = execute_tool("predict_margin", {"home_team_id": 1610612738,
+                                             "away_team_id": 1610612747})
+
+    assert result["status"] == "success"
+    assert result["data"]["predicted_home_margin"] == 4.2
+    assert result["data"]["production_home_win_probability"] == 0.63
+    assert result["data"]["production_model"] == "elo_boosted_ensemble"
+
+
+def test_playoff_odds_uses_real_bracket_once_postseason_exists(monkeypatch):
+    games = pd.DataFrame({"gameDateTimeEst": [pd.Timestamp("2025-04-15 19:00")]})
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools.load_team_names", lambda season: {})
+    monkeypatch.setattr("src.tools.load_postseason_games", lambda season: (games, None))
+    called = {}
+    monkeypatch.setattr(
+        "src.tools.actual_bracket_odds",
+        lambda season, inputs, team_names=None: called.setdefault(
+            "actual", {"mode": "actual", "teams": [{"teamId": 1610612760, "champion": 0.5}]}
+        ),
+    )
+    monkeypatch.setattr(
+        "src.tools.season_playoff_odds",
+        lambda *args, **kwargs: called.setdefault("simulated", {"mode": "sim", "teams": []}),
+    )
+
+    result = execute_tool("playoff_odds", {"season": 2024, "team_id": 1610612760})
+    assert result["data"]["mode"] == "actual"
+    assert result["data"]["team_odds"]["champion"] == 0.5
+
+    execute_tool("playoff_odds", {"season": 2024, "as_of": "2025-01-01"})
+    assert "simulated" in called
+
+
+def test_playoff_odds_needs_as_of_without_a_postseason(monkeypatch):
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools.load_team_names", lambda season: {})
+    monkeypatch.setattr("src.tools.load_postseason_games",
+                        lambda season: (pd.DataFrame({"gameDateTimeEst": []}), None))
+    result = execute_tool("playoff_odds", {"season": 2026})
+    assert result["status"] == "error"
+    assert "as_of" in result["error"]["message"]
+
+
+def test_validation_report_rejects_unknown_component():
+    result = execute_tool("validation_report", {"component": "vibes"})
+    assert result["status"] == "error"
+    assert "production_model" in result["error"]["message"]
+
+
+def test_bool_parameters_accept_common_spellings():
+    schema = [{"name": "flag", "type": "bool", "required": False, "description": "f"}]
+    for raw, expected in ((True, True), ("true", True), ("0", False), (1, True), ("False", False)):
+        assert validate_parameters(schema, {"flag": raw})["flag"] is expected
+    with pytest.raises(Exception):
+        validate_parameters(schema, {"flag": "maybe"})
+
+
+def test_phase_three_tools_are_registered():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    for name in ("team_strength", "team_roster"):
+        assert name in tools
+        assert any("backtest" in limit or "feed" in limit for limit in tools[name]["limitations"])
+    params = {p["name"]: p for p in tools["project_rest_of_season"]["parameters"]}
+    assert params["roster_adjusted"]["type"] == "bool"
+
+
+def test_project_rest_of_season_unavailable_without_a_schedule(monkeypatch):
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+
+    def no_schedule(inputs, season):
+        raise ValueError("No games found for season 2026. If this is an upcoming season, ingest its schedule first")
+
+    monkeypatch.setattr("src.tools.season_schedule", no_schedule)
+    result = execute_tool("project_rest_of_season", {"season": 2026, "as_of": "2026-10-20"})
+    assert result["status"] == "unavailable"
+    assert "ingest its schedule" in result["error"]["message"]
+
+
+def test_team_roster_returns_one_teams_moves(monkeypatch):
+    monkeypatch.setattr("src.tools._cached_model_inputs",
+                        lambda: type("Inputs", (), {"features": None})())
+    monkeypatch.setattr("src.tools._cached_transactions", lambda: None)
+    monkeypatch.setattr(
+        "src.tools.build_roster_state",
+        lambda as_of, features, transactions=None, team_ids=None: (
+            {team_ids[0]: {"arrived": [{"person_id": 7}], "departed": []}},
+            [{"team_id": team_ids[0], "person_id": 7}, {"team_id": 1, "person_id": 8}],
+        ),
+    )
+    result = execute_tool("team_roster", {"team_id": 1610612755, "as_of": "2026-09-24"})
+    assert result["status"] == "success"
+    assert result["data"]["roster"]["arrived"][0]["person_id"] == 7
+    assert result["data"]["transactions_applied"] == [{"team_id": 1610612755, "person_id": 7}]
+
+
+def test_era_swap_tool_is_registered_as_a_what_if():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    spec = tools["simulate_era_swap"]
+    assert "WHAT-IF" in spec["description"]
+    assert any("Low" in limit for limit in spec["limitations"])
+    required = {p["name"] for p in spec["parameters"] if p["required"]}
+    assert required == {"season", "in_season"}
+
+
+def test_era_swap_requires_both_players(monkeypatch):
+    result = execute_tool("simulate_era_swap", {"team_id": 1610612741, "season": 1992,
+                                                "in_season": 2015, "in_person_id": 201939})
+    assert result["status"] == "error"
+    assert "out_player" in result["error"]["message"]

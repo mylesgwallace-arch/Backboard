@@ -7,6 +7,13 @@
 > (Matchup Predictor + preserved raw ask/tools/ingest controls) — see the
 > "Web front end" subsection in Section 3 and `PROJECT_CONTEXT.md` for the
 > current state.
+>
+> **Update (2026-09-24):** this audit is a snapshot from 2026-08-15. Several of
+> its statements are now stale: `src/tools.py` and `tests/test_tools.py` are
+> committed (not untracked); the registry has 11 tools, not 8; the suite has
+> 185 tests in 11 files, not 114; a deterministic natural-language layer
+> (`src/assistant.py`, `POST /ask`) and a multi-page web dashboard exist. The
+> current verified state is in `PROJECT_CONTEXT.md` section 0.
 
 ---
 

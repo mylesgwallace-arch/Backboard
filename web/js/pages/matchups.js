@@ -4,7 +4,7 @@
 // elo_boosted_ensemble model). No prediction logic is duplicated here — this
 // module only renders whatever the backend envelope returns.
 
-import { predictMatchup } from "../api.js";
+import { predictMatchup, predictMargin } from "../api.js";
 import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
 import { renderProbabilityBar } from "../components/probabilityBar.js";
 import { renderComparisonRow } from "../components/comparisonBar.js";
@@ -203,6 +203,9 @@ export function render(container, ctx = {}) {
     const awayTeam = teams.find((t) => t.team_id === awayTeamId);
     const swing = trackSwing(prediction);
     resultMount.innerHTML = renderResult({ prediction, homeTeam, awayTeam, swing });
+    loadMarginCard(resultMount.querySelector("#margin-card-mount"), {
+      homeTeamId, awayTeamId, gameDate, homeTeam, awayTeam,
+    });
 
     if (ctx.navigate) {
       resultMount.querySelectorAll("[data-view-team]").forEach((el) => {
@@ -307,10 +310,68 @@ function renderResult({ prediction, homeTeam, awayTeam, swing }) {
       }
     </article>
 
+    <div id="margin-card-mount"></div>
+
     ${renderTeamStrengthCard({ prediction, homeTeam, awayTeam, homeColor, awayColor })}
 
     ${renderModelInfoCard(prediction)}
   `;
+}
+
+/**
+ * Predicted score card from the separate margin/total model (predict_margin).
+ * Loaded after the win probability so a slow or missing margin model never
+ * blocks the pick itself.
+ */
+async function loadMarginCard(mount, { homeTeamId, awayTeamId, gameDate, homeTeam, awayTeam }) {
+  if (!mount) return;
+  mount.innerHTML = `<div class="card fade-in"><div class="skeleton" style="height:90px;"></div></div>`;
+  let res;
+  try {
+    res = await predictMargin({ homeTeamId, awayTeamId, gameDate });
+  } catch (err) {
+    mount.innerHTML = "";
+    return;
+  }
+  if (!res.ok || res.data?.status !== "success") {
+    mount.innerHTML = "";
+    return;
+  }
+  const m = res.data.data;
+  const homeLabel = homeTeam?.abbreviation || "HOME";
+  const awayLabel = awayTeam?.abbreviation || "AWAY";
+  const marginFavorsHome = m.predicted_home_margin >= 0;
+  const probabilityFavorsHome = m.production_home_win_probability >= 0.5;
+  const disagreement = marginFavorsHome !== probabilityFavorsHome
+    ? `<p class="text-muted mt-1">The margin model and the win-probability model disagree on the favorite here (they do in about 7% of games); the win probability above is the validated production output.</p>`
+    : "";
+  mount.innerHTML = `
+    <div class="card fade-in">
+      <div class="card-header">
+        <div>
+          <h2>Predicted score</h2>
+          <p class="card-subtitle">From a separate margin/total model validated on 13,332 holdout games (margin MAE 10.6 points). Ranges are 80% intervals.</p>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-tile">
+          <div class="stat-label">${escapeHtml(homeLabel)} – ${escapeHtml(awayLabel)}</div>
+          <div class="stat-value">${formatNumber(m.predicted_home_points)} – ${formatNumber(m.predicted_away_points)}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Home margin (80% range)</div>
+          <div class="stat-value">${formatSigned(m.predicted_home_margin)}</div>
+          <div class="text-muted" style="font-size:0.8rem;">${formatSigned(m.margin_interval_80[0])} to ${formatSigned(m.margin_interval_80[1])}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Total points (80% range)</div>
+          <div class="stat-value">${formatNumber(m.predicted_total_points)}</div>
+          <div class="text-muted" style="font-size:0.8rem;">${formatNumber(m.total_interval_80[0])} to ${formatNumber(m.total_interval_80[1])}</div>
+        </div>
+      </div>
+      <p class="text-muted mt-1">The total is no better than averaging both teams' recent scoring, and single-game margins are mostly noise: treat these as rough expectations.</p>
+      ${disagreement}
+    </div>`;
 }
 
 function renderTeamHalf(side, isFavorite) {

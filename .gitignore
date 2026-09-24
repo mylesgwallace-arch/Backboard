@@ -16,6 +16,16 @@ __pycache__/
 models/*
 !models/baseline_logistic.pkl
 !models/baseline_metrics.json
+# Validation reports for features built on the frozen model (small JSON,
+# tracked so the evidence cited in PROJECT_CONTEXT.md is reviewable).
+!models/forward_projection_backtest.json
+!models/playoff_validation.json
+# The margin/total model is small and served by the predict_margin tool.
+!models/margin_model.pkl
+!models/margin_metrics.json
+!models/roster_adjustment_backtest.json
+!models/nl_eval_report.json
+!models/era_swap_model.json
 
 # Environment variables
 .env

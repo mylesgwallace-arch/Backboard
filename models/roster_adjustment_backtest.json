@@ -1,0 +1,221 @@
+{
+  "seasons": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "cutoff": "opening day of each season (preseason projection)",
+  "transactions_source": "normalized NBA player-movement feed (+ manual file if present)",
+  "summary": {
+    "production": {
+      "mae_wins": 7.7673030303030295,
+      "mean_crps_wins": 5.634269806060607,
+      "game_log_loss": 0.6733939829533472,
+      "game_accuracy": 0.6110580788059804
+    },
+    "roster_adjusted": {
+      "mae_wins": 7.795690909090908,
+      "mean_crps_wins": 5.6545793393939405,
+      "game_log_loss": 0.6743640492822587,
+      "game_accuracy": 0.6097498068741349
+    }
+  },
+  "roster_adjustment_improves_preseason_projection": false,
+  "by_season": [
+    {
+      "season": 2015,
+      "cutoff": "2015-10-27",
+      "transactions_applied": 486,
+      "production": {
+        "mae_wins": 7.776466666666667,
+        "mean_crps_wins": 5.343314866666668,
+        "game_log_loss": 0.616753483600491,
+        "game_accuracy": 0.6455284552845528
+      },
+      "roster_adjusted": {
+        "mae_wins": 7.8575333333333335,
+        "mean_crps_wins": 5.385721200000002,
+        "game_log_loss": 0.6173792829397071,
+        "game_accuracy": 0.6439024390243903
+      }
+    },
+    {
+      "season": 2016,
+      "cutoff": "2016-10-25",
+      "transactions_applied": 530,
+      "production": {
+        "mae_wins": 5.043266666666666,
+        "mean_crps_wins": 3.7914226000000033,
+        "game_log_loss": 0.6350494317913161,
+        "game_accuracy": 0.6414634146341464
+      },
+      "roster_adjusted": {
+        "mae_wins": 4.957533333333333,
+        "mean_crps_wins": 3.740369733333337,
+        "game_log_loss": 0.6319205112760301,
+        "game_accuracy": 0.6398373983739838
+      }
+    },
+    {
+      "season": 2017,
+      "cutoff": "2017-10-17",
+      "transactions_applied": 528,
+      "production": {
+        "mae_wins": 7.442199999999999,
+        "mean_crps_wins": 5.445524333333337,
+        "game_log_loss": 0.6592007204214866,
+        "game_accuracy": 0.608130081300813
+      },
+      "roster_adjusted": {
+        "mae_wins": 7.496466666666667,
+        "mean_crps_wins": 5.51075686666667,
+        "game_log_loss": 0.6620285760477314,
+        "game_accuracy": 0.6048780487804878
+      }
+    },
+    {
+      "season": 2018,
+      "cutoff": "2018-10-16",
+      "transactions_applied": 508,
+      "production": {
+        "mae_wins": 6.519666666666668,
+        "mean_crps_wins": 4.935776933333334,
+        "game_log_loss": 0.6451941077056021,
+        "game_accuracy": 0.6341463414634146
+      },
+      "roster_adjusted": {
+        "mae_wins": 6.5496,
+        "mean_crps_wins": 4.939941266666667,
+        "game_log_loss": 0.6457228502409026,
+        "game_accuracy": 0.6317073170731707
+      }
+    },
+    {
+      "season": 2019,
+      "cutoff": "2019-10-22",
+      "transactions_applied": 600,
+      "production": {
+        "mae_wins": 7.677666666666666,
+        "mean_crps_wins": 5.403150133333332,
+        "game_log_loss": 0.6898660029540153,
+        "game_accuracy": 0.5986779981114259
+      },
+      "roster_adjusted": {
+        "mae_wins": 7.7185999999999995,
+        "mean_crps_wins": 5.455685866666668,
+        "game_log_loss": 0.6926696832777988,
+        "game_accuracy": 0.5949008498583569
+      }
+    },
+    {
+      "season": 2020,
+      "cutoff": "2020-12-22",
+      "transactions_applied": 514,
+      "production": {
+        "mae_wins": 8.285400000000001,
+        "mean_crps_wins": 6.137382333333337,
+        "game_log_loss": 0.7282536493328547,
+        "game_accuracy": 0.5574074074074075
+      },
+      "roster_adjusted": {
+        "mae_wins": 8.441799999999999,
+        "mean_crps_wins": 6.278870600000001,
+        "game_log_loss": 0.7345746702035132,
+        "game_accuracy": 0.5638888888888889
+      }
+    },
+    {
+      "season": 2021,
+      "cutoff": "2021-10-19",
+      "transactions_applied": 595,
+      "production": {
+        "mae_wins": 7.963066666666666,
+        "mean_crps_wins": 5.5235768000000025,
+        "game_log_loss": 0.6899643438085219,
+        "game_accuracy": 0.6139917695473252
+      },
+      "roster_adjusted": {
+        "mae_wins": 7.9552000000000005,
+        "mean_crps_wins": 5.512645333333337,
+        "game_log_loss": 0.6902540944686517,
+        "game_accuracy": 0.6115226337448559
+      }
+    },
+    {
+      "season": 2022,
+      "cutoff": "2022-10-18",
+      "transactions_applied": 590,
+      "production": {
+        "mae_wins": 7.618866666666667,
+        "mean_crps_wins": 5.392109399999998,
+        "game_log_loss": 0.6859646425249671,
+        "game_accuracy": 0.6065040650406504
+      },
+      "roster_adjusted": {
+        "mae_wins": 7.616466666666667,
+        "mean_crps_wins": 5.387943000000001,
+        "game_log_loss": 0.6859848098009468,
+        "game_accuracy": 0.6056910569105691
+      }
+    },
+    {
+      "season": 2023,
+      "cutoff": "2023-10-24",
+      "transactions_applied": 632,
+      "production": {
+        "mae_wins": 7.899666666666667,
+        "mean_crps_wins": 5.792096800000004,
+        "game_log_loss": 0.6589491598234213,
+        "game_accuracy": 0.6105691056910569
+      },
+      "roster_adjusted": {
+        "mae_wins": 7.954199999999999,
+        "mean_crps_wins": 5.8217945333333345,
+        "game_log_loss": 0.6599840718272895,
+        "game_accuracy": 0.6056910569105691
+      }
+    },
+    {
+      "season": 2024,
+      "cutoff": "2024-10-22",
+      "transactions_applied": 599,
+      "production": {
+        "mae_wins": 8.911466666666671,
+        "mean_crps_wins": 6.554836133333336,
+        "game_log_loss": 0.6833739172077901,
+        "game_accuracy": 0.6052202283849919
+      },
+      "roster_adjusted": {
+        "mae_wins": 8.876533333333333,
+        "mean_crps_wins": 6.546124066666668,
+        "game_log_loss": 0.6835013999875088,
+        "game_accuracy": 0.6076672104404568
+      }
+    },
+    {
+      "season": 2025,
+      "cutoff": "2025-10-21",
+      "transactions_applied": 635,
+      "production": {
+        "mae_wins": 10.3026,
+        "mean_crps_wins": 7.6577775333333316,
+        "game_log_loss": 0.7147643533163516,
+        "game_accuracy": 0.6
+      },
+      "roster_adjusted": {
+        "mae_wins": 10.328666666666667,
+        "mean_crps_wins": 7.620520266666667,
+        "game_log_loss": 0.7139845920347654,
+        "game_accuracy": 0.5975609756097561
+      }
+    }
+  ]
+}

@@ -16,9 +16,17 @@ except ImportError:
     from train_baseline_model import build_game_dataset, elo_win_probability
 
 try:
-    from src.simulate_season import load_pregame_probabilities, project_season
+    from src.simulate_season import (
+        load_pregame_probabilities,
+        load_team_names,
+        project_season,
+    )
 except ImportError:  # pragma: no cover - direct-script support
-    from simulate_season import load_pregame_probabilities, project_season
+    from simulate_season import (
+        load_pregame_probabilities,
+        load_team_names,
+        project_season,
+    )
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -465,6 +473,7 @@ def run_season_simulation(
         season,
         n_simulations=n_simulations,
         random_state=random_state,
+        team_names=load_team_names(season),
     )
     return {
         "model": "elo_boosted_ensemble",

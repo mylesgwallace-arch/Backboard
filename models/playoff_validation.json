@@ -1,0 +1,1895 @@
+{
+  "model": "elo_boosted_ensemble",
+  "strength_frozen_at": "day before the first postseason game of each season",
+  "seasons": [
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "excluded_from_headline_metrics": {
+    "2019": "2019-20 playoffs were played at a neutral site (bubble)"
+  },
+  "baseline_rates": {
+    "seasons": [
+      2003,
+      2013
+    ],
+    "playoff_home_win_rate": 0.6576673866090713,
+    "higher_seed_series_win_rate": 0.7272727272727273
+  },
+  "games": {
+    "count": 953,
+    "model_log_loss": 0.6386268072927742,
+    "baseline_log_loss": 0.6800855410708331,
+    "model_brier": 0.2239154744585145,
+    "baseline_brier": 0.2432593501911809,
+    "model_accuracy": 0.6484784889821616,
+    "baseline_accuracy": 0.6002098635886673,
+    "outcome_rate": 0.6002098635886673
+  },
+  "games_including_bubble": {
+    "count": 953,
+    "model_log_loss": 0.6386268072927742,
+    "baseline_log_loss": 0.6800855410708331,
+    "model_brier": 0.2239154744585145,
+    "baseline_brier": 0.2432593501911809,
+    "model_accuracy": 0.6484784889821616,
+    "baseline_accuracy": 0.6002098635886673,
+    "outcome_rate": 0.6002098635886673
+  },
+  "series": {
+    "count": 165,
+    "model_log_loss": 0.562816600127268,
+    "baseline_log_loss": 0.5859526183035508,
+    "model_brier": 0.19149009239359602,
+    "baseline_brier": 0.19834710743801648,
+    "model_accuracy": 0.703030303030303,
+    "baseline_accuracy": 0.7272727272727273,
+    "outcome_rate": 0.7272727272727273
+  },
+  "series_by_round": {
+    "conf_finals": {
+      "count": 22,
+      "model_log_loss": 0.6831288575005351,
+      "baseline_log_loss": 0.7642852097602284,
+      "model_brier": 0.24376670832936193,
+      "baseline_brier": 0.2809917355371901,
+      "model_accuracy": 0.5909090909090909,
+      "baseline_accuracy": 0.5454545454545454,
+      "outcome_rate": 0.5454545454545454
+    },
+    "conf_semifinals": {
+      "count": 44,
+      "model_log_loss": 0.6828188281160714,
+      "baseline_log_loss": 0.6751189140318896,
+      "model_brier": 0.248024476005087,
+      "baseline_brier": 0.23966942148760328,
+      "model_accuracy": 0.5454545454545454,
+      "baseline_accuracy": 0.6363636363636364,
+      "outcome_rate": 0.6363636363636364
+    },
+    "finals": {
+      "count": 11,
+      "model_log_loss": 0.8092254143406159,
+      "baseline_log_loss": 0.5859526183035508,
+      "model_brier": 0.28009856193232285,
+      "baseline_brier": 0.1983471074380165,
+      "model_accuracy": 0.5454545454545454,
+      "baseline_accuracy": 0.7272727272727273,
+      "outcome_rate": 0.7272727272727273
+    },
+    "first_round": {
+      "count": 88,
+      "model_log_loss": 0.441936320012881,
+      "baseline_log_loss": 0.496786322575212,
+      "model_brier": 0.13907768791156824,
+      "baseline_brier": 0.15702479338842973,
+      "model_accuracy": 0.8295454545454546,
+      "baseline_accuracy": 0.8181818181818182,
+      "outcome_rate": 0.8181818181818182
+    }
+  },
+  "bracket_summary": {
+    "seasons": [
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "mean_title_probability_given_to_actual_champion": 0.23386930755353835,
+    "mean_log_title_probability": -2.2336253510077295,
+    "uniform_log_title_probability": -2.772588722239781,
+    "champion_was_model_favorite_share": 0.36363636363636365
+  },
+  "brackets": [
+    {
+      "season": 2014,
+      "cutoff": "2015-04-18",
+      "actual_champion": 1610612744,
+      "model_title_probability_for_champion": 0.48576407565539825,
+      "champion_rank_by_model": 1,
+      "model_favorite": 1610612744,
+      "model_favorite_title_probability": 0.48576407565539825,
+      "teams_in_field": 16,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2015,
+      "cutoff": "2016-04-16",
+      "actual_champion": 1610612739,
+      "model_title_probability_for_champion": 0.03333306750458229,
+      "champion_rank_by_model": 4,
+      "model_favorite": 1610612744,
+      "model_favorite_title_probability": 0.6898932000913262,
+      "teams_in_field": 16,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2016,
+      "cutoff": "2017-04-15",
+      "actual_champion": 1610612744,
+      "model_title_probability_for_champion": 0.7115601527370499,
+      "champion_rank_by_model": 1,
+      "model_favorite": 1610612744,
+      "model_favorite_title_probability": 0.7115601527370499,
+      "teams_in_field": 16,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2017,
+      "cutoff": "2018-04-14",
+      "actual_champion": 1610612744,
+      "model_title_probability_for_champion": 0.05388491070633922,
+      "champion_rank_by_model": 5,
+      "model_favorite": 1610612745,
+      "model_favorite_title_probability": 0.4810157244001753,
+      "teams_in_field": 16,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2018,
+      "cutoff": "2019-04-13",
+      "actual_champion": 1610612761,
+      "model_title_probability_for_champion": 0.17606698213229927,
+      "champion_rank_by_model": 3,
+      "model_favorite": 1610612749,
+      "model_favorite_title_probability": 0.263956783974572,
+      "teams_in_field": 16,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2020,
+      "cutoff": "2021-05-18",
+      "actual_champion": 1610612749,
+      "model_title_probability_for_champion": 0.0626929950992963,
+      "champion_rank_by_model": 5,
+      "model_favorite": 1610612755,
+      "model_favorite_title_probability": 0.26125475962493966,
+      "teams_in_field": 20,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2021,
+      "cutoff": "2022-04-12",
+      "actual_champion": 1610612744,
+      "model_title_probability_for_champion": 0.011687075821577816,
+      "champion_rank_by_model": 9,
+      "model_favorite": 1610612756,
+      "model_favorite_title_probability": 0.3222849984506099,
+      "teams_in_field": 20,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2022,
+      "cutoff": "2023-04-11",
+      "actual_champion": 1610612743,
+      "model_title_probability_for_champion": 0.057258656790220366,
+      "champion_rank_by_model": 6,
+      "model_favorite": 1610612738,
+      "model_favorite_title_probability": 0.31314305389855657,
+      "teams_in_field": 20,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2023,
+      "cutoff": "2024-04-16",
+      "actual_champion": 1610612738,
+      "model_title_probability_for_champion": 0.45999498850201515,
+      "champion_rank_by_model": 1,
+      "model_favorite": 1610612738,
+      "model_favorite_title_probability": 0.45999498850201515,
+      "teams_in_field": 20,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2024,
+      "cutoff": "2025-04-15",
+      "actual_champion": 1610612760,
+      "model_title_probability_for_champion": 0.5000789375602314,
+      "champion_rank_by_model": 1,
+      "model_favorite": 1610612760,
+      "model_favorite_title_probability": 0.5000789375602314,
+      "teams_in_field": 20,
+      "uniform_title_probability": 0.0625
+    },
+    {
+      "season": 2025,
+      "cutoff": "2026-04-14",
+      "actual_champion": 1610612752,
+      "model_title_probability_for_champion": 0.02024054057991174,
+      "champion_rank_by_model": 6,
+      "model_favorite": 1610612760,
+      "model_favorite_title_probability": 0.41961457116202516,
+      "teams_in_field": 20,
+      "uniform_title_probability": 0.0625
+    }
+  ],
+  "series_detail": [
+    {
+      "season": 2014,
+      "round": "first_round",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612764,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5606679412629811,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "first_round",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612740,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9150181753488925,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "first_round",
+      "higher_seed_team": 1610612741,
+      "lower_seed_team": 1610612749,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8447453544774255,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "first_round",
+      "higher_seed_team": 1610612745,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7842983794068358,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "first_round",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612738,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7399539372267808,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "first_round",
+      "higher_seed_team": 1610612737,
+      "lower_seed_team": 1610612751,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8157017803705835,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "first_round",
+      "higher_seed_team": 1610612763,
+      "lower_seed_team": 1610612757,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6386550680298546,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "first_round",
+      "higher_seed_team": 1610612746,
+      "lower_seed_team": 1610612759,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.4481436044689536,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612737,
+      "lower_seed_team": 1610612764,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8142056506161978,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612763,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8715317570274176,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612741,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6039882758675221,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612745,
+      "lower_seed_team": 1610612746,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.4458220464529521,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612745,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7447998889317361,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612737,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5461289947668978,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2014,
+      "round": "finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.846741345292037,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "first_round",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.773080256857557,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "first_round",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612745,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9810412384556891,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "first_round",
+      "higher_seed_team": 1610612737,
+      "lower_seed_team": 1610612738,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6496606869921886,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "first_round",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8426466510009659,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "first_round",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612765,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8020210982514465,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "first_round",
+      "higher_seed_team": 1610612748,
+      "lower_seed_team": 1610612766,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.48992079606288413,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "first_round",
+      "higher_seed_team": 1610612759,
+      "lower_seed_team": 1610612763,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9722380014874624,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "first_round",
+      "higher_seed_team": 1610612746,
+      "lower_seed_team": 1610612757,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.720212056172317,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612759,
+      "lower_seed_team": 1610612760,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.759739182192836,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612757,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9463850422125297,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612737,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5812608853583136,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6766544946422935,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612760,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9175585991561512,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612761,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5211331110883853,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2015,
+      "round": "finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.9339990871089248,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "first_round",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5573201508091996,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "first_round",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612749,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7643114164623701,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "first_round",
+      "higher_seed_team": 1610612759,
+      "lower_seed_team": 1610612763,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9292628740874631,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "first_round",
+      "higher_seed_team": 1610612746,
+      "lower_seed_team": 1610612762,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6594345970927342,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "first_round",
+      "higher_seed_team": 1610612764,
+      "lower_seed_team": 1610612737,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7728462811267923,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "first_round",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612757,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.961278898653008,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "first_round",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612741,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7657329807911857,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "first_round",
+      "higher_seed_team": 1610612745,
+      "lower_seed_team": 1610612760,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5703592501122727,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612764,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6378313659408164,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612761,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.33971299055082116,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612759,
+      "lower_seed_team": 1610612745,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8217218487386027,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612762,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9365533004160674,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612759,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8451441972207949,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6994930579557075,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2016,
+      "round": "finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9638920504592297,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "first_round",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612759,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6541398357561882,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "first_round",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612764,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9047373926767955,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "first_round",
+      "higher_seed_team": 1610612755,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7931396303441864,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "first_round",
+      "higher_seed_team": 1610612757,
+      "lower_seed_team": 1610612740,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5017924176718274,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "first_round",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612749,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6443464406082655,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "first_round",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.4339867575502203,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "first_round",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612762,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.37840369219085046,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "first_round",
+      "higher_seed_team": 1610612745,
+      "lower_seed_team": 1610612750,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9298440890315427,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612740,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.593154047754616,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612745,
+      "lower_seed_team": 1610612762,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7656776296371356,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612755,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.39798704803817686,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.7418335670837063,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.566351265387325,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612745,
+      "lower_seed_team": 1610612744,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.8017913010165507,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2017,
+      "round": "finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6262772323951313,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "first_round",
+      "higher_seed_team": 1610612755,
+      "lower_seed_team": 1610612751,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5929056224248886,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "first_round",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612753,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7905511258424938,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "first_round",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612746,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7960927419568942,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "first_round",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612759,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5564130298802309,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "first_round",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5484135787179193,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "first_round",
+      "higher_seed_team": 1610612757,
+      "lower_seed_team": 1610612760,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7142634484283809,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "first_round",
+      "higher_seed_team": 1610612749,
+      "lower_seed_team": 1610612765,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9080645180733911,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "first_round",
+      "higher_seed_team": 1610612745,
+      "lower_seed_team": 1610612762,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.769714832279911,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612755,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8006979732323808,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612749,
+      "lower_seed_team": 1610612738,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8080481738783512,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612745,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.3887561908245908,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612757,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.4448593671545378,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612757,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6488617879397582,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612749,
+      "lower_seed_team": 1610612761,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5572610529116236,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2018,
+      "round": "finals",
+      "higher_seed_team": 1610612761,
+      "lower_seed_team": 1610612744,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.4905480690784253,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "first_round",
+      "higher_seed_team": 1610612749,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6453102264092054,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "first_round",
+      "higher_seed_team": 1610612746,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5994359170642294,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "first_round",
+      "higher_seed_team": 1610612751,
+      "lower_seed_team": 1610612738,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8522259694054639,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "first_round",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612757,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5727600676685884,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "first_round",
+      "higher_seed_team": 1610612755,
+      "lower_seed_team": 1610612764,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8848600997546779,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "first_round",
+      "higher_seed_team": 1610612756,
+      "lower_seed_team": 1610612747,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8214207678353538,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "first_round",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612737,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5569406598661384,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "first_round",
+      "higher_seed_team": 1610612762,
+      "lower_seed_team": 1610612763,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8002801252356214,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612751,
+      "lower_seed_team": 1610612749,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5088243220997728,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612755,
+      "lower_seed_team": 1610612737,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.7776280901268439,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612756,
+      "lower_seed_team": 1610612743,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6165377435898629,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612762,
+      "lower_seed_team": 1610612746,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.7111366631479309,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612756,
+      "lower_seed_team": 1610612746,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7364630962692925,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612749,
+      "lower_seed_team": 1610612737,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7133678129331713,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2020,
+      "round": "finals",
+      "higher_seed_team": 1610612756,
+      "lower_seed_team": 1610612749,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6664789661797148,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "first_round",
+      "higher_seed_team": 1610612742,
+      "lower_seed_team": 1610612762,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7511601768630216,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "first_round",
+      "higher_seed_team": 1610612763,
+      "lower_seed_team": 1610612750,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7682057300979982,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "first_round",
+      "higher_seed_team": 1610612755,
+      "lower_seed_team": 1610612761,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5971608775549411,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "first_round",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612743,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5094280285031254,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "first_round",
+      "higher_seed_team": 1610612748,
+      "lower_seed_team": 1610612737,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.686822998561309,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "first_round",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612751,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8097342598861086,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "first_round",
+      "higher_seed_team": 1610612749,
+      "lower_seed_team": 1610612741,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.875346688485575,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "first_round",
+      "higher_seed_team": 1610612756,
+      "lower_seed_team": 1610612740,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9246016270488683,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612749,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6799569775330992,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612763,
+      "lower_seed_team": 1610612744,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.7918902920531431,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612748,
+      "lower_seed_team": 1610612755,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.4839763745163196,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612756,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6899583250664619,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612748,
+      "lower_seed_team": 1610612738,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.4383296988114531,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.31070190985921764,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2021,
+      "round": "finals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612738,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.31090705442118005,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "first_round",
+      "higher_seed_team": 1610612755,
+      "lower_seed_team": 1610612751,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.685866235669549,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "first_round",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612737,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8871504061724691,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "first_round",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612752,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6060735844484989,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "first_round",
+      "higher_seed_team": 1610612758,
+      "lower_seed_team": 1610612744,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.45688042367078635,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "first_round",
+      "higher_seed_team": 1610612763,
+      "lower_seed_team": 1610612747,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6536925673383338,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "first_round",
+      "higher_seed_team": 1610612749,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.8256041387895457,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "first_round",
+      "higher_seed_team": 1610612756,
+      "lower_seed_team": 1610612746,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6449359291668542,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "first_round",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612750,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6704257781523759,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612756,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5081274746113184,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6497822980021221,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612755,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6307726104577132,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612744,
+      "lower_seed_team": 1610612747,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6277862518593664,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612747,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5684158631243269,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.8480516777627527,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2022,
+      "round": "finals",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6296600660654582,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "first_round",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612753,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.520811875431935,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "first_round",
+      "higher_seed_team": 1610612750,
+      "lower_seed_team": 1610612756,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6144180881089192,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "first_round",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612755,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6642575893035522,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "first_round",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612747,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7401816207596403,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "first_round",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8538085762775427,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "first_round",
+      "higher_seed_team": 1610612746,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.3843089409249694,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "first_round",
+      "higher_seed_team": 1610612749,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.3998640851292496,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "first_round",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612740,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6874328686643945,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612750,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6184363149373541,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6220688725852106,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9137722492111836,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5901995494919603,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8351589883074213,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612750,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5903435978275788,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2023,
+      "round": "finals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612742,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7466708980379996,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "first_round",
+      "higher_seed_team": 1610612754,
+      "lower_seed_team": 1610612749,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6740738866241591,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "first_round",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612746,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.3720851590046429,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "first_round",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612765,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7095659129764661,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "first_round",
+      "higher_seed_team": 1610612747,
+      "lower_seed_team": 1610612750,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.4405904804463139,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "first_round",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612763,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9627169777251401,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "first_round",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612753,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9411630668039218,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "first_round",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612748,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8400211668594924,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "first_round",
+      "higher_seed_team": 1610612745,
+      "lower_seed_team": 1610612744,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.4282329964049001,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.5483688119658559,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612752,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.8674856330389087,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612743,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8934732473508102,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612750,
+      "lower_seed_team": 1610612744,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.614060880640422,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612750,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8136087556849164,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.3994355322510313,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2024,
+      "round": "finals",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612754,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8442905255198766,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "first_round",
+      "higher_seed_team": 1610612739,
+      "lower_seed_team": 1610612761,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.7083143053195123,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "first_round",
+      "higher_seed_team": 1610612743,
+      "lower_seed_team": 1610612750,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.7697391348373587,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "first_round",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612737,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.6277512741060378,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "first_round",
+      "higher_seed_team": 1610612747,
+      "lower_seed_team": 1610612745,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.498457712818134,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "first_round",
+      "higher_seed_team": 1610612738,
+      "lower_seed_team": 1610612755,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.9075593263714103,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "first_round",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612756,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9652354513602338,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "first_round",
+      "higher_seed_team": 1610612765,
+      "lower_seed_team": 1610612753,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8498982000217377,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "first_round",
+      "higher_seed_team": 1610612759,
+      "lower_seed_team": 1610612757,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8979943944792255,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612755,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8476518909823756,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612759,
+      "lower_seed_team": 1610612750,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.9033663567582155,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612765,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.7636756026033609,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "conf_semifinals",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612747,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.8710062152662578,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612760,
+      "lower_seed_team": 1610612759,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.6217342027163602,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "conf_finals",
+      "higher_seed_team": 1610612752,
+      "lower_seed_team": 1610612739,
+      "neutral_site": false,
+      "higher_seed_won": 1,
+      "model_probability": 0.5855259871781372,
+      "baseline_probability": 0.7272727272727273
+    },
+    {
+      "season": 2025,
+      "round": "finals",
+      "higher_seed_team": 1610612759,
+      "lower_seed_team": 1610612752,
+      "neutral_site": false,
+      "higher_seed_won": 0,
+      "model_probability": 0.8000699152633373,
+      "baseline_probability": 0.7272727272727273
+    }
+  ]
+}

@@ -37,10 +37,28 @@ const QUICK_LINKS = [
     available: true,
   },
   {
+    path: "/current-season",
+    title: "Current Season",
+    description: "Data freshness, every team's strength today, and offseason roster moves.",
+    available: true,
+  },
+  {
+    path: "/what-if",
+    title: "What-if Lab",
+    description: "Cross-era roster swaps with the method, assumptions and confidence shown.",
+    available: true,
+  },
+  {
+    path: "/playoffs",
+    title: "Playoffs",
+    description: "Play-in, bracket and title odds, replayed against real postseasons.",
+    available: true,
+  },
+  {
     path: "/player-impact",
     title: "Player Impact",
-    description: "Association-only diagnostics for a player's on/off impact.",
-    available: false,
+    description: "Find any player by name; association-only impact diagnostic.",
+    available: true,
   },
   {
     path: "/league-predictions",
