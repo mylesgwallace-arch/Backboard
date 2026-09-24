@@ -50,6 +50,72 @@ optimistic for a genuine preseason or mid-season forecast. The partial-season
 projection added in Phase 1 (below) freezes team strength at a cutoff date to
 measure the honest forward-looking error.
 
+## Phase 1 (2026-09-24): quick wins -- done and validated
+
+New modules, all wrapped as registered tools in `src/tools.py` (the registry
+now has 15 tools):
+
+* **`src/player_lookup.py` -> tool `resolve_player`.** Name -> personId over
+  the `players` table. Exact normalized full-name match first (accents,
+  punctuation and Jr./II suffixes ignored), otherwise every typed word must
+  start a word of the name ("steph curry" -> Stephen Curry 201939). More than
+  one match returns `ambiguous: true`, `person_id: null` and ranked
+  candidates (career span, regular-season games); an optional `season`
+  separates namesakes (Gary Payton 1995 -> 56, not Gary Payton II).
+  `player_impact` and `player_scenario` now accept `player` (a name) as an
+  alternative to `person_id`; an ambiguous name is a structured error that
+  lists the candidates. `roster_change_data.resolve_person_id` is unchanged
+  (it keeps its first-match behavior for batch normalization).
+* **`src/db_query.py` -> tools `query_database`, `describe_database`, plus a
+  CLI** (`python src/db_query.py "SELECT ..."`, `--describe [table]`). Four
+  independent write guards: SQLite `mode=ro` URI, `PRAGMA query_only`, an
+  authorizer that permits only SELECT/READ/FUNCTION (denies PRAGMA, ATTACH,
+  DDL, DML), and a single-SELECT/WITH text check. 200-row default cap (5,000
+  hard max) and a 20 s timeout. Tests prove DELETE/UPDATE/INSERT/DROP/
+  ATTACH/PRAGMA and a write hidden in a WITH clause are all rejected and the
+  table is unchanged.
+* **Team names in simulator output.** `simulate_season.load_team_names(season)`
+  reads `team_histories` for the name each franchise carried *that* season
+  (1610612760 = Seattle SuperSonics in 2005, Oklahoma City Thunder in 2025);
+  `attach_team_names` adds `teamName`/`teamAbbreviation` to standings,
+  seedings and league-summary best/worst teams. Used by the
+  `simulate_season`/`team_projection` tools, `main.py --simulate-season` and
+  the `simulate_season.py` CLI printout. Additive only: existing keys and
+  numbers are unchanged.
+* **`src/forward_projection.py` -> tool `project_rest_of_season` + CLI.**
+  Games before the cutoff keep their real results; each remaining game gets
+  the production-model probability computed exactly like
+  `predict_matchup(game_date=cutoff)` (verified equal to 1e-6 on three real
+  pairings), so no information from on/after the cutoff is used (unit test:
+  flipping every later result and scrambling every later feature row leaves
+  the probabilities unchanged). A fast Elo replay is verified identical to
+  `compute_elo_ratings_as_of`.
+  * **Strength uncertainty (new, validated).** With game-outcome noise only,
+    the 5th-95th percentile win ranges were badly overconfident (they covered
+    the actual final wins 52% of the time preseason). A per-team,
+    per-simulation log-odds shock was added; its SD was chosen by CRPS on
+    **2015-2021 only** (0.6 preseason, 0.4 from a quarter of the season on).
+  * **Held-out backtest, seasons 2022-2025** (`python src/forward_projection.py
+    --backtest`, saved to `models/forward_projection_backtest.json`):
+
+    | Cutoff (share of season played) | Model MAE (wins) | Carry-current-pace MAE | Coin-flip MAE | 5-95% range coverage (no shock -> calibrated) | Direct-playoff Brier (no shock -> calibrated) | Playoff-field overlap |
+    |---|---|---|---|---|---|---|
+    | 0% (preseason) | 8.68 | 10.19 | 10.19 | 52% -> 86% | 0.253 -> 0.207 | 6.5/12 |
+    | 25% | 5.49 | 5.95 | 7.93 | 67% -> 87% | 0.169 -> 0.151 | 8.0/12 |
+    | 50% | 4.05 | 3.95 | 5.94 | 71% -> 90% | 0.105 -> 0.102 | 10.0/12 |
+    | 75% | 2.19 | 2.38 | 3.41 | 81% -> 92% | 0.070 -> 0.066 | 10.5/12 |
+
+    Honest reading: preseason the model beats .500 by ~1.5 wins of MAE; at
+    the halfway point it is **no better than carrying each team's current
+    win percentage forward**. The calibrated ranges are now roughly honest.
+  * The existing full-season replay simulator (`simulate_season`) still
+    simulates game noise only and its ranges are therefore likely too narrow
+    as well; it was deliberately left unchanged in this pass.
+
+Tests: 43 new (`tests/test_player_lookup.py`, `tests/test_db_query.py`,
+`tests/test_forward_projection.py`, additions to `test_tools.py` and
+`test_simulate_season.py`); suite now 228 tests.
+
 ---
 
 # 1. Current Objective

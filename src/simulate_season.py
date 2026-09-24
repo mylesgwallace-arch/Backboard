@@ -21,6 +21,7 @@ Design rules:
 import argparse
 import json
 import pickle
+import sqlite3
 from pathlib import Path
 
 import numpy as np
@@ -43,6 +44,7 @@ FEATURES_PATH = ROOT / "data" / "processed" / "game_features.csv"
 MODEL_PATH = ROOT / "models" / "baseline_logistic.pkl"
 METRICS_PATH = ROOT / "models" / "baseline_metrics.json"
 SIMULATION_METRICS_PATH = ROOT / "models" / "season_simulation_metrics.json"
+TEAM_DB_PATH = ROOT / "data" / "database" / "nba.db"
 
 VALIDATION_SEASONS = [2023, 2024, 2025]
 DEFAULT_SEASON = 2025
@@ -176,6 +178,73 @@ def simulate_season(
         np.add.at(wins[simulation], home_indices, home_wins)
         np.add.at(wins[simulation], away_indices, ~home_wins)
     return wins, teams
+
+
+def load_team_names(season=None, db_path=TEAM_DB_PATH):
+    """Return ``{teamId: {"teamName", "teamAbbreviation"}}`` from ``team_histories``.
+
+    With a ``season`` (start year), each franchise gets the name it carried
+    that season (e.g. 1610612760 is the Seattle SuperSonics in 2005 and the
+    Oklahoma City Thunder in 2025). Without one, the current names are used.
+    Returns an empty mapping when the database is unavailable, so callers
+    degrade to ids only instead of failing.
+    """
+    try:
+        with sqlite3.connect(db_path) as connection:
+            if season is None:
+                rows = connection.execute(
+                    """
+                    SELECT teamId, teamCity, teamName, teamAbbrev, seasonFounded
+                    FROM team_histories
+                    WHERE seasonActiveTill >= 2100
+                    """
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT teamId, teamCity, teamName, teamAbbrev, seasonFounded
+                    FROM team_histories
+                    WHERE seasonFounded <= ? AND seasonActiveTill >= ?
+                    """,
+                    (int(season), int(season)),
+                ).fetchall()
+    except sqlite3.Error:
+        return {}
+    names = {}
+    # If a franchise has overlapping rows, keep the most recently founded one.
+    for team_id, city, name, abbrev, founded in sorted(rows, key=lambda row: row[4]):
+        names[int(team_id)] = {
+            "teamName": f"{city} {name}".strip(),
+            "teamAbbreviation": (abbrev or "").strip(),
+        }
+    return names
+
+
+def attach_team_names(projection, team_names):
+    """Add ``teamName`` (and abbreviation) next to every ``teamId`` in a projection.
+
+    Modifies and returns ``projection``. Teams missing from ``team_names``
+    keep their numeric id only.
+    """
+    if not team_names:
+        return projection
+
+    def _label(row):
+        info = team_names.get(int(row["teamId"]))
+        if info:
+            row["teamName"] = info["teamName"]
+            row["teamAbbreviation"] = info["teamAbbreviation"]
+        return row
+
+    for row in projection.get("projected_standings", []):
+        _label(row)
+    for row in projection.get("projected_seedings", []):
+        _label(row)
+    league = projection.get("league_summary") or {}
+    for key in ("best_team", "worst_team"):
+        if isinstance(league.get(key), dict):
+            _label(league[key])
+    return projection
 
 
 def conference_of(team_id):
@@ -325,13 +394,18 @@ def project_season(
     season,
     n_simulations=DEFAULT_SIMULATIONS,
     random_state=42,
+    team_names=None,
 ):
-    """Return a full season projection: win distributions + playoff odds."""
+    """Return a full season projection: win distributions + playoff odds.
+
+    ``team_names`` (from ``load_team_names``) is optional; when given, every
+    ``teamId`` in the output also carries its ``teamName``.
+    """
     wins, teams = simulate_season(
         probabilities, season, n_simulations=n_simulations, random_state=random_state
     )
     summary = summarize_team_wins(wins, teams, probabilities, season)
-    return {
+    projection = {
         "season": int(season),
         "n_simulations": int(n_simulations),
         "random_state": int(random_state),
@@ -340,6 +414,7 @@ def project_season(
         "projected_seedings": build_seedings_table(summary),
         "league_summary": build_league_summary(summary),
     }
+    return attach_team_names(projection, team_names)
 
 
 def actual_season_standings(probabilities, season):
@@ -530,6 +605,7 @@ def main(argv=None):
         args.season,
         n_simulations=args.simulations,
         random_state=args.random_state,
+        team_names=load_team_names(args.season),
     )
     result["projection"] = projection
     write_metrics(result)
@@ -542,7 +618,7 @@ def main(argv=None):
             else ""
         )
         print(
-            f"  {row['conference']:4s} {row['teamId']} "
+            f"  {row['conference']:4s} {row.get('teamName', row['teamId'])} "
             f"mean={row['mean_wins']:.1f} "
             f"[{row['p5_wins']:.0f}-{row['p95_wins']:.0f}]{playoff}"
         )
@@ -550,7 +626,7 @@ def main(argv=None):
     for slot in projection["projected_seedings"]:
         print(
             f"  {slot['conference']:4s} seed {slot['seed']}: "
-            f"{slot['teamId']} ({slot['probability']:.1%})"
+            f"{slot.get('teamName', slot['teamId'])} ({slot['probability']:.1%})"
         )
     print(f"Saved simulation metrics to {SIMULATION_METRICS_PATH}")
     return 0

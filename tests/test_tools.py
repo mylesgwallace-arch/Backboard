@@ -537,3 +537,97 @@ def test_envelope_carries_operation_model_assumptions_limitations():
         assert tools[name]["model"]
         assert isinstance(tools[name]["assumptions"], list)
         assert isinstance(tools[name]["limitations"], list)
+
+def test_new_phase_one_tools_are_registered_with_metadata():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    for name in ("resolve_player", "query_database", "describe_database",
+                 "project_rest_of_season"):
+        assert name in tools
+        assert tools[name]["description"]
+        assert tools[name]["limitations"]
+    # person_id is no longer the only way to name a player.
+    impact_params = {p["name"]: p for p in tools["player_impact"]["parameters"]}
+    assert impact_params["person_id"]["required"] is False
+    assert "player" in impact_params
+
+
+def test_player_impact_accepts_a_player_name(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        "src.tools.resolve_player_id",
+        lambda name, season=None: captured.setdefault("id", 201939),
+    )
+    monkeypatch.setattr(
+        "src.tools.summarize_player_impact",
+        lambda person_id, before=None, window=10: {
+            "person_id": person_id, "prior_games": 10,
+            "player_net_rating": 5.0, "estimated_net_rating_change": 3.5,
+        },
+    )
+
+    result = execute_tool("player_impact", {"player": "Stephen Curry"})
+
+    assert result["status"] == "success"
+    assert result["data"]["diagnostic"]["person_id"] == 201939
+
+
+def test_player_impact_ambiguous_name_is_a_structured_error(monkeypatch):
+    def ambiguous(name, season=None):
+        raise ValueError("Player name 'Curry' matches 6 players: ...")
+
+    monkeypatch.setattr("src.tools.resolve_player_id", ambiguous)
+
+    result = execute_tool("player_impact", {"player": "Curry"})
+
+    assert result["status"] == "error"
+    assert "matches 6 players" in result["error"]["message"]
+
+
+def test_player_impact_requires_id_or_name():
+    result = execute_tool("player_impact", {})
+    assert result["status"] == "error"
+    assert "person_id" in result["error"]["message"]
+
+
+def test_resolve_player_unavailable_when_nothing_matches(monkeypatch):
+    monkeypatch.setattr(
+        "src.tools.find_players",
+        lambda name, season=None, limit=10: {"match_count": 0, "candidates": []},
+    )
+    result = execute_tool("resolve_player", {"name": "Nobody"})
+    assert result["status"] == "unavailable"
+
+
+def test_query_database_rejects_writes_as_structured_error():
+    result = execute_tool("query_database", {"sql": "DELETE FROM games"})
+    assert result["status"] == "error"
+    assert "read-only" in result["error"]["message"]
+
+
+def test_project_rest_of_season_highlights_requested_team(monkeypatch):
+    fake_projection = {
+        "season": 2024,
+        "as_of": "2025-01-15",
+        "projected_standings": [
+            {"teamId": 1610612738, "mean_wins": 58.5, "current_wins": 28},
+            {"teamId": 1610612760, "mean_wins": 66.0, "current_wins": 34},
+        ],
+    }
+    captured = {}
+
+    def fake_project(season, as_of, inputs, **kwargs):
+        captured.update({"season": season, "as_of": as_of, **kwargs})
+        return fake_projection
+
+    monkeypatch.setattr("src.tools.project_from_date", fake_project)
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+
+    result = execute_tool(
+        "project_rest_of_season",
+        {"season": 2024, "as_of": "2025-01-15", "team_id": 1610612738},
+    )
+
+    assert result["status"] == "success"
+    assert result["data"]["team_projection"]["mean_wins"] == 58.5
+    assert captured["as_of"] == "2025-01-15"
+    assert captured["n_simulations"] == 1000
