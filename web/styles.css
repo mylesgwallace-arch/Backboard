@@ -1896,6 +1896,135 @@ details.collapsible[open] summary {
 }
 
 /* --------------------------------------------------------------------------
+   Team Explorer: the team hero slab (loud), metrics + tabs (calm)
+   -------------------------------------------------------------------------- */
+
+/* A full team-color slab: computed ink, a clashing secondary-color stripe,
+   halftone in the top-right corner (drawn opposite the ink), torn bottom. */
+.card.team-hero {
+  --dot: color-mix(in srgb, var(--team-dots, #000) 24%, transparent);
+  background:
+    radial-gradient(460px 300px at 100% 0, transparent 0 12%, var(--team-color) 68%),
+    var(--tx-halftone),
+    var(--team-color, var(--asphalt-800));
+  color: var(--team-ink, var(--chalk));
+  padding: 1.6rem 1.8rem 1.8rem 2.6rem;
+  margin-bottom: 2.2rem;
+  box-shadow: none;
+  filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.55));
+}
+
+.card.team-hero::before {
+  inset: 0 auto 0 0;
+  width: 14px;
+  border: 0;
+  background: var(--team-alt, var(--spray-orange));
+  -webkit-mask: none;
+  mask: none;
+}
+
+.card.team-hero::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -13px;
+  height: 14px;
+  background: var(--team-color, var(--asphalt-800));
+  -webkit-mask: var(--tx-torn-bottom) repeat-x 0 0 / 320px 14px;
+  mask: var(--tx-torn-bottom) repeat-x 0 0 / 320px 14px;
+  pointer-events: none;
+}
+
+.team-hero :focus-visible {
+  outline-color: var(--team-ink, var(--highlighter));
+}
+
+.team-hero-body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.2rem 1.6rem;
+}
+
+.team-hero-id {
+  min-width: 0;
+}
+
+.team-hero-city {
+  font-family: var(--font-stencil);
+  font-weight: 900;
+  font-size: 1.05rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.team-hero-name {
+  margin-top: 0.2rem;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-synthesis: none;
+  font-size: var(--type-headline);
+  line-height: 0.95;
+  text-transform: uppercase;
+  /* Off-registration in the team's own secondary color: the clash. */
+  text-shadow: 0.05em 0.05em 0 var(--team-alt, transparent);
+  overflow-wrap: anywhere;
+}
+
+.team-hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem 1.1rem;
+}
+
+.team-hero .team-streak {
+  color: var(--team-ink, var(--chalk));
+}
+
+.team-hero .badge.team-abbrev-stamp {
+  font-family: var(--font-stencil);
+  font-weight: 900;
+  font-size: 1.3rem;
+  letter-spacing: 0.14em;
+  padding: 0.25rem 0.6rem 0.15rem;
+  color: var(--team-ink, var(--chalk));
+  border: 4px double var(--team-ink, var(--chalk));
+}
+
+.tab-strip {
+  position: relative;
+  padding-bottom: 0.95rem;
+  margin-bottom: 1.3rem;
+}
+
+.tab-strip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--chalk);
+  opacity: 0.2;
+  -webkit-mask: var(--tx-wear);
+  mask: var(--tx-wear);
+}
+
+.tab-strip .btn {
+  box-shadow: none;
+}
+
+.compare-legend .team-chip {
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
    Data tables (standings) — high contrast, flat, tabular.
    -------------------------------------------------------------------------- */
 
