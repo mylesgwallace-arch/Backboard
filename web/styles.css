@@ -1029,7 +1029,7 @@ input[type="checkbox"] {
   letter-spacing: 0.07em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.75), inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+  box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.75);
   transition: background-color 0.12s ease, border-color 0.12s ease, transform 0.06s ease, box-shadow 0.06s ease;
 }
 
@@ -2158,13 +2158,36 @@ details.collapsible[open] summary {
   outline-offset: -3px;
 }
 
-.data-table tbody tr.standings-row[aria-expanded="true"] {
+.data-table tbody tr.standings-row.is-open {
   background: var(--asphalt-800);
 }
 
-.data-table tbody tr.standings-row[aria-expanded="true"] td.team {
+.data-table tbody tr.standings-row.is-open td.team {
   box-shadow: inset 4px 0 0 var(--spray-orange);
   padding-left: 0.8rem;
+}
+
+/* The team name doubles as the row's expand button: looks like table text. */
+.row-toggle {
+  display: inline;
+  padding: 0.15rem 0;
+  margin: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-toggle:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.row-toggle:focus-visible {
+  outline-offset: 2px;
 }
 
 .data-table tbody tr.standings-detail-row > td {
@@ -2264,8 +2287,10 @@ details.collapsible[open] summary {
   margin-top: 0.9rem;
 }
 
+/* Room below the tilted stamp so its corner never dips into the team slab
+   of the headline underneath (verified by pixel sampling). */
 .front-page-tag {
-  margin: 0.2rem 0 1rem 0.2rem;
+  margin: 0.2rem 0 1.6rem 0.3rem;
 }
 
 .front-page-teasers {

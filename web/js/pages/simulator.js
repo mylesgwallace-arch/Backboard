@@ -247,9 +247,11 @@ function renderStandingsRow(row, index, teamById) {
   // the direct-playoff seeds (seed 7).
   const cutoffClass = index === 6 ? " is-below-cutoff" : "";
   return `
-    <tr class="standings-row${cutoffClass}" data-team-id="${row.teamId}" tabindex="0" aria-expanded="false">
+    <tr class="standings-row${cutoffClass}" data-team-id="${row.teamId}">
       <td class="rank">${index + 1}</td>
-      <td class="team">${escapeHtml(team?.full_name || row.teamId)}</td>
+      <td class="team">
+        <button type="button" class="row-toggle" aria-expanded="false">${escapeHtml(team?.full_name || row.teamId)}</button>
+      </td>
       <td class="num">${row.mean_wins.toFixed(1)}</td>
       <td class="num">
         <div class="odds-cell">
@@ -296,25 +298,17 @@ function playoffOddsColor(probability) {
 
 function wireResultInteractions(resultMount, teams, ctx) {
   resultMount.querySelectorAll(".standings-row").forEach((row) => {
-    const toggle = () => {
+    // The team name is a real <button> (keyboard + aria-expanded); its click
+    // bubbles to this row handler, so mouse and keyboard share one path.
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("[data-view-team]")) return;
       const teamId = row.dataset.teamId;
       const detail = resultMount.querySelector(`.standings-detail-row[data-detail-for="${teamId}"]`);
       if (!detail) return;
       const isOpen = detail.style.display !== "none";
       detail.style.display = isOpen ? "none" : "table-row";
-      row.setAttribute("aria-expanded", String(!isOpen));
-    };
-    row.addEventListener("click", (event) => {
-      if (event.target.closest("[data-view-team]")) return;
-      toggle();
-    });
-    // Rows are focusable, so Enter/Space expand them like a click.
-    row.addEventListener("keydown", (event) => {
-      if (event.target !== row) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        toggle();
-      }
+      row.classList.toggle("is-open", !isOpen);
+      row.querySelector(".row-toggle")?.setAttribute("aria-expanded", String(!isOpen));
     });
   });
 
