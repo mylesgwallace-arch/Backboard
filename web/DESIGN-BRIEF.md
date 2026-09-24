@@ -364,6 +364,12 @@ No new API calls are made and no data is invented.
     first hero pass. It is fixed, and every hero text element now passes
     at 12 widths from 360px to 1920px, with the footage both still and
     playing.
+15. **The Dashboard footage prints at 0.7, above the 0.22 halftone cap.**
+    The footage replaced the cutout as the hero's main element on request,
+    so it has to read at a glance. The cap exists to protect legibility,
+    and here no text sits on the slab: the stat badge has its own paper
+    plate, and the copy stays on the dark side. Rendered-pixel checks show
+    every hero text element passing at 12 widths.
 
 ## 11. Landing hero (Dashboard)
 
@@ -389,17 +395,24 @@ carries the page's `<h1>`.
   optional slanted marker sticker (`sticker` prop); the Dashboard doesn't
   use it. The stacked layout keeps only the backing, and the color blocks
   stay inside the photo panel so the headline always sits on the dark base.
-- **Footage:** `renderHero({ footage })` prints a muted loop
-  (`web/media/hero-loop.*`, see its README) into the `--hero-c1` slab as
-  **live halftone**: the grayscale video is blurred and lifted, a 9px 45°
-  dot screen is laid over it at half strength, `contrast(16)` thresholds
-  the mix so each dot grows with the darkness under it, and `multiply`
-  drops the white out. It is one collage layer: under the torn paper,
-  figure and badge, clipped to the slab's diagonal, and never behind copy.
-  * **Strength:** dots darken the slab by at most **0.22**
-    (`--hero-footage-ink`), the halftone cap in §5, and the print fades
-    toward the slab's lower half. Bolder settings (0.35–0.5) were tried;
-    they turn the slab brown and pull the eye away from the headline.
+- **Footage (the Dashboard's main visual):** `renderHero({ footage,
+  figure: false })` drops the cutout and its torn paper and prints a muted
+  loop (`web/media/hero-loop.*`, see its README) across the whole
+  `--hero-c1` slab as **live halftone**. The grayscale video is blurred and
+  lifted, a 9px 45° dot screen is laid over it at half strength,
+  `contrast(16)` thresholds the mix so each dot grows with the darkness
+  under it, and `multiply` drops the white out. It is clipped to the slab's
+  diagonal and never behind copy.
+  * **Strength:** `--hero-footage-ink` is 0.7, bold on purpose (see §10
+    item 15). The slab carries no text, and the stat badge sits on its own
+    paper plate.
+  * **Diagonal:** at 1101px and up the slab runs from 50% of the hero at
+    the top to 44% at the bottom, with the blue band just left of it. The
+    deck is capped at `min(34ch, 29cqi)` so it never reaches the band. At
+    981–1100px the slab keeps its original 61%→49% line.
+  * **Dark side:** a faint chalk halftone (dots at 0.07) covers the left
+    half, fading toward the slab. In the stacked layout it covers the dark
+    ground below the photo panel.
   * **Motion:** a 10.7 s loop of three steady backboard/rim shots at half
     speed with 1 s crossfades, no cuts and a seamless loop point.
   * **Who gets motion:** only viewports ≥ 861px, without
@@ -410,10 +423,9 @@ carries the page's `<h1>`.
   * **Loading:** the download starts after the `load` event, at idle.
     Playback pauses while the hero is off screen or the tab is hidden.
   * **Control:** a 44px pause/play button (WCAG 2.2.2) sits on the slab
-    (top-right; bottom-left of the photo panel in the stacked layout, clear
-    of the figure's head). Its focus ring is the slab's computed ink
-    (`--hero-on-c1`, §6.7): ≥ 3.8:1 against the darkest print dot, 5.1–6.0
-    measured.
+    (top-right; bottom-left of the photo panel in the stacked layout). The
+    print behind it can be bright or dark, so its focus ring is two-tone:
+    a highlighter outline inside an ink halo.
 - **Photo:** an SVG player-bust placeholder in the palette's jersey, with
   halftone key-light and shade screens and a paper cut-out outline. The
   jersey reads **BACKBOARD**, the product name (it said BLACKTOP, which

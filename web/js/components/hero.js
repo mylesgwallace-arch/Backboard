@@ -199,6 +199,8 @@ function renderFootage({ poster, sources }) {
  * @param {{href: string, label: string}} props.cta  the single primary action
  * @param {{value: string, label: string}} [props.stat]  stat badge
  * @param {{src: string, alt: string}} [props.photo]     real player cutout
+ * @param {boolean}  [props.figure=true] false drops the cutout and its torn
+ *        paper backing, leaving the slab (and any footage) as the visual
  * @param {{poster: string, sources: {src: string, type: string}[]}} [props.footage]
  *        ambient loop printed into the color slab; call wireHero() after
  *        mounting to load and play it
@@ -214,6 +216,7 @@ export function renderHero({
   cta,
   stat,
   photo,
+  figure: showFigure = true,
   footage,
   palette,
   jerseyNumber = "00",
@@ -240,9 +243,9 @@ export function renderHero({
       <div class="hero-layer hero-block hero-block--c2" aria-hidden="true"></div>
       <div class="hero-layer hero-block hero-block--c1${footage ? " has-footage" : ""}" aria-hidden="true">${footage ? renderFootage(footage) : ""}</div>
 
-      <div class="hero-visual" aria-hidden="${photo ? "false" : "true"}">
+      <div class="hero-visual" aria-hidden="${photo && showFigure ? "false" : "true"}">${showFigure ? `
         <div class="hero-backing"><div class="hero-backing-paper"></div></div>
-        <div class="hero-figure">${figure}</div>
+        <div class="hero-figure">${figure}</div>` : ""}
       </div>
 
       <div class="hero-copy">
