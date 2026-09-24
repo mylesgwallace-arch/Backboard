@@ -2,26 +2,32 @@
 
 The landing hero plays this loop directly as its slab's visual (see
 "Footage" in `web/hero.css` and `wireHero()` in `web/js/components/hero.js`).
-It is the full edited clip, shown plainly — no crop, no grayscale, no
-halftone re-screening, no speed or frame-rate changes.
+It is the full edited clip at its original speed, frame rate and framing —
+no crop, no grayscale, no halftone re-screening, no cuts. It is
+re-compressed from the raw export to keep the download light.
 
 | File | What it is |
 |---|---|
-| `background.mp4` | `web/raw-clips/background.mp4`, byte-identical. H.264 (Main@3.1), 640×360, native 29.97 fps, 38.4 s, with its original (inaudible — the `<video>` is `muted`) audio track. ~12.2 MB. Offered first. |
-| `background.webm` | Same picture, transcoded to VP9 (no filters — just a codec/container change) so browsers without H.264 support still get it. ~4.4 MB. |
-| `background-poster.jpg` | The clip's first frame (~21 KB). Shown before playback, and the only thing loaded for phones, `prefers-reduced-motion` and Save-Data. |
+| `background.mp4` | H.264 (High@3.1), 640×360, native 29.97 fps, 38.4 s, no audio (the `<video>` is `muted` anyway). CRF 28. ~2.0 MB. Offered first. |
+| `background.webm` | Same picture, VP9, CRF 36. ~3.3 MB. For browsers without H.264. |
+| `background-poster.jpg` | The clip's first frame (~15 KB). Shown before playback, and the only thing loaded for phones, `prefers-reduced-motion` and Save-Data. |
 
 ## Regenerate
 
 ```sh
-cp web/raw-clips/background.mp4 web/media/background.mp4
-ffmpeg -i web/media/background.mp4 -an -c:v libvpx-vp9 -b:v 0 -crf 32 \
+IN=web/raw-clips/background.mp4
+ffmpeg -i "$IN" -an -c:v libx264 -profile:v high -level 3.1 -crf 28 \
+  -preset slow -pix_fmt yuv420p -movflags +faststart web/media/background.mp4
+ffmpeg -i "$IN" -an -c:v libvpx-vp9 -b:v 0 -crf 36 \
   -row-mt 1 -deadline good -cpu-used 2 -pix_fmt yuv420p web/media/background.webm
 ffmpeg -i web/media/background.mp4 -frames:v 1 -q:v 3 web/media/background-poster.jpg
 ```
 
+No filters (crop/scale/setpts/fps) are applied — `-crf` is the only
+quality/size knob. Raise it (e.g. 32–34 for the mp4) to shrink further at
+the cost of some sharpness, or lower it if this ever looks too soft.
 If `web/raw-clips/background.mp4` is re-exported, just rerun the three
-commands above — there's no crop/timing/color-grade metadata to re-derive.
+commands above.
 
 ## Serving
 
