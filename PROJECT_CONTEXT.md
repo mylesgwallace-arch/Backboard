@@ -8,6 +8,50 @@
 
 ---
 
+# 0. Current state at a glance (verified 2026-09-24)
+
+This section is the up-to-date snapshot. Everything below it (sections 1-16)
+is kept as the project's historical log; where an older entry disagrees with
+this section, **this section wins** (the older entries were true when they
+were written).
+
+Verified by running against the live repository, database, and artifacts:
+
+| Fact | Verified value |
+|---|---|
+| Test suite | 185 tests collected in 11 files; `python -m pytest -q` -> **185 passed** (~7.5 min, dominated by model-training tests) |
+| Feature dataset | `data/processed/game_features.csv`: **133,348 rows x 42 columns**, 1947-01-18 to 2026-04-12 |
+| Complete paired games (model dataset) | 66,658 (53,326 train / 13,332 chronological holdout from 2015-03-28) |
+| Production model | `elo_boosted_ensemble`, frozen: holdout accuracy 0.65077, log loss 0.62277, Brier 0.21656. The saved boosted component is fitted on the training period only, so every prediction for a game after 2015-03-28 is out-of-sample |
+| Database (`data/database/nba.db`) | games 73,279 (through 2026-06-13, including the 2025-26 play-in and playoffs); team_statistics 146,560; team_statistics_extended 79,724 (from 1996-11-01); player_statistics 1,669,922 (from 1946); player_statistics_extended 838,803 (from 1996-11-01); players 6,692; team_histories 140 |
+| Tool registry (`src/tools.py`, tracked in git) | 11 tools: predict_matchup, simulate_season, team_projection, player_impact, player_scenario, team_record, head_to_head, team_form, team_elo_rating, resolve_team_name, list_teams |
+| Natural-language layer | `src/assistant.py`: deterministic, pattern-based question -> tool routing (no LLM); exposed as `POST /ask` |
+| HTTP API | `src/api.py` (stdlib only): `/health`, `/tools`, `/tools/{name}`, `/ask`, `/ingest` (dry-run default), static `web/` assets with byte-range support |
+| Web dashboard (`web/`, "Blacktop Tabloid" design system, see `web/DESIGN-BRIEF.md`) | Dashboard (landing hero), Matchups, Teams, Head-to-Head, Season Simulator, League Predictions, Assistant (chat UI over `/ask`) are functional; Player Impact is still a placeholder |
+| Product name | Backboard |
+
+Stale claims corrected in this pass (they appeared in older sections here or
+in the `readme.md` audit): "71-test" / "114-test" / "169 passed" suites (now
+185); "133,466 feature rows" (the current file has 133,348, after the
+opponent-form columns were added and their null rows dropped on 2026-08-13);
+"`src/tools.py` is untracked" (it has been committed since August); "8-tool
+registry" (11 tools); "single-file `web/index.html` front end" (now a
+multi-page `web/js` app); "no natural-language layer / no web UI" (both exist,
+the NL layer is deterministic, not an LLM).
+
+Known limitation found while verifying (not previously documented): the
+season simulator gives each game the production model's *pregame*
+probability, and those pregame features and Elo ratings are built from the
+**actual results of the earlier games in that same season**. Each probability
+is leakage-safe for its own game, but a "season projection" is therefore a
+game-by-game replay informed by the season as it unfolded, not a forecast
+made before the season. Its replay error (MAE 3.8-4.7 wins for 2023-2025) is
+optimistic for a genuine preseason or mid-season forecast. The partial-season
+projection added in Phase 1 (below) freezes team strength at a cutoff date to
+measure the honest forward-looking error.
+
+---
+
 # 1. Current Objective
 
 The current objective is to build and validate the **historical NBA analytics foundation**.
@@ -1719,7 +1763,13 @@ team_statistics: 146,560
 team_statistics regular season (native label): 130,014
 effective regular-season rows after Games.csv type fallback: 133,670
 team_statistics_extended: 79,724
-processed model-ready feature rows: 133,466
+player_statistics: 1,669,922
+player_statistics_extended: 838,803
+players: 6,692
+team_histories: 140
+processed model-ready feature rows: 133,348 (was 133,466 before the
+  2026-08-13 opponent-form columns; rows whose opponent-form values are null
+  are now dropped)
 ```
 
 ---
@@ -1807,12 +1857,16 @@ The script executes successfully. Because `TeamStatistics.csv` has null
 `gameType` values for part of late 2021 and 2022, the query uses
 `COALESCE(team_statistics.gameType, games.gameType)` after joining on `gameId`.
 `Games.csv` supplies the missing game classification without changing raw data.
-The latest verified run reports:
+The current generated file (verified 2026-09-24) has:
 
 ```text
 Loaded 133,670 team-game rows
-Saved 133,466 rows
+Saved 133,348 rows   (42 columns)
 ```
+
+(Older entries in this file quote 133,466 saved rows; that was the count
+before the opponent-form columns were added to the drop-null list on
+2026-08-13.)
 
 The output file is now populated, model-ready, and has the expected
 rolling-statistic columns.
@@ -1857,13 +1911,25 @@ freeThrowsPercentage_rolling_10
 reboundsTotal_rolling_10
 turnovers_rolling_10
 plusMinusPoints_rolling_10
+win_rate_rolling_10
 active_players_rolling_10
 active_players_last_game
 player_minutes_rolling_10
 player_points_rolling_10
+player_points_per_minute_rolling_10
 player_assists_rolling_10
 player_rebounds_rolling_10
+opponent_win_rate_rolling_10
+opponent_adjusted_win_rate_rolling_10
+opponent_plusMinusPoints_rolling_10
+opponent_adjusted_plusMinusPoints_rolling_10
 ```
+
+(42 columns in total, verified 2026-09-24. The production boosted model uses
+23 predictors: the home-minus-away differences of the 11 team rolling stats,
+`win_rate_rolling_10`, the two opponent-adjusted columns, the two
+active-player counts, the five `player_*` history columns, `rest_days`, and
+the pregame `elo_delta`.)
 
 These columns are the intended starting point for game-level feature engineering. The
 row count, duplicate handling, rolling-window values, and season definition have
@@ -2307,10 +2373,10 @@ Prediction model:         ✅ Leakage-safe rolling-plus-rest logistic baseline r
 Model evaluation:         ✅ Chronological holdout with accuracy, log loss, and Brier score
 Player impact model:    ⚠️ Historical team-game cutoffs improve slightly, but roster-change validation does not; external prospective data ingestion is now ready, causal/prospective validation still required
 Simulation engine:      ✅ Monte Carlo season simulator validated (2023-2025 replay MAE 3.7-4.6 wins, playoff field overlap 8-11/12) with projected seedings, playoff field, and league summary wired into both CLIs
-Tool/orchestration:     ✅ deterministic tool registry (predict_matchup, simulate_season, team_projection, player_impact, player_scenario, team_record, head_to_head, resolve_team_name) with structured envelopes in src/tools.py
-AI agent/tool layer:    ✅ deterministic natural-language interface (src/assistant.py) mapping questions to tool calls and rendering envelopes as plain-language answers
-Live data:              ✅ source-provenanced, leakage-safe schedule ingestion (src/live_data.py) with data_ingestion_log provenance
-Website / API:          ✅ HTTP API (src/api.py, stdlib-only, CORS-enabled) + browser front end (web/index.html) wired to /ask, /tools/{name}, and /ingest
+Tool/orchestration:     ✅ deterministic tool registry (11 tools as of 2026-09-24; see section 0) with structured envelopes in src/tools.py
+AI agent/tool layer:    ✅ deterministic natural-language interface (src/assistant.py) mapping questions to tool calls and rendering envelopes as plain-language answers (no LLM yet)
+Live data:              ⚠️ source-provenanced, leakage-safe schedule ingestion (src/live_data.py) exists, but no current-season schedule or roster feed is connected; the database ends at 2026-06-13
+Website / API:          ✅ HTTP API (src/api.py, stdlib-only, CORS-enabled) + multi-page web dashboard (web/index.html + web/js/pages/*, Blacktop Tabloid design system)
 ```
 
 ## Diagnosed pipeline blocker
