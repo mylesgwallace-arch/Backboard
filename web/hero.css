@@ -91,39 +91,20 @@
   opacity: 0.85;
 }
 
-/* ---- Footage: the slab's halftone print ---------------------------------
-   A muted grayscale loop (web/media/hero-loop.*) re-screened live into
-   halftone dots. The video is blurred and lifted, a 45° dot screen is laid
-   over it at half strength, and contrast() thresholds the mix, so each dot
-   grows with the darkness under it. multiply then drops the white out and
-   leaves dark dots printed on --hero-c1. Until the loop plays (and for
-   phones, reduced motion and Save-Data, where it never loads) the poster
-   frame is printed the same way. --hero-footage-ink is the dot strength.
-   On the Dashboard the footage is the hero's main visual, so it prints at
-   0.7, well above the brief's 0.22 texture cap (§5, §10 item 15): the slab
-   carries no text, and the badge sits on its own paper plate. */
+/* ---- Footage: the slab's video, shown plainly ---------------------------
+   The loop (web/media/background.*) plays at full color, no halftone
+   re-screening, no grayscale/blur/lift on the video, and no multiply blend
+   onto --hero-c1 — the video fully covers the slab, so the orange underneath
+   never shows through. Until the loop plays (and for phones, reduced
+   motion and Save-Data, where it never loads) the poster frame fills the
+   same box. */
 .hero-block--c1.has-footage::before {
-  display: none; /* the footage print replaces the static halftone field */
-}
-
-/* Cuts the slab's orange down before the footage prints onto it, so the
-   loop doesn't read as an orange-tinted video. This dims the paint behind
-   the footage only — the <video> element's own filter/blend/loop are
-   untouched. */
-.hero-block--c1.has-footage {
-  background:
-    linear-gradient(rgba(16, 17, 20, 0.40), rgba(16, 17, 20, 0.40)),
-    var(--hero-c1);
+  display: none; /* the footage replaces the static halftone field */
 }
 
 .hero-footage {
-  --pitch: 9px;
   position: absolute;
   inset: 0;
-  background: #fff;
-  filter: contrast(16);
-  mix-blend-mode: multiply;
-  opacity: var(--hero-footage-ink, 0.7);
 }
 
 .hero-footage-video {
@@ -133,18 +114,6 @@
   height: 100%;
   object-fit: cover;
   object-position: 50% 0;
-  ;
-}
-
-.hero-footage::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle, #000 0, transparent calc(var(--pitch) / 2)) 0 0 / var(--pitch) var(--pitch),
-    radial-gradient(circle, #000 0, transparent calc(var(--pitch) / 2)) calc(var(--pitch) / 2) calc(var(--pitch) / 2) / var(--pitch) var(--pitch),
-    #fff;
-  opacity: 0.5;
 }
 
 /* Pause/play for the loop (WCAG 2.2.2). wireHero() un-hides it only when
