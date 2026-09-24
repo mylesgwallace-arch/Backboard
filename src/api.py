@@ -17,7 +17,8 @@ Endpoints:
 * ``GET  /health``            -> server + production model status
 * ``GET  /tools``             -> tool registry (``list_tools``)
 * ``POST /tools/{tool_name}`` -> ``{"parameters": {...}}`` -> tool envelope
-* ``POST /ask``               -> ``{"question": "..."}``   -> assistant answer
+* ``POST /ask``               -> ``{"question": "...", "mode"?: "deterministic"|"llm",
+  "context"?: {...}}`` -> grounded multi-tool answer (``src.nl_agent``)
 * ``POST /ingest``            -> ``{"source": "...", "dry_run": true}``
   -> provenanced schedule ingestion (``src.live_data``); defaults to dry-run so
   the UI cannot mutate the database without an explicit opt-in.
@@ -38,11 +39,11 @@ from pathlib import Path
 
 try:
     from src.tools import PRODUCTION_MODEL, execute_tool, list_tools
-    from src.assistant import answer_question
+    from src.nl_agent import answer as answer_question
     from src.live_data import ingest_schedule
 except ImportError:  # pragma: no cover - direct-script support
     from tools import PRODUCTION_MODEL, execute_tool, list_tools
-    from assistant import answer_question
+    from nl_agent import answer as answer_question
     from live_data import ingest_schedule
 
 
@@ -193,7 +194,12 @@ def handle_request(method, path, body=None):
         if not isinstance(data, dict) or not data.get("question"):
             return 400, {"error": "missing_field",
                          "message": "Provide a JSON body with a 'question'."}
-        return 200, answer_question(data["question"])
+        options = {}
+        if data.get("mode") in ("deterministic", "llm"):
+            options["mode"] = data["mode"]
+        if isinstance(data.get("context"), dict):
+            options["context"] = data["context"]
+        return 200, answer_question(data["question"], **options)
 
     # Source-provenanced live-data ingestion (defaults to a safe dry-run).
     if method == "POST" and route == "/ingest":

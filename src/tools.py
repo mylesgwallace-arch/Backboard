@@ -54,8 +54,9 @@ try:
     )
     from src.player_impact import summarize_player_impact
     from src.player_scenario import analyze_single_player_scenario
-    from src.player_lookup import find_players, resolve_player_id
+    from src.player_lookup import find_players, player_season_stats, resolve_player_id
     from src.db_query import QueryRejected, describe_database, run_query
+    from src.roster_change_data import load_roster_change_events, summarize_roster_change_events
     from src.forward_projection import (
         frozen_matchup_probabilities,
         load_model_inputs,
@@ -100,8 +101,9 @@ except ImportError:  # pragma: no cover - direct-script support
     )
     from player_impact import summarize_player_impact
     from player_scenario import analyze_single_player_scenario
-    from player_lookup import find_players, resolve_player_id
+    from player_lookup import find_players, player_season_stats, resolve_player_id
     from db_query import QueryRejected, describe_database, run_query
+    from roster_change_data import load_roster_change_events, summarize_roster_change_events
     from forward_projection import (
         frozen_matchup_probabilities,
         load_model_inputs,
@@ -199,6 +201,12 @@ PLAYOFF_LIMITATION = (
     "Season projections are descriptive outputs of the validated per-game model; "
     "they are not causal claims and do not account for roster changes or "
     "coaching decisions not present in pregame features."
+)
+REPLAY_LIMITATION = (
+    "Replay mode: each game's pregame probability already reflects that season's "
+    "earlier results, so this is a game-by-game replay of the season as it "
+    "unfolded, not a forecast made on one date; its win ranges show game luck "
+    "only. For a genuine forecast from a date use project_rest_of_season."
 )
 
 
@@ -636,6 +644,69 @@ def _execute_team_strength(parameters):
     return result
 
 
+def _execute_player_season_stats(parameters):
+    """Regular-season per-game averages for one player-season (factual)."""
+    person_id = _person_id_or_name(parameters)
+    stats = player_season_stats(person_id, parameters["season"])
+    if stats is None:
+        raise ToolUnavailable(
+            f"personId {person_id} has no regular-season minutes in the "
+            f"{parameters['season']} season."
+        )
+    return stats
+
+
+RAW_DIR = ROOT / "data" / "raw"
+
+
+def _execute_describe_raw_files(parameters):
+    """List the raw source files with size and (for CSVs) their header columns."""
+    if not RAW_DIR.exists():
+        raise ToolUnavailable(f"{RAW_DIR} does not exist.")
+    files = []
+    for path in sorted(RAW_DIR.iterdir()):
+        if not path.is_file():
+            continue
+        entry = {
+            "name": path.name,
+            "size_mb": round(path.stat().st_size / 1_000_000, 1),
+            "format": path.suffix.lstrip(".").lower(),
+        }
+        if path.suffix.lower() == ".csv":
+            with path.open("r", encoding="utf-8", errors="replace") as handle:
+                entry["columns"] = [column.strip() for column in handle.readline().split(",")]
+            entry["column_count"] = len(entry["columns"])
+        files.append(entry)
+    return {"directory": "data/raw", "files": files, "count": len(files)}
+
+
+def _execute_validate_roster_file(parameters):
+    """Validate a roster-change CSV under data/ or templates/ against the contract."""
+    relative = parameters["path"].replace("\\", "/").lstrip("/")
+    target = (ROOT / relative).resolve()
+    allowed = [(ROOT / "data").resolve(), (ROOT / "templates").resolve()]
+
+    def inside(base):
+        try:
+            target.relative_to(base)
+            return True
+        except ValueError:
+            return False
+
+    if not any(inside(base) for base in allowed):
+        raise ToolError("Only CSV files under data/ or templates/ can be validated.")
+    if target.suffix.lower() != ".csv":
+        raise ToolError("The roster-change file must be a .csv file.")
+    if not target.exists():
+        raise ToolUnavailable(f"{relative} does not exist.")
+    try:
+        events = load_roster_change_events(target)
+    except ValueError as exc:
+        return {"path": relative, "valid": False, "problem": str(exc)}
+    summary = summarize_roster_change_events(events)
+    return {"path": relative, "valid": True, "summary": summary}
+
+
 def _execute_data_status(parameters):
     """How current each data source is, and whether the upcoming schedule is loaded."""
     inputs = _cached_model_inputs()
@@ -862,7 +933,7 @@ TOOLS = {
             "The schedule is the repository's full historical schedule, and "
             "the projection applies to that schedule's structure.",
         ],
-        "limitations": [PLAYOFF_LIMITATION],
+        "limitations": [PLAYOFF_LIMITATION, REPLAY_LIMITATION],
         "execute": _execute_simulate_season,
     },
     "team_projection": {
@@ -890,7 +961,7 @@ TOOLS = {
             "The team is one of the 30 current NBA franchises.",
             "All game probabilities are leakage-safe pregame probabilities.",
         ],
-        "limitations": [PLAYOFF_LIMITATION],
+        "limitations": [PLAYOFF_LIMITATION, REPLAY_LIMITATION],
         "execute": _execute_team_projection,
     },
     "player_impact": {
@@ -1296,6 +1367,73 @@ TOOLS = {
             "Unsigned free agents and retirements stay with their last team.",
         ],
         "execute": _execute_team_strength,
+    },
+    "player_season_stats": {
+        "name": "player_season_stats",
+        "description": (
+            "A player's regular-season per-game averages for one season: games, "
+            "minutes, points, rebounds, assists, steals, blocks, turnovers and "
+            "shooting percentages, plus the team(s) played for."
+        ),
+        "category": "database_query",
+        "model": "nba.db player_statistics (factual query)",
+        "parameters": [
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "NBA personId (or give 'player')."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Player name; must resolve to exactly one player."},
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "Season start year, e.g. 2015 for 2015-16."},
+        ],
+        "assumptions": [
+            "Only regular-season games with minutes played are counted.",
+            "Percentages are season totals (made / attempted), not averages of "
+            "per-game percentages.",
+        ],
+        "limitations": [
+            "Steals and blocks were not recorded before 1973-74, turnovers "
+            "before 1977-78, and three-pointers before 1979-80; those are "
+            "returned as null for earlier seasons.",
+        ],
+        "execute": _execute_player_season_stats,
+    },
+    "describe_raw_files": {
+        "name": "describe_raw_files",
+        "description": (
+            "List the raw source files under data/raw with their size and, for "
+            "CSV files, their column headers."
+        ),
+        "category": "utility",
+        "model": "data/raw directory listing (factual)",
+        "parameters": [],
+        "assumptions": [],
+        "limitations": [
+            "Row counts are not computed (several files are hundreds of MB); "
+            "use describe_database for loaded table sizes.",
+        ],
+        "execute": _execute_describe_raw_files,
+    },
+    "validate_roster_file": {
+        "name": "validate_roster_file",
+        "description": (
+            "Validate a roster-change CSV (event_id, event_timestamp, team_id, "
+            "person_id, change_type, source, source_url) and summarize what it "
+            "contains."
+        ),
+        "category": "utility",
+        "model": "roster_change_data contract validation (factual)",
+        "parameters": [
+            {"name": "path", "type": STR_TYPE, "required": True,
+             "description": "Repository-relative path of a CSV under data/ or "
+                            "templates/, e.g. data/raw/roster_change_events_valid.csv."},
+        ],
+        "assumptions": [
+            "Uses the same contract checks as the roster-change pipeline.",
+        ],
+        "limitations": [
+            "Only files inside data/ or templates/ can be read.",
+        ],
+        "execute": _execute_validate_roster_file,
     },
     "data_status": {
         "name": "data_status",

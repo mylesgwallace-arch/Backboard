@@ -170,7 +170,8 @@ def describe_database(table=None, db_path=DB_PATH):
                 for row in connection.execute(f'PRAGMA table_info("{name}")')
             ]
             count = connection.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
-            tables.append({"table": name, "row_count": int(count), "columns": columns})
+            tables.append({"table": name, "row_count": int(count),
+                           "column_count": len(columns), "columns": columns})
     finally:
         connection.close()
     return {"tables": tables, "source": "nba.db (read-only connection)"}

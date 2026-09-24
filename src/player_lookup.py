@@ -210,6 +210,82 @@ def resolve_player_id(name, season=None, db_path=DB_PATH):
     return result["person_id"]
 
 
+def player_season_stats(person_id, season, db_path=DB_PATH):
+    """Regular-season per-game averages for one player in one season.
+
+    ``season`` is the start year (2015 = 2015-16). Only games with minutes
+    are counted; shooting percentages are made / attempted over the season.
+    Returns ``None`` when the player has no regular-season minutes that season.
+    """
+    start, end = f"{int(season)}-09-01", f"{int(season) + 1}-07-01"
+    with sqlite3.connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT COUNT(*),
+                   SUM(CAST(ps.numMinutes AS REAL)),
+                   SUM(COALESCE(ps.points, 0)), SUM(COALESCE(ps.reboundsTotal, 0)),
+                   SUM(COALESCE(ps.assists, 0)), SUM(COALESCE(ps.steals, 0)),
+                   SUM(COALESCE(ps.blocks, 0)), SUM(COALESCE(ps.turnovers, 0)),
+                   SUM(COALESCE(ps.fieldGoalsMade, 0)), SUM(COALESCE(ps.fieldGoalsAttempted, 0)),
+                   SUM(COALESCE(ps.threePointersMade, 0)), SUM(COALESCE(ps.threePointersAttempted, 0)),
+                   SUM(COALESCE(ps.freeThrowsMade, 0)), SUM(COALESCE(ps.freeThrowsAttempted, 0)),
+                   GROUP_CONCAT(DISTINCT ps.playerteamCity || ' ' || ps.playerteamName),
+                   MAX(ps.firstName), MAX(ps.lastName),
+                   COUNT(ps.steals), COUNT(ps.blocks), COUNT(ps.turnovers),
+                   COUNT(ps.threePointersAttempted)
+            FROM player_statistics ps
+            LEFT JOIN games g ON g.gameId = ps.gameId
+            WHERE ps.personId = ?
+              AND COALESCE(ps.gameType, g.gameType) = 'Regular Season'
+              AND ps.gameDateTimeEst >= ? AND ps.gameDateTimeEst < ?
+              AND CAST(ps.numMinutes AS REAL) > 0
+            """,
+            (int(person_id), start, end),
+        ).fetchone()
+    games = int(row[0] or 0)
+    if games == 0:
+        return None
+    (minutes, points, rebounds, assists, steals, blocks, turnovers,
+     fgm, fga, tpm, tpa, ftm, fta) = [float(value or 0) for value in row[1:14]]
+
+    # The source stores untracked early-era stats as 0 rather than NULL, so
+    # use the seasons the NBA started recording them.
+    counted = [int(value or 0) for value in row[17:21]]
+    tracked_steals = counted[0] if int(season) >= 1973 else 0
+    tracked_blocks = counted[1] if int(season) >= 1973 else 0
+    tracked_turnovers = counted[2] if int(season) >= 1977 else 0
+    tracked_threes = counted[3] if int(season) >= 1979 else 0
+
+    def per_game(total, tracked=True):
+        # Steals/blocks (1973-74), turnovers (1977-78) and threes (1979-80)
+        # were not recorded earlier: report None rather than a false zero.
+        return round(total / games, 1) if tracked else None
+
+    def share(made, attempted):
+        return None if attempted == 0 else round(made / attempted, 3)
+
+    return {
+        "person_id": int(person_id),
+        "player": f"{row[15]} {row[16]}".strip(),
+        "season": int(season),
+        "teams": sorted(set((row[14] or "").split(","))) if row[14] else [],
+        "games": games,
+        "minutes_per_game": per_game(minutes),
+        "points_per_game": per_game(points),
+        "rebounds_per_game": per_game(rebounds),
+        "assists_per_game": per_game(assists),
+        "steals_per_game": per_game(steals, tracked_steals > 0),
+        "blocks_per_game": per_game(blocks, tracked_blocks > 0),
+        "turnovers_per_game": per_game(turnovers, tracked_turnovers > 0),
+        "field_goal_pct": share(fgm, fga),
+        "three_point_pct": share(tpm, tpa) if tracked_threes > 0 else None,
+        "free_throw_pct": share(ftm, fta),
+        "three_point_attempts_per_game": per_game(tpa, tracked_threes > 0),
+        "free_throw_attempts_per_game": per_game(fta),
+        "source": "nba.db player_statistics (regular season, games with minutes)",
+    }
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="Resolve a player name to NBA personId candidates."

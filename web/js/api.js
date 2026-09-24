@@ -47,8 +47,11 @@ export function runTool(name, parameters = {}) {
   return postJSON("/tools/" + encodeURIComponent(name), { parameters });
 }
 
-export function ask(question) {
-  return postJSON("/ask", { question });
+export function ask(question, { mode, context } = {}) {
+  const body = { question };
+  if (mode) body.mode = mode;
+  if (context) body.context = context;
+  return postJSON("/ask", body);
 }
 
 export function ingest(source, dryRun = true) {

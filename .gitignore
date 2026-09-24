@@ -24,6 +24,7 @@ models/*
 !models/margin_model.pkl
 !models/margin_metrics.json
 !models/roster_adjustment_backtest.json
+!models/nl_eval_report.json
 
 # Environment variables
 .env

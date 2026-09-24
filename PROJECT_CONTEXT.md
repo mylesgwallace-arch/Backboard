@@ -281,6 +281,76 @@ this autonomous session did not do without permission).
 * Player-history features are missing for 87% of 2021-22 team-games (the
   known null-gameType gap in that season's player box scores).
 
+### To make the current season live (manual steps) -- see below
+
+## Phase 4 (2026-09-24): natural-language layer -- done; LLM path built but untested live
+
+* **`src/nl_agent.py`** (now behind `POST /ask`; `src/assistant.py` is kept
+  as the older single-tool router and its tests still pass). A question
+  becomes a *plan* of one or more tool calls, each executed through
+  `execute_tool`; the answer is written only from the returned envelopes, in
+  labeled parts: **Facts (from the database)**, **Model output (predictions
+  and simulations, not facts)**, **How reliable (stored validation
+  evidence)**, **Uncertainty & limits** (the tools' own limitations and
+  low-confidence flags). Follow-ups can reuse the previous answer's teams/
+  players via `context` ("...for that matchup on 2026-04-12?"). Ambiguity is
+  asked about, never guessed: "Los Angeles" (Lakers or Clippers), surname-only
+  players ("'Curry' matches 6 players: ... Which one?").
+* **`src/grounding.py`**: every number in an answer (values, percentages,
+  records, dates, season labels) must match a number in the tool envelopes or
+  the question, within the rounding the answer's own precision implies; small
+  ordinals (<= 10) and interval-label phrases ("5th-95th percentile", "80%
+  range") are exempt. The result is returned with every answer
+  (`grounding.grounded`, `unsupported`), and the chat UI shows it as a badge.
+  During development it caught numbers the templates computed themselves
+  (column counts, tool counts), which were then moved into the tool outputs.
+* **Two planners, one contract.** *Deterministic* (default, always
+  available): pattern detectors that can fire together (e.g. "predicted score
+  ... and who wins" -> `predict_matchup` + `predict_margin`). *LLM* (opt-in:
+  `BACKBOARD_NL_MODE=llm` or `{"mode": "llm"}` on `/ask`): a manual Messages-API
+  tool-use loop in which Claude picks and sequences the registered tools
+  (schemas generated from the registry) and writes the explanation. It uses
+  model `claude-opus-5` (override with `BACKBOARD_LLM_MODEL`) and adaptive
+  thinking, with **server-side refusal fallbacks enabled**
+  (`fallbacks="default"`, beta `server-side-fallback-2026-07-01`). Its answer
+  gets the same grounding check, one self-correction round if it contains
+  untraced numbers, and a visible warning listing any that remain. Any failure
+  (SDK missing, no credentials, API error, refusal) falls back to the
+  deterministic planner, and the result says why. **The `anthropic` package is
+  not installed and no API key is configured in this environment**, so the LLM
+  path is covered only by tests with a scripted client (tool-call routing,
+  tool_result pairing, the retry, refusal and missing-SDK fallbacks). Enable
+  it with `pip install anthropic` plus credentials.
+* **New factual tools** for questions the registry could not answer:
+  `player_season_stats` (per-game averages; stats not recorded in early eras
+  are returned as null, not zero: steals/blocks before 1973-74, turnovers
+  before 1977-78, threes before 1979-80), `describe_raw_files`,
+  `validate_roster_file` (CSV under `data/` or `templates/` only; path-
+  traversal guarded). Registry: **24 tools**.
+* **Evaluation** (`python src/nl_eval.py` -> `models/nl_eval_report.json`),
+  deterministic planner:
+
+  | Question set | n | First-contact routing | After tuning |
+  |---|---|---|---|
+  | readme section 10 audit questions (follow-ups written out) | 24 | tuned on these | 100% |
+  | Harder multi-tool questions | 10 | tuned on these | 100% |
+  | Held-out paraphrases v1 (written, then scored once) | 15 | **53%** | 100% |
+  | Held-out paraphrases v2 (written after v1 fixes, scored once) | 12 | **58%** | 100% |
+
+  Across all 61: every answer is fully grounded (657 numbers checked, 0
+  untraced), **0 wrong-tool answers** (every first-contact miss was an explicit
+  "couldn't map that" decline, not a wrong answer), the context follow-up
+  works, and all 3 ambiguous/unsupported probes are declined with a clarifying
+  question. The honest estimate of how well the pattern planner generalizes
+  to new wording is the first-contact number (~55%); that gap is what the LLM
+  planner is for.
+* **Web: the Assistant page** now shows the sectioned answer, the tools each
+  answer called, the grounding badge, any LLM fallback reason, all envelopes
+  under "How was this produced?", and passes context for follow-ups
+  (checked live in the browser).
+* `simulate_season` / `team_projection` now carry an explicit limitation that
+  replay mode already knows each season's earlier results (see section 0).
+
 ### To make the current season live (manual steps)
 
 1. Obtain the 2026-27 schedule as a CSV with at least `gameId,
