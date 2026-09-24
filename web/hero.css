@@ -68,11 +68,14 @@
 
 /* Each block's box is trimmed to the area it paints (instead of inset: 0
    plus a clip), so nothing layout- or audit-wise sits behind the copy. */
+/* The slab runs from 50% of the hero at the top to 44% at the bottom; the
+   blue band sits just left of it. Both stop short of the copy column, whose
+   deck is capped in width below. */
 .hero-block--c1 {
   z-index: -2;
-  left: 49%;
+  left: 44%;
   background: var(--hero-c1);
-  clip-path: polygon(23.5% 0, 100% 0, 100% 100%, 0 100%);
+  clip-path: polygon(10.7% 0, 100% 0, 100% 100%, 0 100%);
 }
 
 /* Halftone field printed into the slab, fading out toward the diagonal. */
@@ -95,9 +98,10 @@
    grows with the darkness under it. multiply then drops the white out and
    leaves dark dots printed on --hero-c1. Until the loop plays (and for
    phones, reduced motion and Save-Data, where it never loads) the poster
-   frame is printed the same way. --hero-footage-ink is the dot strength:
-   0.22, the brief's halftone cap (§5). The slab carries no text, and the
-   print fades toward its lower half, where the paper and badge sit. */
+   frame is printed the same way. --hero-footage-ink is the dot strength.
+   On the Dashboard the footage is the hero's main visual, so it prints at
+   0.7, well above the brief's 0.22 texture cap (§5, §10 item 15): the slab
+   carries no text, and the badge sits on its own paper plate. */
 .hero-block--c1.has-footage::before {
   display: none; /* the footage print replaces the static halftone field */
 }
@@ -109,9 +113,7 @@
   background: #fff;
   filter: contrast(16);
   mix-blend-mode: multiply;
-  opacity: var(--hero-footage-ink, 0.22);
-  -webkit-mask: linear-gradient(to bottom, #000 35%, rgba(0, 0, 0, 0.45) 100%);
-  mask: linear-gradient(to bottom, #000 35%, rgba(0, 0, 0, 0.45) 100%);
+  opacity: var(--hero-footage-ink, 0.7);
 }
 
 .hero-footage-video {
@@ -167,10 +169,13 @@
   background: #000;
 }
 
-/* On a color slab the focus ring is the slab's computed ink (§6.7). */
+/* The slab under the toggle can be bright orange or a dark print patch, so
+   the ring is two-tone: highlighter (14:1 on ink) inside an ink halo (6:1
+   on orange). One of the two always stands out from whatever is behind. */
 .hero-footage-toggle:focus-visible {
-  outline: 3px solid var(--hero-on-c1);
+  outline: 3px solid var(--highlighter, #ffe03d);
   outline-offset: 3px;
+  box-shadow: 0 0 0 8px var(--hero-ink);
 }
 
 .hero-footage-toggle[data-state="playing"] .icon-play,
@@ -180,10 +185,26 @@
 
 .hero-block--c2 {
   z-index: -3;
-  left: 43.5%;
-  right: 40.2%;
+  left: 38.5%;
+  right: 51.2%;
   background: var(--hero-c2);
-  clip-path: polygon(73.6% 0, 100% 0, 26.4% 100%, 0 100%);
+  clip-path: polygon(58.3% 0, 100% 0, 41.7% 100%, 0 100%);
+}
+
+/* A faint chalk halftone screen on the dark ground, strongest at the far
+   left and fading toward the slab. Dots are chalk at 0.07, well under the
+   §5 cap; measured over it, the deck stays ≥ 8.3:1 and "WINS." ≥ 4.9:1. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 50% 0 0;
+  z-index: -4;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, rgba(244, 241, 234, 0.07) 0 1.6px, transparent 2px) 0 0 / 9px 9px,
+    radial-gradient(circle, rgba(244, 241, 234, 0.07) 0 1.6px, transparent 2px) 4.5px 4.5px / 9px 9px;
+  -webkit-mask: linear-gradient(to right, #000 0%, rgba(0, 0, 0, 0.35) 100%);
+  mask: linear-gradient(to right, #000 0%, rgba(0, 0, 0, 0.35) 100%);
 }
 
 /* ---- Photo: torn paper backing + cutout -------------------------------- */
@@ -419,7 +440,7 @@
 }
 
 .hero-deck {
-  max-width: 34ch;
+  max-width: min(34ch, 29cqi);
   margin: 1.5rem 0 0;
   color: var(--hero-chalk-dim);
   font-family: var(--font-body);
@@ -556,6 +577,9 @@
    gives up some width so every glyph stays on the dark base. */
 
 @media (max-width: 1100px) and (min-width: 981px) {
+  /* Narrower hero: keep the pre-move diagonal (61%→49%) so the copy has room. */
+  .hero-block--c1 { left: 49%; clip-path: polygon(23.5% 0, 100% 0, 100% 100%, 0 100%); }
+  .hero-block--c2 { left: 43.5%; right: 40.2%; clip-path: polygon(73.6% 0, 100% 0, 26.4% 100%, 0 100%); }
   .hero-copy { width: 52%; }
   .hero-deck { max-width: 28ch; }
   .hero-visual { width: 52%; }
@@ -579,6 +603,13 @@
     flex-direction: column;
     align-items: stretch;
     padding: 0 var(--hero-gutter) 3rem;
+  }
+
+  /* The chalk halftone covers the dark ground below the photo panel. */
+  .hero::before {
+    inset: var(--hero-visual-h) 0 0 0;
+    -webkit-mask: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.35) 100%);
+    mask: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.35) 100%);
   }
 
   /* On phones the color blocks stay inside the photo panel, so the
@@ -648,7 +679,7 @@
     display: none;
   }
 
-  .hero-deck { margin-top: 1rem; }
+  .hero-deck { margin-top: 1rem; max-width: 34ch; }
   .hero-actions { margin-top: 1.3rem; }
 
   .hero-cta {

@@ -71,7 +71,9 @@ export function renderHero(slot) {
     deck: "Win probabilities for any NBA matchup from a validated model, plus team form and full-season simulations.",
     cta: { href: "#/matchups", label: "Predict a matchup" },
     stat: { value: HOLDOUT_ACCURACY, label: `Picks right on ${HOLDOUT_GAMES} held-out games` },
-    // Ambient loop printed into the orange slab (see web/media/README.md).
+    // No cutout: the footage printed into the slab is the hero's visual.
+    figure: false,
+    // Loop printed into the orange slab (see web/media/README.md).
     // H.264 first (smaller here); VP9 for browsers without H.264.
     footage: {
       poster: "/media/hero-loop-poster.jpg",
