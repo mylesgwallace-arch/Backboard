@@ -56,7 +56,6 @@ export function renderHero(slot) {
   slot.innerHTML = heroMarkup({
     tag: "Gameday edition",
     headline: ["Know", "WHO", "Wins."],
-    sticker: "called it!",
     deck: "Win probabilities for any NBA matchup from a validated model, plus team form and full-season simulations.",
     cta: { href: "#/matchups", label: "Predict a matchup" },
     stat: { value: HOLDOUT_ACCURACY, label: `Picks right on ${HOLDOUT_GAMES} held-out games` },
