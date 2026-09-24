@@ -78,6 +78,7 @@ try:
         season_playoff_odds,
     )
     from src.margin_model import load_margin_bundle, predict_margin
+    from src import era_swap
 except ImportError:  # pragma: no cover - direct-script support
     from main import (
         FEATURES_PATH,
@@ -125,6 +126,7 @@ except ImportError:  # pragma: no cover - direct-script support
         season_playoff_odds,
     )
     from margin_model import load_margin_bundle, predict_margin
+    import era_swap
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -133,6 +135,7 @@ VALIDATION_REPORTS = {
     "season_forward_projection": ROOT / "models" / "forward_projection_backtest.json",
     "playoffs": ROOT / "models" / "playoff_validation.json",
     "margin": ROOT / "models" / "margin_metrics.json",
+    "era_swap": ROOT / "models" / "era_swap_model.json",
 }
 
 PRODUCTION_MODEL = "elo_boosted_ensemble"
@@ -642,6 +645,80 @@ def _execute_team_strength(parameters):
         if info:
             row["teamName"] = info["teamName"]
     return result
+
+
+def _cached_era_model():
+    if "era" not in MODEL_INPUTS_CACHE:
+        MODEL_INPUTS_CACHE["era"] = era_swap.build_era_model()
+    return MODEL_INPUTS_CACHE["era"]
+
+
+def _execute_simulate_era_swap(parameters):
+    """What-if: a historical team-season with one player replaced by another's translated season."""
+    season = parameters["season"]
+    in_season = parameters["in_season"]
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    out_id = parameters.get("out_person_id")
+    if out_id is None:
+        if not parameters.get("out_player"):
+            raise ValueError("Provide 'out_player' or 'out_person_id' (the player removed).")
+        out_id = resolve_player_id(parameters["out_player"], season=season)
+    in_id = parameters.get("in_person_id")
+    if in_id is None:
+        if not parameters.get("in_player"):
+            raise ValueError("Provide 'in_player' or 'in_person_id' (the player added).")
+        in_id = resolve_player_id(parameters["in_player"], season=in_season)
+    method = parameters.get("method", "zscore")
+    if method not in ("zscore", "ratio"):
+        raise ToolError("method must be 'zscore' or 'ratio'.")
+    model = _cached_era_model()
+    try:
+        result = era_swap.simulate_swap(
+            model, _cached_probabilities(), _cached_model_inputs(), team_id, season,
+            int(out_id), int(in_id), in_season, method=method,
+            n_simulations=parameters.get("n_simulations", 1000),
+            random_state=parameters.get("random_state", 42),
+        )
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    names = load_team_names(season)
+    team_name = names.get(team_id, {}).get("teamName", str(team_id))
+    return {
+        "report": era_swap.transparency_report(result, team_name, model["reports"]),
+        "effect": result["effect"],
+        "scenarios": result["scenarios"],
+        "team_name": team_name,
+    }
+
+
+def _execute_team_season_roster(parameters):
+    """Who played for a team in a regular season, with games, minutes and points (factual)."""
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    season = parameters["season"]
+    with sqlite3.connect(TEAM_DB_PATH) as connection:
+        rows = connection.execute(
+            """
+            SELECT ps.personId, MAX(ps.firstName), MAX(ps.lastName), COUNT(*),
+                   SUM(CAST(ps.numMinutes AS REAL)), SUM(COALESCE(ps.points, 0))
+            FROM player_statistics ps
+            LEFT JOIN games g ON g.gameId = ps.gameId
+            WHERE ps.playerteamId = ?
+              AND COALESCE(ps.gameType, g.gameType) = 'Regular Season'
+              AND ps.gameDateTimeEst >= ? AND ps.gameDateTimeEst < ?
+              AND CAST(ps.numMinutes AS REAL) > 0
+            GROUP BY ps.personId
+            ORDER BY SUM(CAST(ps.numMinutes AS REAL)) DESC
+            """,
+            (team_id, f"{season}-09-01", f"{season + 1}-07-01"),
+        ).fetchall()
+    if not rows:
+        raise ToolUnavailable(f"No regular-season box scores for teamId {team_id} in {season}.")
+    players = [
+        {"person_id": int(person), "name": f"{first} {last}".strip(), "games": int(games),
+         "minutes_per_game": round(minutes / games, 1), "points_per_game": round(points / games, 1)}
+        for person, first, last, games, minutes, points in rows
+    ]
+    return {"team_id": team_id, "season": season, "players": players, "count": len(players)}
 
 
 def _execute_player_season_stats(parameters):
@@ -1368,6 +1445,93 @@ TOOLS = {
         ],
         "execute": _execute_team_strength,
     },
+    "simulate_era_swap": {
+        "name": "simulate_era_swap",
+        "description": (
+            "WHAT-IF simulation: replace one player on a historical team-season "
+            "with another player's season translated into that era (e.g. the "
+            "1992-93 Bulls with 2015-16 Stephen Curry instead of B.J. Armstrong), "
+            "and report the projected change in net rating, wins and playoff/title "
+            "odds with data, method, assumptions and confidence. Not a factual or "
+            "causal claim."
+        ),
+        "category": "simulation",
+        "model": "box-score era translation + team model calibrated on real roster changes + "
+                 "elo_boosted_ensemble season/playoff Monte Carlo",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "teamId of the host team (use this for relocated "
+                            "franchises, e.g. 1610612760 = Seattle SuperSonics)."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the host team."},
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "Host team's season START year (1992 = 1992-93)."},
+            {"name": "out_player", "type": STR_TYPE, "required": False,
+             "description": "Name of the player removed (must have played for the "
+                            "host team that season)."},
+            {"name": "out_person_id", "type": INT_TYPE, "required": False,
+             "description": "personId of the player removed."},
+            {"name": "in_player", "type": STR_TYPE, "required": False,
+             "description": "Name of the player added."},
+            {"name": "in_person_id", "type": INT_TYPE, "required": False,
+             "description": "personId of the player added."},
+            {"name": "in_season", "type": INT_TYPE, "required": True,
+             "description": "Season START year of the added player's production "
+                            "(2015 = 2015-16)."},
+            {"name": "method", "type": STR_TYPE, "required": False,
+             "description": "Era translation: 'zscore' (default) or 'ratio'."},
+            {"name": "n_simulations", "type": INT_TYPE, "required": False,
+             "description": "Monte Carlo seasons (default 1000)."},
+            {"name": "random_state", "type": INT_TYPE, "required": False,
+             "description": "Random seed (default 42)."},
+        ],
+        "assumptions": [
+            "The added player takes exactly the removed player's minutes and "
+            "produces their translated per-100 line; everyone else is unchanged.",
+            "Era translation keeps each rate the same number of league standard "
+            "deviations from the league mean (players with 500+ minutes).",
+            "Only about a fifth of a box-score-valued change is assumed to show up "
+            "in real net rating (realization factor fit on real roster changes, "
+            "1986-2009); the unscaled 'full transfer' figure is reported as an "
+            "unvalidated upper scenario.",
+        ],
+        "limitations": [
+            "Confidence is Low: cross-era translation has no ground truth; within "
+            "adjacent seasons box-score-valued roster changes cut the error in "
+            "predicting a team's rating change only from 3.10 to 2.87 points "
+            "(2010-2025 held out).",
+            "Both seasons must be 1985-86 or later (complete team box scores).",
+            "Box scores capture offense far better than defense; no fit, usage or "
+            "chemistry effects.",
+            "The unchanged team is the host season's game-by-game replay, which "
+            "already knows that season's results; playoffs are seeded by simulated "
+            "record (old division-winner seeding rules are not modeled) and skipped "
+            "when the modern conference alignment does not match that season.",
+            "The first call in a server process takes about a minute (model inputs "
+            "and the season probabilities are loaded once).",
+        ],
+        "execute": _execute_simulate_era_swap,
+    },
+    "team_season_roster": {
+        "name": "team_season_roster",
+        "description": (
+            "The players who appeared for a team in one regular season, ordered by "
+            "minutes, with games, minutes and points per game."
+        ),
+        "category": "database_query",
+        "model": "nba.db player_statistics (factual query)",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "teamId (use this for relocated franchises)."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city."},
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "Season start year, e.g. 1992 for 1992-93."},
+        ],
+        "assumptions": ["Only games with minutes played are counted."],
+        "limitations": ["A player traded mid-season is listed with each team separately."],
+        "execute": _execute_team_season_roster,
+    },
     "player_season_stats": {
         "name": "player_season_stats",
         "description": (
@@ -1589,7 +1753,7 @@ TOOLS = {
         "parameters": [
             {"name": "component", "type": STR_TYPE, "required": True,
              "description": "One of: production_model, season_forward_projection, "
-                            "playoffs, margin."},
+                            "playoffs, margin, era_swap."},
         ],
         "assumptions": [
             "Reports are the saved outputs of the validation runs, not re-run "

@@ -1,0 +1,129 @@
+{
+  "first_season": 1985,
+  "qualify_minutes": 500,
+  "features": [
+    "scoring_value",
+    "usage",
+    "ast",
+    "tov",
+    "orb",
+    "drb",
+    "stl",
+    "blk",
+    "pf",
+    "tpa"
+  ],
+  "team_model": {
+    "train_seasons": [
+      1985,
+      2009
+    ],
+    "test_seasons": [
+      2010,
+      2025
+    ],
+    "train_team_seasons": 697,
+    "test_team_seasons": 452,
+    "alpha": 1.0,
+    "coefficients": {
+      "intercept": 0.002616991670570384,
+      "scoring_value": 4.278584493239032,
+      "usage": 3.278975195168672,
+      "ast": 0.574541249912516,
+      "tov": -2.1940231040497764,
+      "orb": 1.3755138481857818,
+      "drb": 8.266956221917109,
+      "stl": 8.812015256291648,
+      "blk": 1.3605931226190693,
+      "pf": 1.0540759705161453,
+      "tpa": 0.09727998344783921
+    },
+    "test_mae": 1.1781177864668129,
+    "test_rmse": 1.5073464026592232,
+    "test_r2": 0.9049260549015646,
+    "baseline_zero_mae": 3.921701741676197,
+    "note": "Same-season box scores: this measures how well box-score production accounts for net rating (largely offense), not prediction."
+  },
+  "transfer_validation": {
+    "method": "zscore",
+    "oracle_minutes": true,
+    "test_seasons": [
+      2010,
+      2025
+    ],
+    "overall": {
+      "team_seasons": 452,
+      "player_based_mae": 4.501477863921557,
+      "previous_rating_mae": 3.3989425904896993,
+      "regressed_previous_mae": 3.076235097501505,
+      "blend_mae": 2.865122445392125,
+      "zero_mae": 3.921701741676197,
+      "player_based_residual_sd": 5.635946198790837,
+      "corr_player_based": 0.5553175292400366
+    },
+    "high_turnover_third": {
+      "new_minutes_share_at_least": 0.4541377476846709,
+      "team_seasons": 151,
+      "player_based_mae": 5.271648569213,
+      "previous_rating_mae": 3.976642538689689,
+      "regressed_previous_mae": 3.5584538268304575,
+      "blend_mae": 3.26327824553866,
+      "zero_mae": 4.084603267577776,
+      "player_based_residual_sd": 6.1851813194791765,
+      "corr_player_based": 0.38972758514984435
+    },
+    "blend_weights": {
+      "intercept": -0.06473231349588814,
+      "player_based": 0.21151218620305443,
+      "previous": 0.5303735457008204
+    },
+    "regressed_previous_slope": 0.6851866391267939,
+    "rookie_vector": {
+      "scoring_value": -0.6578885810751872,
+      "usage": -0.40895719123722346,
+      "ast": -0.32102875059945907,
+      "tov": 0.19863899049298966,
+      "orb": 0.21528938793652566,
+      "drb": -0.2722838243071178,
+      "stl": 0.03781050004469396,
+      "blk": 0.0322752143584578,
+      "pf": 0.5106652600906365,
+      "tpa": -0.2414543687406837
+    }
+  },
+  "roster_change_calibration": {
+    "method": "zscore",
+    "train_seasons": [
+      1986,
+      2009
+    ],
+    "test_seasons": [
+      2010,
+      2025
+    ],
+    "test_team_seasons": 424,
+    "realization_factor": 0.2167356798029012,
+    "reversion_coefficient": -0.2797606035290919,
+    "realization_factor_without_reversion": 0.25795888786464644,
+    "test_mae_with_roster_change": 2.869011031575367,
+    "test_mae_reversion_only": 3.095020825390099,
+    "test_mae_no_change": 3.4067977309877566,
+    "test_residual_sd_with_roster_change": 3.637708009853328,
+    "test_corr_delta_pred_vs_change": 0.48413944017085164,
+    "delta_pred_sd": 5.933670046671161,
+    "realization_factor_80pct_interval": [
+      0.18133801528319637,
+      0.254280346627632
+    ]
+  },
+  "wins_per_net_rating_point": {
+    "slope": 2.518939206710856,
+    "intercept": 40.95750307897515,
+    "team_seasons": 1177
+  },
+  "probit_sigma": {
+    "value": 12.634658894318859,
+    "mean_pace": 97.28755510515813,
+    "derivation": "sigma = 82 * phi(0) * (mean pace / 100) / empirical wins-per-net-point, so the probability shift reproduces the observed net-rating-to-wins slope for an average team"
+  }
+}

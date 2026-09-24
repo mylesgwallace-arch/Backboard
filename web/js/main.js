@@ -19,6 +19,7 @@ import * as headToHeadPage from "./pages/headToHead.js";
 import * as playoffsPage from "./pages/playoffs.js";
 import * as playerImpactPage from "./pages/playerImpact.js";
 import * as currentSeasonPage from "./pages/currentSeason.js";
+import * as whatIfPage from "./pages/whatIf.js";
 
 const ICONS = {
   dashboard:
@@ -37,6 +38,8 @@ const ICONS = {
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5.5h16v10.2H9.8L5 20V15.7H4Z"/><path d="M8 9.6h8M8 12.6h5" stroke-linecap="round"/></svg>',
   headToHead:
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="12" r="3.2"/><circle cx="18" cy="12" r="3.2"/><path d="M9.2 12h5.6" stroke-linecap="round" stroke-dasharray="1.6 2.4"/></svg>',
+  whatIf:
+    '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 7h10l-3-3M17 17H7l3 3"/><circle cx="12" cy="12" r="1.4"/></svg>',
   currentSeason:
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.6"/></svg>',
   playoffs:
@@ -52,6 +55,7 @@ const ROUTES = [
   { path: "/simulator", label: "Season Simulator", icon: ICONS.simulator, page: simulatorPage },
   { path: "/playoffs", label: "Playoffs", icon: ICONS.playoffs, page: playoffsPage },
   { path: "/player-impact", label: "Player Impact", icon: ICONS.playerImpact, page: playerImpactPage },
+  { path: "/what-if", label: "What-if Lab", icon: ICONS.whatIf, page: whatIfPage },
   { path: "/league-predictions", label: "League Predictions", icon: ICONS.league, page: leaguePage },
   { path: "/assistant", label: "Assistant", icon: ICONS.assistant, page: assistantPage },
 ];

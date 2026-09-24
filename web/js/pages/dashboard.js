@@ -37,6 +37,18 @@ const QUICK_LINKS = [
     available: true,
   },
   {
+    path: "/current-season",
+    title: "Current Season",
+    description: "Data freshness, every team's strength today, and offseason roster moves.",
+    available: true,
+  },
+  {
+    path: "/what-if",
+    title: "What-if Lab",
+    description: "Cross-era roster swaps with the method, assumptions and confidence shown.",
+    available: true,
+  },
+  {
     path: "/playoffs",
     title: "Playoffs",
     description: "Play-in, bracket and title odds, replayed against real postseasons.",

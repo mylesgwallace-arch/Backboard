@@ -753,3 +753,19 @@ def test_team_roster_returns_one_teams_moves(monkeypatch):
     assert result["status"] == "success"
     assert result["data"]["roster"]["arrived"][0]["person_id"] == 7
     assert result["data"]["transactions_applied"] == [{"team_id": 1610612755, "person_id": 7}]
+
+
+def test_era_swap_tool_is_registered_as_a_what_if():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    spec = tools["simulate_era_swap"]
+    assert "WHAT-IF" in spec["description"]
+    assert any("Low" in limit for limit in spec["limitations"])
+    required = {p["name"] for p in spec["parameters"] if p["required"]}
+    assert required == {"season", "in_season"}
+
+
+def test_era_swap_requires_both_players(monkeypatch):
+    result = execute_tool("simulate_era_swap", {"team_id": 1610612741, "season": 1992,
+                                                "in_season": 2015, "in_person_id": 201939})
+    assert result["status"] == "error"
+    assert "out_player" in result["error"]["message"]

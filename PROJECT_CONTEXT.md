@@ -8,6 +8,78 @@
 
 ---
 
+# SESSION SUMMARY -- read this first (autonomous session, 2026-09-24)
+
+**Built and validated (each phase committed on its own branch, see "Branches"):**
+
+1. *Phase 0* -- docs corrected to the real state (tests, rows, tools); a
+   leakage-flavored caveat found and documented: the season simulator's
+   "projection" is a game-by-game replay that already knows the season.
+2. *Phase 1* -- player name resolution (`resolve_player`), guarded read-only SQL
+   (`query_database`, `describe_database`), team names in simulator output, and
+   an honest **rest-of-season projection from any date**
+   (`project_rest_of_season`) with calibrated uncertainty (5-95% coverage
+   52-81% -> 86-92% on held-out 2022-2025; preseason error 8.7 wins, no better
+   than current pace at mid-season).
+3. *Phase 2* -- play-in + exact bracket math + title odds (`playoff_odds`),
+   replayed on 2014-2025 postseasons (beats baselines on overall game and
+   series log loss but is worse in the second round and the Finals, and picks
+   series winners less often than "higher seed always": 70.3% vs 72.7%); a separate
+   **predicted margin/score** model (`predict_margin`, MAE 10.57 vs 10.68/11.66
+   baselines; total points only ties a simple average -- stated); Playoffs,
+   Player Impact, Simulator-from-date and Matchups score UI.
+4. *Phase 3* -- current-season plumbing: schedule ingestion bugs fixed (it would
+   have mislabeled playoff and NBA Cup games), upcoming-season schedules read
+   from the DB, **roster state from the transaction feed (through
+   2026-08-13)**, team strength today, data-status, Current Season page. Roster
+   adjustment of model inputs was built and **rejected by its own backtest**, so
+   it is opt-in/experimental. No live feed was connected (403 + terms; see
+   Phase 3 research).
+5. *Phase 4* -- grounded natural-language layer behind `POST /ask`: multi-tool
+   plans, facts/model/uncertainty sections, a numeric grounding check on every
+   answer, follow-up context, clarification instead of guessing. 62 eval
+   questions pass after tuning; **honest first-contact routing on unseen
+   phrasings is ~55%, with zero wrong answers** (misses are explicit
+   declines). The Claude (LLM) planner is implemented and unit-tested with a
+   scripted client but **never run live** (no `anthropic` package or key here).
+6. *Phase 5* -- cross-era what-if swaps (`simulate_era_swap`, What-if Lab page,
+   natural-language support), e.g. 1992-93 Bulls + 2015-16 Curry for
+   B.J. Armstrong: +2.9 net rating, +5.1 wins, title 21% -> 48%, confidence
+   Low. Every step is tested or calibrated; the calibration shows only ~22% of a
+   box-score-valued roster change materializes, and the output says so.
+
+**Guardrails kept:** the frozen `elo_boosted_ensemble`, its pickle and its
+metrics were never modified; every new model/feature was validated
+chronologically against baselines; new capabilities that failed their own
+validation (roster-adjusted inputs; total-points model vs a simple average) are
+reported as such and not presented as improvements. Full suite: 294 tests.
+
+**Partially done / not done:**
+* LLM planner untested against the real API (install `anthropic`, set a key,
+  run `BACKBOARD_NL_MODE=llm python src/nl_eval.py --mode llm`).
+* 2026-27 schedule not ingested (manual download; command in Phase 3 notes), so
+  the Current Season page cannot yet show the real preseason projection.
+* Found, not fixed (touches the frozen model's training data):
+  `player_points_per_minute_rolling_10` is 97.6% null due to NaN propagation
+  in `build_features.py`; player features missing for most of 2021-22.
+* Pull requests were not opened: the `gh` CLI is not installed. A force-push to
+  tidy one branch was (correctly) blocked; see "Branches".
+
+**Single highest-priority next action:** ingest the 2026-27 schedule
+(`python src/live_data.py --source <LeagueSchedule26_27.csv> --dry-run`, then
+without `--dry-run`), which turns on the real preseason projection, title odds
+and "current season" answers the rest of this work was built for. (Second:
+run the LLM planner eval with a real key.)
+
+**Branches (stacked; merge in order):** `claude/phase-0-stabilize-docs` ->
+`claude/phase-1-only` (Phase 1 alone; note `claude/phase-1-quick-wins`
+accidentally also contains the Phase 2 commit) -> `claude/phase-2-playoffs-margin`
+-> `claude/phase-3-current-season` -> `claude/phase-4-natural-language` ->
+`claude/phase-5-era-swap` (contains everything). Merging just the last branch
+into `main` brings in all phases.
+
+---
+
 # 0. Current state at a glance (verified 2026-09-24)
 
 This section is the up-to-date snapshot. Everything below it (sections 1-16)
@@ -19,15 +91,15 @@ Verified by running against the live repository, database, and artifacts:
 
 | Fact | Verified value |
 |---|---|
-| Test suite | 185 tests collected in 11 files; `python -m pytest -q` -> **185 passed** (~7.5 min, dominated by model-training tests) |
+| Test suite | At session start: 185 tests in 11 files, all passing (~7.5 min). **End of session: 294 tests in 22 files** (see the phase notes below for each phase's run) |
 | Feature dataset | `data/processed/game_features.csv`: **133,348 rows x 42 columns**, 1947-01-18 to 2026-04-12 |
 | Complete paired games (model dataset) | 66,658 (53,326 train / 13,332 chronological holdout from 2015-03-28) |
 | Production model | `elo_boosted_ensemble`, frozen: holdout accuracy 0.65077, log loss 0.62277, Brier 0.21656. The saved boosted component is fitted on the training period only, so every prediction for a game after 2015-03-28 is out-of-sample |
 | Database (`data/database/nba.db`) | games 73,279 (through 2026-06-13, including the 2025-26 play-in and playoffs); team_statistics 146,560; team_statistics_extended 79,724 (from 1996-11-01); player_statistics 1,669,922 (from 1946); player_statistics_extended 838,803 (from 1996-11-01); players 6,692; team_histories 140 |
-| Tool registry (`src/tools.py`, tracked in git) | 11 tools: predict_matchup, simulate_season, team_projection, player_impact, player_scenario, team_record, head_to_head, team_form, team_elo_rating, resolve_team_name, list_teams |
-| Natural-language layer | `src/assistant.py`: deterministic, pattern-based question -> tool routing (no LLM); exposed as `POST /ask` |
+| Tool registry (`src/tools.py`, tracked in git) | At session start 11 tools; **end of session 26** (see phase notes) |
+| Natural-language layer | At session start `src/assistant.py` (single-tool, deterministic). **Now `src/nl_agent.py` behind `POST /ask`** (multi-tool plans, grounding check, optional Claude planner) |
 | HTTP API | `src/api.py` (stdlib only): `/health`, `/tools`, `/tools/{name}`, `/ask`, `/ingest` (dry-run default), static `web/` assets with byte-range support |
-| Web dashboard (`web/`, "Blacktop Tabloid" design system, see `web/DESIGN-BRIEF.md`) | Dashboard (landing hero), Matchups, Teams, Head-to-Head, Season Simulator, League Predictions, Assistant (chat UI over `/ask`) are functional; Player Impact is still a placeholder |
+| Web dashboard (`web/`, "Blacktop Tabloid" design system, see `web/DESIGN-BRIEF.md`) | At session start: Dashboard, Matchups, Teams, Head-to-Head, Season Simulator, League Predictions, Assistant; Player Impact a placeholder. **End of session: + Current Season, Playoffs, Player Impact (real), What-if Lab; Simulator project-from-date mode; Matchups predicted score; Assistant shows sections/grounding** |
 | Product name | Backboard |
 
 Stale claims corrected in this pass (they appeared in older sections here or
@@ -350,6 +422,76 @@ this autonomous session did not do without permission).
   (checked live in the browser).
 * `simulate_season` / `team_projection` now carry an explicit limitation that
   replay mode already knows each season's earlier results (see section 0).
+
+## Phase 5 (2026-09-24): cross-era what-if roster swaps -- built and validated as far as the data allows; confidence Low by design
+
+Example (from `python src/era_swap.py --team-id 1610612741 --season 1992
+--out-person-id 769 --in-person-id 201939 --in-season 2015`, also via the
+tool, `/ask` and the What-if Lab page): **1992-93 Bulls with 2015-16 Stephen
+Curry in place of B.J. Armstrong -> net rating +2.94 per 100 (80% range +2.46
+to +3.45), +5.1 wins (80% range +4.3 to +6.0) vs the unchanged team's simulated
+59.5 (actual 57), title probability 21.4% -> 47.8%. Upper "full transfer"
+scenario (not validated): +13.55 net, +17.3 wins. Confidence: Low.**
+
+* **`src/era_swap.py` -> tool `simulate_era_swap` + CLI.**
+  1. *Per-100 rates.* Player-team-season box totals + team pace
+     (`FGA - OREB + TOV + 0.44 FTA`, team/opponent averaged). Cached to
+     `data/processed/player_team_seasons.csv` / `team_seasons.csv` (first build
+     ~26 min, then instant). Checks: 1992-93 Bulls 57 wins, net +6.6;
+     2015-16 Warriors 73 wins, net +10.5; Curry 2015-16 TS .669.
+     **Team box scores are complete only from 1985-86**, so both seasons in a
+     swap must be 1985-86 or later (earlier requests are refused with that
+     reason).
+  2. *Era translation* (`translate_rates`): each rate/percentage keeps its
+     z-score within the league distribution (minutes-weighted, players with
+     500+ min); the ratio-to-league-mean method is computed alongside as a
+     sensitivity check. Tested: translating a season into itself is exact
+     (diff ~1e-15), A->B->A round trips are exact, the z-score is preserved,
+     points stay consistent with translated TS% x volume. Example: Curry's
+     15.7 3PA/100 in 2015-16 (3.1 SD above the league) becomes 8.3 in 1992-93.
+  3. *Box-score team model* (ridge on minutes-weighted league-relative
+     player features): held-out 2010-2025 R2 0.905, MAE 1.18 vs 3.92 for zero.
+     Largely an accounting identity for offense; weak on defense.
+  4. *Does player value transfer?* Predicting season-s team net rating from
+     players' season s-1 values (translated, oracle season-s minutes):
+     alone it is **worse** than the team's own previous rating (MAE 4.50 vs
+     3.40, held-out 2010-2025); blended with persistence it helps (2.87 vs
+     3.08; high-turnover third 3.26 vs 3.56).
+  5. *Realization factor (the key calibration).* Regressing each team's actual
+     season-to-season rating change on the box-score-valued change from its
+     roster moves (plus reversion to the mean): factor **0.217** (bootstrap 80%
+     0.18-0.25, fit 1986-2009); on held-out 2010-2025 it lowers the change
+     error from 3.10 to 2.87 points (corr 0.48, residual SD 3.6). The swap's
+     headline numbers are the box-score delta times this factor; the unscaled
+     number is shown only as an unvalidated upper scenario. z-score and ratio
+     methods give the same factor (0.217 vs 0.218).
+  6. *Wins and playoffs.* Delta net rating -> per-game margin at the host
+     pace -> probit shift of every game's production-model probability, with
+     sigma (12.6) set so an average team gains the empirically measured 2.52
+     wins per net-rating point (1,177 team-seasons). The host season is
+     re-simulated with the same random draws as the unchanged team, then the
+     era's playoff format (8 per conference, best-of-5 first round to 2001-02,
+     2-3-2 Finals to 2013, play-in from 2020-21). Playoffs are skipped when the
+     modern conference alignment doesn't match the real field (e.g. 2002-04,
+     New Orleans in the East) or for the 2019-20 bubble; the check is automatic.
+  7. *Output* mirrors PROJECT.md section 21: headline, projected change with
+     ranges, baseline, data used, method, assumptions, what it means,
+     confidence (Low, with the three measured reasons), main factors, the
+     translated stat line. `validation_report(component="era_swap")` serves the
+     stored evidence (`models/era_swap_model.json`).
+* **Natural language:** "How would the 1993 Chicago Bulls change if they had
+  2016 Steph Curry instead of B.J. Armstrong?" plans one `simulate_era_swap`
+  call. In what-if questions a bare year means the season *ending* that year
+  (fan convention; stated in the answer); "1992-93" and "'93" also work. The
+  answer (41 numbers, all grounded) separates the what-if output, the
+  confidence reasons and the assumptions.
+* **Web:** new **What-if Lab** page (team + season -> roster picker via the new
+  `team_season_roster` tool, joining player + season, translation method),
+  leading with a "what-if, low confidence" note; checked live.
+* **What is NOT validated (and cannot be with this data):** whether a player
+  would really have produced their translated line in another era; usage/fit
+  interactions (the biggest single driver in the Curry example is shot volume,
+  which is the least transferable); defense beyond steals/blocks/rebounds.
 
 ### To make the current season live (manual steps)
 

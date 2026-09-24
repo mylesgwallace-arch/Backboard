@@ -69,6 +69,8 @@ HARD_QUESTIONS = [
     ("Is the database up to date?", {"data_status"}),
     ("What are Stephen Curry's impact diagnostic and his 2024-25 per-game stats?",
      {"player_impact", "player_season_stats"}),
+    ("How would the 1993 Chicago Bulls change if they had 2016 Steph Curry instead of B.J. Armstrong?",
+     {"simulate_era_swap"}),
 ]
 
 # Written after the planner was tuned on the two lists above, and scored once

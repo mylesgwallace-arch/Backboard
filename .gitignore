@@ -25,6 +25,7 @@ models/*
 !models/margin_metrics.json
 !models/roster_adjustment_backtest.json
 !models/nl_eval_report.json
+!models/era_swap_model.json
 
 # Environment variables
 .env

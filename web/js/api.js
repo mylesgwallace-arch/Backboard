@@ -152,6 +152,18 @@ export function getTeamRoster({ teamId, asOf }) {
   return runTool("team_roster", parameters);
 }
 
+export function getTeamSeasonRoster({ teamId, season }) {
+  return runTool("team_season_roster", { team_id: teamId, season });
+}
+
+export function simulateEraSwap({ teamId, season, outPersonId, inPlayer, inPersonId, inSeason, method }) {
+  const parameters = { team_id: teamId, season, out_person_id: outPersonId, in_season: inSeason };
+  if (inPersonId != null) parameters.in_person_id = inPersonId;
+  else parameters.in_player = inPlayer;
+  if (method) parameters.method = method;
+  return runTool("simulate_era_swap", parameters);
+}
+
 export function getValidationReport(component) {
   return runTool("validation_report", { component });
 }

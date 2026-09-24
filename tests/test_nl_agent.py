@@ -191,3 +191,23 @@ def test_llm_failures_fall_back_to_the_deterministic_planner(monkeypatch):
     assert result["mode"] == "deterministic"
     assert "ImportError" in result["fallback_reason"]
     assert result["status"] == "success"
+
+
+def test_what_if_swap_questions_become_one_era_swap_call():
+    steps = plan_question("How would the 1993 Chicago Bulls change if they had 2016 Steph Curry "
+                          "instead of B.J. Armstrong?")
+    assert [s["tool"] for s in steps] == ["simulate_era_swap"]
+    params = steps[0]["parameters"]
+    # A bare year is the season ending that year: '1993' -> 1992-93, '2016' -> 2015-16.
+    assert params == {"team_id": 1610612741, "season": 1992, "out_person_id": 769,
+                      "in_person_id": 201939, "in_season": 2015}
+    explicit = plan_question("What if the 1992-93 Bulls had 2015-16 Stephen Curry in place of "
+                             "B.J. Armstrong?")[0]["parameters"]
+    assert explicit["season"] == 1992 and explicit["in_season"] == 2015
+    apostrophe = plan_question("What if the '96 Bulls had 2006 Kobe Bryant in place of Ron Harper?")
+    assert apostrophe[0]["parameters"]["season"] == 1995
+
+
+def test_what_if_without_the_replaced_player_asks():
+    with pytest.raises(ValueError, match="name both players"):
+        plan_question("What if the 1992-93 Bulls had 2015-16 Stephen Curry instead of somebody?")

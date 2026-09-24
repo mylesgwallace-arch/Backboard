@@ -161,6 +161,74 @@ def _check_ambiguous_team_phrases(text, teams):
                 )
 
 
+SWAP_MARKER = re.compile(r"\b(instead of|in place of|replacing|rather than|swapped for|in for)\b",
+                         re.IGNORECASE)
+
+
+def _swap_seasons(segment):
+    """Season start years in a what-if segment, in order.
+
+    '1992-93' is explicit. A bare year follows the fan convention for team-
+    and player-seasons ("the '93 Bulls", "2016 Curry"): the season that ENDS
+    that year, i.e. start year = year - 1.
+    """
+    found = [(m.start(), int(m.group(1)), "range") for m in SEASON_RANGE.finditer(segment)]
+    rest = SEASON_RANGE.sub(lambda m: " " * len(m.group(0)), segment)
+    found += [(m.start(), int(m.group(1)) - 1, "bare") for m in YEAR.finditer(rest)]
+    for match in re.finditer(r"['’](\d{2})\b", rest):   # "the '93 Bulls"
+        two = int(match.group(1))
+        found.append((match.start(), (1900 + two if two >= 46 else 2000 + two) - 1, "bare"))
+    return [(value, kind) for _, value, kind in sorted(found)]
+
+
+def _player_in(segment, season):
+    try:
+        from src.player_lookup import find_players
+    except ImportError:  # pragma: no cover
+        from player_lookup import find_players
+    ids = extract_person_ids(segment)
+    if len(ids) == 1:
+        return ids[0]
+    labels = {normalize_text(label) for label in load_team_labels().values()}
+    team_words = {word for label in labels for word in label.split()}
+    for phrase in re.findall(r"\b([A-Z][a-zA-Z'\.\-]+(?:\s+[A-Z][a-zA-Z'\.\-]+)*)", segment):
+        words = [w for w in phrase.split() if re.sub(r"[^a-z]", "", w.lower()) not in QUESTION_WORDS
+                 and normalize_text(w).strip() not in team_words]
+        if not words or (len(words) == 1 and len(words[0]) < 4):
+            continue
+        result = find_players(" ".join(words), season=season, limit=5)
+        if result["match_count"] == 1:
+            return result["person_id"]
+        if result["match_count"] > 1:
+            listed = "; ".join(f"{c['full_name']} (personId {c['person_id']})" for c in result["candidates"])
+            raise ValueError(f"'{' '.join(words)}' matches several players: {listed}. Which one?")
+    return None
+
+
+def _plan_era_swap(question, teams):
+    """``simulate_era_swap`` step for 'team X with player A instead of player B' questions."""
+    marker = SWAP_MARKER.search(question)
+    if not marker or not teams:
+        return None
+    before, after = question[:marker.start()], question[marker.end():]
+    seasons = _swap_seasons(before) + _swap_seasons(after)
+    if not seasons:
+        raise ValueError("Which season? Name the team-season (e.g. 'the 1992-93 Bulls').")
+    host_season, host_kind = seasons[0]
+    in_season, in_kind = seasons[1] if len(seasons) > 1 else seasons[0]
+    in_player = _player_in(before, in_season)
+    out_player = _player_in(after, host_season)
+    if in_player is None or out_player is None:
+        raise ValueError(
+            "For a what-if swap name both players: who joins (and from which season) and who they "
+            "replace, e.g. 'the 1992-93 Bulls with 2015-16 Stephen Curry instead of B.J. Armstrong'."
+        )
+    return _step("simulate_era_swap", {
+        "team_id": teams[0], "season": host_season, "out_person_id": out_player,
+        "in_person_id": in_player, "in_season": in_season,
+    }, focus={"host_year_kind": host_kind, "in_year_kind": in_kind})
+
+
 QUESTION_WORDS = {
     "who", "what", "how", "which", "when", "where", "why", "did", "does", "is", "are",
     "was", "were", "the", "and", "his", "her", "their", "in", "of", "for", "per", "by",
@@ -233,6 +301,10 @@ def plan_question(question, context=None):
 
     def has(pattern):
         return re.search(pattern, text) is not None
+
+    swap = _plan_era_swap(question, teams)
+    if swap is not None:
+        return [swap]
 
     # --- meta / data questions -------------------------------------------
     if has(r"what tools|which tools|tools (does|do|are|can)|what can (you|the engine)|capabilit"):
@@ -594,6 +666,8 @@ def render_step(step, envelope, labels):
         )))
     elif tool == "validation_report":
         out.extend(_render_validation(step, data, labels))
+    elif tool == "simulate_era_swap":
+        out.extend(_render_era_swap(step, data))
     elif tool == "playoff_odds":
         rows = data.get("teams") or []
         key = "champion" if rows and "champion" in rows[0] else "p_champion"
@@ -738,6 +812,56 @@ def _render_validation(step, data, labels):
             f"Margin model holdout MAE {margin.get('selected_model', {}).get('mae', 0):.2f} points vs "
             f"{margin.get('baseline_elo_linear', {}).get('mae', 0):.2f} (Elo line) and "
             f"{margin.get('baseline_home_court_constant', {}).get('mae', 0):.2f} (constant home edge)."
+        )))
+    return out
+
+
+def _render_era_swap(step, data):
+    report = data.get("report") or {}
+    change = report.get("projected_change") or {}
+    base = report.get("baseline_team") or {}
+    full = change.get("full_transfer_upper_scenario") or {}
+    line = report.get("translated_stat_line") or {}
+    effect = data.get("effect") or {}
+    out_player, in_player = effect.get("out_player") or {}, effect.get("in_player") or {}
+    postseason = report.get("postseason") or {}
+    out = [("model", (
+        f"{report.get('headline')}. WHAT-IF estimate, not a historical fact: net rating "
+        f"{change.get('net_rating_per_100', 0):+.2f} per 100 possessions (80% range "
+        f"{change.get('net_rating_80pct_range', [0, 0])[0]:+.2f} to {change.get('net_rating_80pct_range', [0, 0])[1]:+.2f}), "
+        f"about {change.get('wins', 0):+.1f} wins (80% range {change.get('wins_80pct_range', [0, 0])[0]:+.1f} to "
+        f"{change.get('wins_80pct_range', [0, 0])[1]:+.1f}) against the unchanged team's simulated "
+        f"{base.get('simulated_mean_wins')} (actual record: {base.get('actual_wins')} wins, net rating "
+        f"{base.get('actual_net_rating')})."
+    ))]
+    if "title" in postseason:
+        out.append(("model", (
+            f"Title probability {postseason['title'][0]:.1%} with the real roster vs {postseason['title'][1]:.1%} "
+            f"with the swap ({postseason['note']})."
+        )))
+    elif postseason.get("note"):
+        out.append(("uncertainty", postseason["note"]))
+    out.append(("model", (
+        f"{in_player.get('name')}'s {_season_label(in_player.get('season'))} line translated into that era: "
+        f"{line.get('pts_100')} points, {line.get('ast_100')} assists and {line.get('tpa_100')} three-point "
+        f"attempts per 100 possessions at {_pct(line.get('ts'))} true shooting, taking "
+        f"{out_player.get('name')}'s {_pct(out_player.get('team_minutes_share'))} of team minutes."
+    )))
+    out.append(("uncertainty", (
+        f"Upper scenario if box-score value transferred in full (not validated): net rating "
+        f"{full.get('net_rating_per_100', 0):+.2f}, {full.get('wins', 0):+.1f} wins."
+    )))
+    confidence = report.get("confidence") or {}
+    out.append(("reliability", f"Confidence: {confidence.get('level')}."))
+    for reason in confidence.get("reasons", []):
+        out.append(("reliability", reason))
+    for assumption in report.get("assumptions", []):
+        out.append(("uncertainty", f"Assumption: {assumption}"))
+    kinds = step.get("focus") or {}
+    if "bare" in (kinds.get("host_year_kind"), kinds.get("in_year_kind")):
+        out.append(("uncertainty", (
+            "A single year was read as the season ending that year (e.g. '1993' as 1992-93); "
+            "name the season as '1992-93' to be explicit."
         )))
     return out
 
