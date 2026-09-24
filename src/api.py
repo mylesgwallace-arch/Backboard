@@ -31,6 +31,7 @@ integration tests, with CORS headers so a future browser front end can call it.
 
 import argparse
 import json
+import re
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -49,7 +50,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB_DIR = ROOT / "web"
 WEB_HTML = WEB_DIR / "index.html"
 
-SERVICE_NAME = "nba-sports-ai"
+SERVICE_NAME = "backboard"
 
 # The front end is a static, no-build-step, multi-file app (HTML/CSS/vanilla
 # JS ES modules) under web/. Content types are mapped explicitly rather than
@@ -64,7 +65,45 @@ _STATIC_CONTENT_TYPES = {
     ".svg": "image/svg+xml",
     ".ico": "image/x-icon",
     ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
 }
+
+
+_BYTE_RANGE = re.compile(r"bytes=(\d*)-(\d*)", re.ASCII | re.IGNORECASE)
+
+
+def _parse_byte_range(header, size):
+    """Parse a single ``Range: bytes=start-end`` header against ``size``.
+
+    Returns ``(start, end)`` (inclusive), ``None`` to serve the whole file
+    (no header, a multi-range or malformed header, or an invalid spec such
+    as ``bytes=5-2``, all of which RFC 9110 lets a server ignore), or
+    ``"unsatisfiable"`` when the range starts past the end of the file.
+    Browsers send ranges for <video>; Safari will not play a video from a
+    server that ignores them.
+    """
+    match = _BYTE_RANGE.fullmatch(header.strip()) if header else None
+    if match is None:
+        return None
+    start_text, end_text = match.groups()
+    if not start_text:  # suffix range: the last N bytes
+        if not end_text:
+            return None
+        length = int(end_text)
+        if length == 0 or size == 0:
+            return "unsatisfiable"
+        return max(0, size - length), size - 1
+    start = int(start_text)
+    if end_text and int(end_text) < start:
+        return None
+    if start >= size:
+        return "unsatisfiable"
+    end = min(int(end_text), size - 1) if end_text else size - 1
+    return start, end
 
 
 def _static_asset_path(url_path):
@@ -206,13 +245,31 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _serve_static(self, path):
-        body = path.read_bytes()
         content_type = _STATIC_CONTENT_TYPES.get(
             path.suffix.lower(), "application/octet-stream"
         )
-        self.send_response(200)
+        size = path.stat().st_size
+        byte_range = _parse_byte_range(self.headers.get("Range"), size)
+        if byte_range == "unsatisfiable":
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.send_header("Content-Length", "0")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            return
+        if byte_range is None:
+            start, end, status = 0, size - 1, 200
+        else:
+            (start, end), status = byte_range, 206
+        with path.open("rb") as handle:
+            handle.seek(start)
+            body = handle.read(end - start + 1) if size else b""
+        self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Accept-Ranges", "bytes")
+        if status == 206:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)

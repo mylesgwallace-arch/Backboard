@@ -1,4 +1,4 @@
-# Sports AI — Current Project Context
+# Backboard — Current Project Context
 
 > **This file describes the current state of the repository.**
 >
@@ -1400,7 +1400,7 @@ feature hypothesis only after a clear expected improvement signal.
 
 Exact next step: test one truly high-signal explanatory feature with an explicit expected
 performance gain before adding it to the default feature set; otherwise keep the current
-ensemble baseline and move to the next non-prediction milestone in the Sports AI roadmap.
+ensemble baseline and move to the next non-prediction milestone in the Backboard roadmap.
 
 Exact next step: define and evaluate a stronger opponent-adjusted team-form feature, using
 the same ablation and season-stability gate before it can modify the retained boosted
