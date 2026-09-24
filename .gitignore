@@ -20,6 +20,9 @@ models/*
 # tracked so the evidence cited in PROJECT_CONTEXT.md is reviewable).
 !models/forward_projection_backtest.json
 !models/playoff_validation.json
+# The margin/total model is small and served by the predict_margin tool.
+!models/margin_model.pkl
+!models/margin_metrics.json
 
 # Environment variables
 .env

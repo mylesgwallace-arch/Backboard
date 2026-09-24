@@ -110,3 +110,42 @@ export function getSeasonSimulation({ season, nSimulations, randomState }) {
   if (randomState != null) parameters.random_state = randomState;
   return runTool("simulate_season", parameters);
 }
+
+export function projectRestOfSeason({ season, asOf, teamId, nSimulations }) {
+  const parameters = { season, as_of: asOf };
+  if (teamId != null) parameters.team_id = teamId;
+  if (nSimulations != null) parameters.n_simulations = nSimulations;
+  return runTool("project_rest_of_season", parameters);
+}
+
+export function predictMargin({ homeTeamId, awayTeamId, gameDate }) {
+  const parameters = { home_team_id: homeTeamId, away_team_id: awayTeamId };
+  if (gameDate) parameters.game_date = gameDate;
+  return runTool("predict_margin", parameters);
+}
+
+export function getPlayoffOdds({ season, asOf, teamId, nSimulations }) {
+  const parameters = { season };
+  if (asOf) parameters.as_of = asOf;
+  if (teamId != null) parameters.team_id = teamId;
+  if (nSimulations != null) parameters.n_simulations = nSimulations;
+  return runTool("playoff_odds", parameters);
+}
+
+export function getValidationReport(component) {
+  return runTool("validation_report", { component });
+}
+
+export function resolvePlayer({ name, season, limit }) {
+  const parameters = { name };
+  if (season != null) parameters.season = season;
+  if (limit != null) parameters.limit = limit;
+  return runTool("resolve_player", parameters);
+}
+
+export function getPlayerImpact({ personId, before, window }) {
+  const parameters = { person_id: personId };
+  if (before) parameters.before = before;
+  if (window != null) parameters.window = window;
+  return runTool("player_impact", parameters);
+}

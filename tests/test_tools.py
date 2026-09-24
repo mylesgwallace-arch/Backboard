@@ -631,3 +631,74 @@ def test_project_rest_of_season_highlights_requested_team(monkeypatch):
     assert result["data"]["team_projection"]["mean_wins"] == 58.5
     assert captured["as_of"] == "2025-01-15"
     assert captured["n_simulations"] == 1000
+
+
+def test_phase_two_tools_are_registered():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    for name in ("predict_margin", "playoff_odds", "validation_report"):
+        assert name in tools
+        assert tools[name]["limitations"]
+
+
+def test_predict_margin_reports_production_probability_alongside(monkeypatch):
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools._cached_margin_bundle", lambda: {})
+    monkeypatch.setattr(
+        "src.tools.predict_margin",
+        lambda home, away, inputs, bundle, game_date=None: {
+            "home_team_id": home, "away_team_id": away, "predicted_home_margin": 4.2,
+        },
+    )
+    monkeypatch.setattr(
+        "src.tools.frozen_matchup_probabilities",
+        lambda pairs, cutoff, inputs: pd.DataFrame({"home_win_probability": [0.63]}),
+    )
+
+    result = execute_tool("predict_margin", {"home_team_id": 1610612738,
+                                             "away_team_id": 1610612747})
+
+    assert result["status"] == "success"
+    assert result["data"]["predicted_home_margin"] == 4.2
+    assert result["data"]["production_home_win_probability"] == 0.63
+    assert result["data"]["production_model"] == "elo_boosted_ensemble"
+
+
+def test_playoff_odds_uses_real_bracket_once_postseason_exists(monkeypatch):
+    games = pd.DataFrame({"gameDateTimeEst": [pd.Timestamp("2025-04-15 19:00")]})
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools.load_team_names", lambda season: {})
+    monkeypatch.setattr("src.tools.load_postseason_games", lambda season: (games, None))
+    called = {}
+    monkeypatch.setattr(
+        "src.tools.actual_bracket_odds",
+        lambda season, inputs, team_names=None: called.setdefault(
+            "actual", {"mode": "actual", "teams": [{"teamId": 1610612760, "champion": 0.5}]}
+        ),
+    )
+    monkeypatch.setattr(
+        "src.tools.season_playoff_odds",
+        lambda *args, **kwargs: called.setdefault("simulated", {"mode": "sim", "teams": []}),
+    )
+
+    result = execute_tool("playoff_odds", {"season": 2024, "team_id": 1610612760})
+    assert result["data"]["mode"] == "actual"
+    assert result["data"]["team_odds"]["champion"] == 0.5
+
+    execute_tool("playoff_odds", {"season": 2024, "as_of": "2025-01-01"})
+    assert "simulated" in called
+
+
+def test_playoff_odds_needs_as_of_without_a_postseason(monkeypatch):
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools.load_team_names", lambda season: {})
+    monkeypatch.setattr("src.tools.load_postseason_games",
+                        lambda season: (pd.DataFrame({"gameDateTimeEst": []}), None))
+    result = execute_tool("playoff_odds", {"season": 2026})
+    assert result["status"] == "error"
+    assert "as_of" in result["error"]["message"]
+
+
+def test_validation_report_rejects_unknown_component():
+    result = execute_tool("validation_report", {"component": "vibes"})
+    assert result["status"] == "error"
+    assert "production_model" in result["error"]["message"]

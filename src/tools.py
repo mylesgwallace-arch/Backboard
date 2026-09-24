@@ -56,7 +56,18 @@ try:
     from src.player_scenario import analyze_single_player_scenario
     from src.player_lookup import find_players, resolve_player_id
     from src.db_query import QueryRejected, describe_database, run_query
-    from src.forward_projection import load_model_inputs, project_from_date
+    from src.forward_projection import (
+        frozen_matchup_probabilities,
+        load_model_inputs,
+        project_from_date,
+    )
+    from src.playoffs import (
+        actual_bracket_odds,
+        load_postseason_games,
+        postseason_cutoff,
+        season_playoff_odds,
+    )
+    from src.margin_model import load_margin_bundle, predict_margin
 except ImportError:  # pragma: no cover - direct-script support
     from main import (
         FEATURES_PATH,
@@ -82,10 +93,27 @@ except ImportError:  # pragma: no cover - direct-script support
     from player_scenario import analyze_single_player_scenario
     from player_lookup import find_players, resolve_player_id
     from db_query import QueryRejected, describe_database, run_query
-    from forward_projection import load_model_inputs, project_from_date
+    from forward_projection import (
+        frozen_matchup_probabilities,
+        load_model_inputs,
+        project_from_date,
+    )
+    from playoffs import (
+        actual_bracket_odds,
+        load_postseason_games,
+        postseason_cutoff,
+        season_playoff_odds,
+    )
+    from margin_model import load_margin_bundle, predict_margin
 
 
 ROOT = Path(__file__).resolve().parents[1]
+VALIDATION_REPORTS = {
+    "production_model": ROOT / "models" / "baseline_metrics.json",
+    "season_forward_projection": ROOT / "models" / "forward_projection_backtest.json",
+    "playoffs": ROOT / "models" / "playoff_validation.json",
+    "margin": ROOT / "models" / "margin_metrics.json",
+}
 
 PRODUCTION_MODEL = "elo_boosted_ensemble"
 
@@ -130,6 +158,15 @@ def _cached_model_inputs():
     if "inputs" not in MODEL_INPUTS_CACHE:
         MODEL_INPUTS_CACHE["inputs"] = load_model_inputs()
     return MODEL_INPUTS_CACHE["inputs"]
+
+
+def _cached_margin_bundle():
+    if "margin" not in MODEL_INPUTS_CACHE:
+        try:
+            MODEL_INPUTS_CACHE["margin"] = load_margin_bundle()
+        except FileNotFoundError as exc:
+            raise ToolUnavailable(str(exc))
+    return MODEL_INPUTS_CACHE["margin"]
 
 
 # ---------------------------------------------------------------------------
@@ -508,6 +545,99 @@ def _execute_project_rest_of_season(parameters):
         result["team_id"] = team_id
         result["team_projection"] = row
     return result
+
+
+def _execute_predict_margin(parameters):
+    """Predicted margin/total/scores plus the production win probability."""
+    home_team_id, away_team_id = _resolve_home_away(parameters)
+    inputs = _cached_model_inputs()
+    game_date = parameters.get("game_date")
+    cutoff = pd.Timestamp(game_date) if game_date else None
+    try:
+        result = predict_margin(
+            home_team_id, away_team_id, inputs, _cached_margin_bundle(), game_date=cutoff
+        )
+        probability = frozen_matchup_probabilities(
+            pd.DataFrame({"homeTeamId": [home_team_id], "awayTeamId": [away_team_id]}),
+            cutoff, inputs,
+        )["home_win_probability"].iloc[0]
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    result["production_home_win_probability"] = round(float(probability), 6)
+    result["production_model"] = PRODUCTION_MODEL
+    return result
+
+
+def _execute_playoff_odds(parameters):
+    """Round-by-round and title odds: real bracket if seeded, else simulated season."""
+    season = parameters["season"]
+    names = load_team_names(season)
+    inputs = _cached_model_inputs()
+    as_of = parameters.get("as_of")
+    games, _ = load_postseason_games(season)
+    postseason_started = not games.empty and (
+        as_of is None or pd.Timestamp(as_of) >= postseason_cutoff(games)
+    )
+    if postseason_started:
+        try:
+            result = actual_bracket_odds(season, inputs, team_names=names)
+        except ValueError as exc:
+            raise ToolUnavailable(str(exc))
+    else:
+        if as_of is None:
+            raise ToolError(
+                f"The {season} postseason is not in the database; provide 'as_of' "
+                "to simulate the rest of the season and the playoffs."
+            )
+        try:
+            result = season_playoff_odds(
+                season, as_of, inputs,
+                n_simulations=parameters.get("n_simulations", 1000),
+                random_state=parameters.get("random_state", 42),
+                team_names=names,
+            )
+        except ValueError as exc:
+            raise ToolUnavailable(str(exc))
+    if parameters.get("team_id") is not None or parameters.get("team"):
+        team_id = _team_id_or_name(parameters, "team_id", "team")
+        row = next((row for row in result["teams"] if row["teamId"] == team_id), None)
+        if row is None:
+            raise ToolUnavailable(f"Team {team_id} is not in the {season} playoff picture.")
+        result["team_id"] = team_id
+        result["team_odds"] = row
+    return result
+
+
+def _execute_validation_report(parameters):
+    """Return a stored validation report (factual record of past evaluations)."""
+    component = parameters["component"]
+    path = VALIDATION_REPORTS.get(component)
+    if path is None:
+        raise ToolError(
+            f"Unknown component '{component}'. Choose one of: "
+            f"{', '.join(sorted(VALIDATION_REPORTS))}."
+        )
+    if not path.exists():
+        raise ToolUnavailable(f"{path.name} has not been generated yet.")
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if component == "production_model":
+        report = {
+            key: report.get(key)
+            for key in ("recommended_model", "recommendation_metric", "split_start",
+                        "train_games", "test_games", "metrics", "calibration",
+                        "feature_importance", "elo")
+        }
+    elif component == "playoffs":
+        report = {key: value for key, value in report.items() if key != "series_detail"}
+    elif component == "season_forward_projection":
+        report = {
+            "calibration_seasons": report.get("calibration_seasons"),
+            "strength_sd_by_season_fraction": report.get("strength_sd_by_season_fraction"),
+            "calibrated": report["calibrated_strength_uncertainty"]["summary_by_checkpoint"],
+            "game_noise_only": report["game_noise_only"]["summary_by_checkpoint"],
+            "evaluation_seasons": report["calibrated_strength_uncertainty"]["seasons"],
+        }
+    return {"component": component, "source": f"models/{path.name}", "report": report}
 
 
 # ---------------------------------------------------------------------------
@@ -963,6 +1093,119 @@ TOOLS = {
             "whose schedule is not in the database cannot be projected yet.",
         ],
         "execute": _execute_project_rest_of_season,
+    },
+    "predict_margin": {
+        "name": "predict_margin",
+        "description": (
+            "Predict a game's score margin, total points and final score, with "
+            "80% intervals, alongside the production model's win probability."
+        ),
+        "category": "prediction",
+        "model": "margin/total regressors (models/margin_model.pkl) + elo_boosted_ensemble",
+        "parameters": [
+            {"name": "home_team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId of the home team."},
+            {"name": "home_team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the home team."},
+            {"name": "away_team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId of the away team."},
+            {"name": "away_team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the away team."},
+            {"name": "game_date", "type": STR_TYPE, "required": False,
+             "description": "Optional cutoff date (YYYY-MM-DD); only pregame "
+                            "information before it is used."},
+        ],
+        "assumptions": [
+            "Inputs are the same pregame features and Elo gap the production "
+            "model uses, frozen at game_date exactly as predict_matchup does.",
+            "The win probability is the frozen production model's; the margin "
+            "model is a separate regressor and never changes it.",
+        ],
+        "limitations": [
+            "Holdout (13,332 games from 2015-03-28): margin MAE 10.57 points "
+            "vs 10.68 for a straight line in the Elo gap and 11.66 for a "
+            "constant home edge (R2 0.15). Single-game margins are mostly noise.",
+            "Total points: MAE 14.96, no better than averaging the two teams' "
+            "recent scoring (14.94). Treat the total as that simple average.",
+            "The 80% intervals are the 10th-90th percentile of 2015-2026 "
+            "residuals (margin about -18 to +15 points around the prediction). "
+            "An interval fitted before the holdout covered only 75% of it.",
+            "The margin and the win probability are different models; they "
+            "disagree on the favorite in about 7% of games.",
+        ],
+        "execute": _execute_predict_margin,
+    },
+    "playoff_odds": {
+        "name": "playoff_odds",
+        "description": (
+            "Championship and round-by-round playoff odds (play-in, first "
+            "round, conference semifinals/finals, Finals, title). Uses the real "
+            "seeded bracket once the postseason has started, otherwise simulates "
+            "the rest of the regular season from 'as_of' and then the bracket."
+        ),
+        "category": "simulation",
+        "model": "elo_boosted_ensemble (strength frozen) + exact series math / Monte Carlo",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "NBA season start year, e.g. 2025 for 2025-26."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Cutoff date YYYY-MM-DD. Omit (or give a date on/after "
+                            "the postseason start) for the real bracket."},
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Optional teamId to highlight."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Optional current franchise name or city."},
+            {"name": "n_simulations", "type": INT_TYPE, "required": False,
+             "description": "Monte Carlo simulations when simulating (default 1000)."},
+            {"name": "random_state", "type": INT_TYPE, "required": False,
+             "description": "Random seed (default 42)."},
+        ],
+        "assumptions": [
+            "Every playoff/play-in game uses the production model probability "
+            "with team strength frozen at the end of the regular season (or at "
+            "as_of); strength does not update during the playoffs.",
+            "Series probabilities are exact for the home-court pattern (2-2-1-1-1; "
+            "2-3-2 Finals 1985-2013; best-of-5 first rounds 1984-2002). Play-in "
+            "from 2020-21: 7v8, 9v10, loser v winner.",
+            "Simulated standings break ties at random; real NBA tiebreakers "
+            "are not modeled.",
+        ],
+        "limitations": [
+            "Replay 2014-2025 (bubble excluded): playoff games log loss 0.639 vs "
+            "0.680 for a constant home-win rate; series log loss 0.563 vs 0.586 "
+            "for 'higher seed wins at the historical rate', but the model picks "
+            "the series winner less often than 'higher seed always wins' "
+            "(70.3% vs 72.7%). Later rounds and the Finals are where it is weakest.",
+            "Across 11 postseasons the eventual champion got 23% title "
+            "probability on average before the playoffs (uniform: 6.25%) and "
+            "was the model's favorite 4 times.",
+            "Late-season rest and injuries distort the last-10-game form the "
+            "model freezes (e.g. the 2021-22 champion Warriors got 1.2%).",
+        ],
+        "execute": _execute_playoff_odds,
+    },
+    "validation_report": {
+        "name": "validation_report",
+        "description": (
+            "Return the stored validation evidence for a component: the "
+            "production model's holdout metrics, the forward season-projection "
+            "backtest, the playoff replay, or the margin model."
+        ),
+        "category": "diagnostic",
+        "model": "stored validation reports under models/ (factual record)",
+        "parameters": [
+            {"name": "component", "type": STR_TYPE, "required": True,
+             "description": "One of: production_model, season_forward_projection, "
+                            "playoffs, margin."},
+        ],
+        "assumptions": [
+            "Reports are the saved outputs of the validation runs, not re-run "
+            "on request.",
+        ],
+        "limitations": [
+            "A report reflects the data and code at the time it was generated.",
+        ],
+        "execute": _execute_validation_report,
     },
 }
 

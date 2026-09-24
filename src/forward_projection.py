@@ -273,7 +273,8 @@ def simulate_remaining_wins(base_wins, home_index, away_index, probabilities,
 
 def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
                       random_state=42, schedule=None, team_names=None,
-                      strength_sd=None, return_samples=False, shocks=None):
+                      strength_sd=None, return_samples=False, shocks=None,
+                      snapshots=None):
     """Project final standings from the actual record at ``as_of``.
 
     ``schedule`` defaults to the season's games in the model dataset; a caller
@@ -283,7 +284,9 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
     ``simulate_remaining_wins``; ``None`` uses the calibrated
     ``default_strength_sd`` for the share of games already played, ``0.0``
     simulates game-outcome noise only. With ``return_samples`` the result is
-    ``(projection, wins_matrix, team_ids)``.
+    ``(projection, wins_matrix, team_ids)``. ``snapshots`` (e.g. roster-
+    adjusted ones from ``roster_state.adjusted_snapshots``) replaces the
+    production feature snapshots at the cutoff.
     """
     if schedule is None:
         schedule = season_schedule(inputs, season)
@@ -311,7 +314,7 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
 
     if not remaining.empty:
         scored = frozen_matchup_probabilities(
-            remaining[["homeTeamId", "awayTeamId"]], cutoff, inputs
+            remaining[["homeTeamId", "awayTeamId"]], cutoff, inputs, snapshots=snapshots
         )
         probabilities = scored["home_win_probability"].to_numpy(dtype=float)
         home_index = remaining["homeTeamId"].map(team_index).to_numpy()

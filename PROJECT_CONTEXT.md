@@ -116,6 +116,85 @@ Tests: 43 new (`tests/test_player_lookup.py`, `tests/test_db_query.py`,
 `tests/test_forward_projection.py`, additions to `test_tools.py` and
 `test_simulate_season.py`); suite now 228 tests.
 
+## Phase 2 (2026-09-24): playoffs, play-in, predicted margin -- done and validated
+
+* **`src/playoffs.py` -> tool `playoff_odds` + CLI** (`--actual-bracket`,
+  `--as-of`, `--validate`). No new model: every playoff/play-in game uses the
+  frozen production probability with strength frozen at the regular-season
+  end (`frozen_matchup_probabilities`). Added structure only:
+  * exact best-of-5/7 series probability by dynamic programming over the
+    home pattern (2-2-1-1-1; 2-3-2 Finals 1985-2013; best-of-5 first rounds
+    1984-2002);
+  * exact play-in enumeration (2020-21 on) and exact round-reach
+    probabilities for a fixed seeded field;
+  * season-level title odds that couple `project_rest_of_season` with the
+    bracket (seeds from each simulated table, random tie-breaks, the same
+    per-team strength shock in the regular season and the playoffs; no shock
+    once the regular season is complete, see below).
+  * Actual seeds come from `team_statistics.seed`; when that column is null
+    (2021-22) they are recovered from the bracket structure (play-in games +
+    first/second-round pairings). The recovery was checked: it reproduces
+    the seed column exactly for 2020, 2023, 2024 and 2025.
+* **Replay validation 2014-15 .. 2025-26** (`models/playoff_validation.json`;
+  strength frozen the day each postseason started; 2019-20 bubble excluded
+  from headline numbers; baselines measured on 2003-2014 only):
+
+  | Level | n | Model log loss | Baseline log loss | Model accuracy | Baseline accuracy |
+  |---|---|---|---|---|---|
+  | Playoff + play-in games | 953 | 0.6386 | 0.6801 (constant home-win rate) | 64.8% | 60.0% |
+  | Series | 165 | 0.5628 | 0.5860 (higher seed at historical rate) | 70.3% | 72.7% (higher seed always) |
+  | First round | 88 | 0.4419 | 0.4968 | 83.0% | 81.8% |
+  | Conf semifinals | 44 | 0.6828 | 0.6751 | 54.5% | 63.6% |
+  | Conf finals | 22 | 0.6831 | 0.7643 | 59.1% | 54.5% |
+  | Finals | 11 | 0.8092 | 0.5860 | 54.5% | 72.7% |
+
+  Title odds: across 11 scored postseasons the eventual champion received
+  23.4% on average before the playoffs (uniform 6.25%; mean log probability
+  -2.23 vs -2.77) and was the model's favorite 4 times. The model is useful
+  but clearly weakest in later rounds and the Finals; late-season rest/
+  injuries distort the frozen last-10-game form (2021-22 Warriors: 1.2%).
+  A per-team strength shock did not help at the regular-season end
+  (series log loss 0.5628 at SD 0, 0.5617 at 0.2, 0.5638 at 0.4), so
+  none is applied once a regular season is complete.
+* **`src/margin_model.py` -> tool `predict_margin` + CLI** (`--train`,
+  `--verify-elo`). A separate regression model; the frozen classifier, its
+  pickle and its metrics are untouched. Same 80/20 chronological split as the
+  classifier (holdout from 2015-03-28, 13,332 games); candidates (ridge,
+  boosted trees, and the simple baselines themselves) are chosen on a
+  validation slice inside the training period, then scored once on the
+  holdout. The fast pregame Elo gap it uses is verified identical (max diff
+  0) to `add_elo_rating_deltas` on all 66,658 games.
+  * **Margin:** MAE 10.566 / RMSE 13.55 / R2 0.149 vs a straight line in the
+    Elo gap 10.679, constant home edge 11.659, zero 11.899. Sign agrees with
+    the production favorite in 92.6% of holdout games.
+  * **Total points:** MAE 14.959, essentially tied with (not better than)
+    averaging the two teams' recent scoring (14.943). Reported as such.
+  * **Intervals:** an 80% interval fitted before the holdout covered only
+    74.9% of holdout margins (margins spread out in the modern scoring era),
+    so served intervals use holdout-era residual quantiles (about -18/+15
+    points on the margin); the tool's limitations say so.
+  * Artifacts `models/margin_model.pkl` (147 KB) and
+    `models/margin_metrics.json` are tracked, like the baseline model.
+* **Tool `validation_report`** returns the stored evidence for
+  `production_model`, `season_forward_projection`, `playoffs` or `margin`,
+  so answers about "how good is this?" come from the saved reports.
+* **Web dashboard** (checked live in the browser against a fresh
+  `src/api.py` on port 8010, no console errors):
+  * new **Playoffs** page (`web/js/pages/playoffs.js`): real bracket or
+    project-from-a-date; title-odds bars, round-by-round tables per
+    conference with the actual result of each team, and the stored replay
+    evidence;
+  * **Player Impact** is now a real page (`web/js/pages/playerImpact.js`):
+    name search via `resolve_player`, candidate chooser when ambiguous, the
+    association-only diagnostic with its caveat next to the numbers;
+  * **Season Simulator** gained a "Project from a date" mode
+    (`project_rest_of_season`) with a "record then" column;
+  * **Matchups** shows a "Predicted score" card from `predict_margin` under
+    the pick (loaded separately so it never blocks the win probability);
+  * `main.js` routes/nav and the Dashboard quick links updated.
+
+Registry: 18 tools.
+
 ---
 
 # 1. Current Objective

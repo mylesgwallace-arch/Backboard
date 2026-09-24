@@ -1,0 +1,106 @@
+{
+  "split": {
+    "train_games": 53326,
+    "test_games": 13332,
+    "test_fraction": 0.2,
+    "split_start": "2015-03-28 21:00:00",
+    "validation_fraction_of_train": 0.2
+  },
+  "elo_delta_check": "pregame_elo_deltas equals add_elo_rating_deltas (see verify_elo_deltas)",
+  "margin": {
+    "target": "margin",
+    "validation_mae_by_candidate": {
+      "ridge_alpha_0.1": 9.473858900570475,
+      "ridge_alpha_1": 9.47385648529021,
+      "ridge_alpha_10": 9.473845330110862,
+      "ridge_alpha_100": 9.473810109862224,
+      "boosted_d3_lr0.05_it300": 9.443454533747206,
+      "boosted_d4_lr0.05_it300": 9.44796810506287,
+      "boosted_d4_lr0.1_it200": 9.453167890585064,
+      "elo_linear": 9.539327356062225
+    },
+    "selected_model": "boosted_d3_lr0.05_it300",
+    "holdout": {
+      "selected_model": {
+        "mae": 10.566195990128557,
+        "rmse": 13.551848180370381,
+        "r2": 0.1488056621356092
+      },
+      "baseline_zero": {
+        "mae": 11.898889888988899,
+        "rmse": 14.84563536157779,
+        "r2": -0.021478544809799383
+      },
+      "baseline_home_court_constant": {
+        "mae": 11.659338133115718,
+        "rmse": 14.787522295131135,
+        "r2": -0.013497065453208279
+      },
+      "baseline_elo_linear": {
+        "mae": 10.679183900156092,
+        "rmse": 13.6943967007772,
+        "r2": 0.1308044794163673
+      }
+    },
+    "interval_80": {
+      "method": "10th-90th percentile of the selected model's residuals on the training-period validation slice (out-of-sample)",
+      "residual_low": -15.75548817773489,
+      "residual_high": 14.12145141844827,
+      "holdout_coverage": 0.7490999099909991
+    },
+    "serving_interval_80": {
+      "method": "10th-90th percentile of holdout-period (2015-2026) residuals; wider than the pre-holdout interval because margins and totals are more spread out in the recent scoring era",
+      "residual_low": -18.08616614170213,
+      "residual_high": 15.235927115667296
+    },
+    "holdout_residual_sd": 13.473648070705185
+  },
+  "total": {
+    "target": "total",
+    "validation_mae_by_candidate": {
+      "ridge_alpha_0.1": 14.46861270044019,
+      "ridge_alpha_1": 14.468614650052414,
+      "ridge_alpha_10": 14.468634162616064,
+      "ridge_alpha_100": 14.468832025169768,
+      "boosted_d3_lr0.05_it300": 14.521707439857835,
+      "boosted_d4_lr0.05_it300": 14.518351773930013,
+      "boosted_d4_lr0.1_it200": 14.515645732732438,
+      "recent_form_average": 14.477353272079506
+    },
+    "selected_model": "ridge_alpha_0.1",
+    "holdout": {
+      "selected_model": {
+        "mae": 14.959093521539263,
+        "rmse": 19.096157478126344,
+        "r2": 0.22796698225726753
+      },
+      "baseline_training_mean": {
+        "mae": 21.181527210216434,
+        "rmse": 26.523944341951612,
+        "r2": -0.4894300620810914
+      },
+      "baseline_recent_form_average": {
+        "mae": 14.94291179117912,
+        "rmse": 19.08317347169949,
+        "r2": 0.22901647861277263
+      }
+    },
+    "interval_80": {
+      "method": "10th-90th percentile of the selected model's residuals on the training-period validation slice (out-of-sample)",
+      "residual_low": -22.658147998723322,
+      "residual_high": 23.7500723556127,
+      "holdout_coverage": 0.783978397839784
+    },
+    "serving_interval_80": {
+      "method": "10th-90th percentile of holdout-period (2015-2026) residuals; wider than the pre-holdout interval because margins and totals are more spread out in the recent scoring era",
+      "residual_low": -23.912537849723453,
+      "residual_high": 24.210204099266598
+    },
+    "holdout_residual_sd": 19.094909736995895
+  },
+  "consistency_with_production_classifier": {
+    "sign_agreement_with_elo_boosted_ensemble": 0.9261926192619262,
+    "margin_sign_accuracy": 0.6486648664866487,
+    "production_accuracy": 0.6507650765076508
+  }
+}

@@ -37,10 +37,16 @@ const QUICK_LINKS = [
     available: true,
   },
   {
+    path: "/playoffs",
+    title: "Playoffs",
+    description: "Play-in, bracket and title odds, replayed against real postseasons.",
+    available: true,
+  },
+  {
     path: "/player-impact",
     title: "Player Impact",
-    description: "Association-only diagnostics for a player's on/off impact.",
-    available: false,
+    description: "Find any player by name; association-only impact diagnostic.",
+    available: true,
   },
   {
     path: "/league-predictions",
