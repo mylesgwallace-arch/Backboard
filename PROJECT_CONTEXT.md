@@ -603,6 +603,26 @@ tuned (hard) set; the eval is 64/64 routed and grounded. The What-if Lab trade
 form mirrors its inputs into the URL (`#/what-if?player=...&to=...&season=...`)
 so a scenario link can be shared and re-run.
 
+## Model transparency (2026-09-28): explain-a-pick and calibration chart
+
+* **`src/explain.py` -> tool `explain_matchup`, `/ask` ("Why are the Celtics
+  favored over the Lakers?"), Matchups "Why this pick" card.** Group ablation
+  on the frozen ensemble: for each input group (Elo gap, recent margin, win
+  rate, shooting, other box score, players available, rest) set the teams even
+  on it (Elo: equal ratings, home court kept) and re-score; the shift is the
+  contribution. Reproduces `predict_matchup`'s probability exactly; reports
+  home-court-only probability and the interaction remainder. Explains the
+  model, not causes.
+* **`src/calibration_report.py` -> `models/calibration_report.json`,
+  `validation_report(component="calibration")`, Matchups reliability chart.**
+  Holdout (13,332 games): ECE 0.0310 (matches baseline_metrics). **Finding:**
+  above 50% the model overrates the home team by 3-5 points (predicted 75.0%
+  -> observed 70.7%; 84.5% -> 80.1%; 92.4% -> 86.8%), consistent with
+  home-court advantage shrinking in recent seasons while the frozen model uses
+  a fixed 65-point Elo home edge. Not changed here (frozen model); a
+  season-aware home-court recalibration is the natural follow-up and should be
+  validated like the strength layer.
+
 ---
 
 # 1. Current Objective

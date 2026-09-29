@@ -77,6 +77,8 @@ HARD_QUESTIONS = [
     ("If Stephen Curry were traded to the San Antonio Spurs, how would their ratings improve?",
      {"project_roster_move"}),
     ("What if LeBron James signed with the Boston Celtics?", {"project_roster_move"}),
+    # Added with explain_matchup (tuned set).
+    ("Why are the Celtics favored over the Lakers?", {"predict_matchup", "explain_matchup"}),
 ]
 
 # Written after the planner was tuned on the two lists above, and scored once

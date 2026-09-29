@@ -372,6 +372,16 @@ def plan_question(question, context=None):
     if has(r"margin model|score (model|prediction)s?") and has(r"reliable|accurate|how good|trust"):
         steps.append(_step("validation_report", {"component": "margin"}))
 
+    # --- why is a team favored (explain one matchup) ------------------------
+    if len(teams) >= 2 and has(r"\bwhy\b|explain|what drives|reasons?\b|what makes") and not players:
+        home, away = order_home_away(question, teams)
+        params = {"home_team_id": home, "away_team_id": away}
+        if date:
+            params["game_date"] = date
+        steps.append(_step("predict_matchup", dict(params)))
+        steps.append(_step("explain_matchup", params))
+        return steps
+
     # --- players ------------------------------------------------------------
     if players:
         if len(players) > 1 and not has(r"\bvs\b|versus|compare"):
@@ -701,6 +711,22 @@ def render_step(step, envelope, labels):
         out.extend(_render_era_swap(step, data))
     elif tool == "project_roster_move":
         out.extend(_render_roster_move(data, labels))
+    elif tool == "explain_matchup":
+        home, away = _name(labels, data.get("home_team_id")), _name(labels, data.get("away_team_id"))
+        parts = [
+            f"{row['group']} {row['contribution'] * 100:+.1f} points"
+            for row in (data.get("contributions") or []) if abs(row["contribution"]) >= 0.005
+        ]
+        out.append((section, (
+            f"Why the model gives {home} (home) {_pct(data.get('home_win_probability'))} against {away}: "
+            f"home court alone would give {_pct(data.get('home_court_only_probability'))}; moving each "
+            f"group of inputs to even changes it by " + ("; ".join(parts) or "under half a point each")
+            + " (positive favors the home team)."
+        )))
+        out.append(("uncertainty", (
+            f"Contributions interact and leave {data.get('interaction_remainder', 0) * 100:+.1f} points "
+            "unexplained; they describe what the model responds to, not what causes wins."
+        )))
     elif tool == "playoff_odds":
         rows = data.get("teams") or []
         key = "champion" if rows and "champion" in rows[0] else "p_champion"

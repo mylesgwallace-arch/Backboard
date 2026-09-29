@@ -121,6 +121,12 @@ export function projectRestOfSeason({ season, asOf, teamId, nSimulations }) {
   return runTool("project_rest_of_season", parameters);
 }
 
+export function explainMatchup({ homeTeamId, awayTeamId, gameDate }) {
+  const parameters = { home_team_id: homeTeamId, away_team_id: awayTeamId };
+  if (gameDate) parameters.game_date = gameDate;
+  return runTool("explain_matchup", parameters);
+}
+
 export function predictMargin({ homeTeamId, awayTeamId, gameDate }) {
   const parameters = { home_team_id: homeTeamId, away_team_id: awayTeamId };
   if (gameDate) parameters.game_date = gameDate;

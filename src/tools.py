@@ -78,7 +78,7 @@ try:
         season_playoff_odds,
     )
     from src.margin_model import load_margin_bundle, predict_margin
-    from src import era_swap, roster_moves
+    from src import era_swap, explain, roster_moves
 except ImportError:  # pragma: no cover - direct-script support
     from main import (
         FEATURES_PATH,
@@ -127,6 +127,7 @@ except ImportError:  # pragma: no cover - direct-script support
     )
     from margin_model import load_margin_bundle, predict_margin
     import era_swap
+    import explain
     import roster_moves
 
 
@@ -139,6 +140,7 @@ VALIDATION_REPORTS = {
     "era_swap": ROOT / "models" / "era_swap_model.json",
     "strength_layer": ROOT / "models" / "strength_layer.json",
     "roster_moves": ROOT / "models" / "roster_moves_validation.json",
+    "calibration": ROOT / "models" / "calibration_report.json",
 }
 
 PRODUCTION_MODEL = "elo_boosted_ensemble"
@@ -935,6 +937,25 @@ def _execute_predict_margin(parameters):
     return result
 
 
+def _execute_explain_matchup(parameters):
+    """Contribution of each input group to the production home-win probability."""
+    home_team_id, away_team_id = _resolve_home_away(parameters)
+    game_date = parameters.get("game_date")
+    inputs = _cached_model_inputs()
+    try:
+        result = explain.explain_matchup(inputs, home_team_id, away_team_id,
+                                         pd.Timestamp(game_date) if game_date else None)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    for key in ("home_win_probability", "elo_probability", "boosted_probability",
+                "home_court_only_probability", "interaction_remainder"):
+        result[key] = round(float(result[key]), 4)
+    for row in result["contributions"]:
+        row["contribution"] = round(float(row["contribution"]), 4)
+        row["probability_if_even"] = round(float(row["probability_if_even"]), 4)
+    return result
+
+
 def _execute_playoff_odds(parameters):
     """Round-by-round and title odds: real bracket if seeded, else simulated season."""
     season = parameters["season"]
@@ -1587,6 +1608,42 @@ TOOLS = {
         ],
         "execute": _execute_simulate_era_swap,
     },
+    "explain_matchup": {
+        "name": "explain_matchup",
+        "description": (
+            "Explain a production-model prediction: how much each group of inputs "
+            "(Elo rating gap, recent point margin, win rate, shooting, other box "
+            "score stats, players available, rest) moves the home-win probability, "
+            "found by setting that group even between the teams and re-scoring."
+        ),
+        "category": "prediction",
+        "model": "elo_boosted_ensemble (frozen) with group ablation",
+        "parameters": [
+            {"name": "home_team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId of the home team."},
+            {"name": "home_team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the home team."},
+            {"name": "away_team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId of the away team."},
+            {"name": "away_team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city of the away team."},
+            {"name": "game_date", "type": STR_TYPE, "required": False,
+             "description": "Optional YYYY-MM-DD; same meaning as in predict_matchup."},
+        ],
+        "assumptions": [
+            "The probability explained is exactly predict_matchup's for the same "
+            "teams and date.",
+            "A group's contribution is the change when the two teams are made even "
+            "on that group (differences set to zero; for Elo, equal ratings with "
+            "home court kept) and everything else is left as is.",
+        ],
+        "limitations": [
+            "The boosted model has interactions, so contributions do not add up "
+            "exactly; the remainder is reported.",
+            "This explains what the model responds to, not what causes wins.",
+        ],
+        "execute": _execute_explain_matchup,
+    },
     "project_roster_move": {
         "name": "project_roster_move",
         "description": (
@@ -1893,7 +1950,8 @@ TOOLS = {
         "parameters": [
             {"name": "component", "type": STR_TYPE, "required": True,
              "description": "One of: production_model, season_forward_projection, "
-                            "playoffs, margin, era_swap."},
+                            "playoffs, margin, era_swap, strength_layer, roster_moves, "
+                            "calibration (reliability table on the holdout)."},
         ],
         "assumptions": [
             "Reports are the saved outputs of the validation runs, not re-run "

@@ -29,6 +29,7 @@ models/*
 !models/strength_layer.json
 !models/roster_moves_validation.json
 !models/data_checks.json
+!models/calibration_report.json
 # Recorded bounds for src/metrics_gate.py (CI).
 !models/metric_gates.json
 

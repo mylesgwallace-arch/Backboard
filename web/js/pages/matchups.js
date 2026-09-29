@@ -4,7 +4,8 @@
 // elo_boosted_ensemble model). No prediction logic is duplicated here — this
 // module only renders whatever the backend envelope returns.
 
-import { predictMatchup, predictMargin } from "../api.js";
+import { explainMatchup, getValidationReport, predictMatchup, predictMargin } from "../api.js";
+import { attachReliabilityHover, renderReliabilityCard } from "../components/reliabilityChart.js";
 import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
 import { renderProbabilityBar } from "../components/probabilityBar.js";
 import { renderComparisonRow } from "../components/comparisonBar.js";
@@ -49,7 +50,9 @@ export function render(container, ctx = {}) {
       </div>
     </div>
     <div id="matchup-result-mount"></div>
+    <div id="reliability-mount"></div>
   `;
+  loadReliability(container.querySelector("#reliability-mount"));
 
   const formMount = container.querySelector("#matchup-form-mount");
   const errorMount = container.querySelector("#matchup-error-mount");
@@ -206,6 +209,9 @@ export function render(container, ctx = {}) {
     loadMarginCard(resultMount.querySelector("#margin-card-mount"), {
       homeTeamId, awayTeamId, gameDate, homeTeam, awayTeam,
     });
+    loadExplainCard(resultMount.querySelector("#explain-card-mount"), {
+      homeTeamId, awayTeamId, gameDate, homeTeam, awayTeam,
+    });
 
     if (ctx.navigate) {
       resultMount.querySelectorAll("[data-view-team]").forEach((el) => {
@@ -312,6 +318,8 @@ function renderResult({ prediction, homeTeam, awayTeam, swing }) {
 
     <div id="margin-card-mount"></div>
 
+    <div id="explain-card-mount"></div>
+
     ${renderTeamStrengthCard({ prediction, homeTeam, awayTeam, homeColor, awayColor })}
 
     ${renderModelInfoCard(prediction)}
@@ -372,6 +380,67 @@ async function loadMarginCard(mount, { homeTeamId, awayTeamId, gameDate, homeTea
       <p class="text-muted mt-1">The total is no better than averaging both teams' recent scoring, and single-game margins are mostly noise: treat these as rough expectations.</p>
       ${disagreement}
     </div>`;
+}
+
+/**
+ * "Why this pick" card (explain_matchup): each input group's contribution,
+ * found by making the teams even on that group and re-scoring. Loaded after
+ * the pick so it never blocks it.
+ */
+async function loadExplainCard(mount, { homeTeamId, awayTeamId, gameDate, homeTeam, awayTeam }) {
+  if (!mount) return;
+  mount.innerHTML = `<div class="card fade-in"><div class="skeleton" style="height:120px;"></div></div>`;
+  let res;
+  try {
+    res = await explainMatchup({ homeTeamId, awayTeamId, gameDate });
+  } catch (err) {
+    mount.innerHTML = "";
+    return;
+  }
+  if (!res.ok || res.data?.status !== "success") {
+    mount.innerHTML = "";
+    return;
+  }
+  const e = res.data.data;
+  const homeLabel = homeTeam?.abbreviation || "HOME";
+  const awayLabel = awayTeam?.abbreviation || "AWAY";
+  const maxAbs = Math.max(0.01, ...e.contributions.map((c) => Math.abs(c.contribution)));
+  const rows = e.contributions.map((c) => {
+    const width = Math.round((Math.abs(c.contribution) / maxAbs) * 50);
+    const favorsHome = c.contribution >= 0;
+    const bar = `<span style="display:inline-block;height:0.6rem;width:${width}%;background:var(${
+      favorsHome ? "--accent" : "--text-muted"});${favorsHome ? "margin-left:50%" : `margin-left:${50 - width}%`}"></span>`;
+    return `<tr><td>${escapeHtml(c.group)}</td>
+      <td class="num">${formatSigned(c.contribution * 100)} pts</td>
+      <td class="num">${escapeHtml(favorsHome ? homeLabel : awayLabel)}</td>
+      <td style="width:35%;border-left:0;">${bar}</td></tr>`;
+  }).join("");
+  mount.innerHTML = `
+    <div class="card fade-in">
+      <div class="card-header">
+        <div>
+          <h2>Why this pick</h2>
+          <p class="card-subtitle">Home court alone: ${formatPct(e.home_court_only_probability)} for ${escapeHtml(homeLabel)}.
+          Each row is how far ${escapeHtml(homeLabel)}'s ${formatPct(e.home_win_probability)} would move if the teams were even on that group of inputs.</p>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th scope="col">Inputs</th><th scope="col" class="num">Effect</th>
+          <th scope="col" class="num">Favors</th><th scope="col"><span class="sr-only">Size</span></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="text-muted mt-1">The groups interact (${formatSigned(e.interaction_remainder * 100)} pts unexplained).
+      This shows what the model responds to, not what causes wins.</p>
+    </div>`;
+}
+
+async function loadReliability(mount) {
+  let res;
+  try { res = await getValidationReport("calibration"); } catch (err) { return; }
+  if (!res.ok || res.data?.status !== "success") return;
+  const report = res.data.data.report;
+  mount.innerHTML = renderReliabilityCard(report);
+  attachReliabilityHover(mount, report);
 }
 
 function renderTeamHalf(side, isFavorite) {

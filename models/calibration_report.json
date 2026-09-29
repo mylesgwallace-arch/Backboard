@@ -1,0 +1,200 @@
+{
+  "model": "elo_boosted_ensemble",
+  "holdout_start": "2015-03-28 21:00:00",
+  "note": "ECE here uses the fixed bins above, so it can differ slightly from the 10 equal-width bins in baseline_metrics.json.",
+  "overall": {
+    "bins": [
+      {
+        "bin": [
+          0.0,
+          0.2
+        ],
+        "games": 211,
+        "mean_predicted": 0.16374404726443914,
+        "observed_rate": 0.12796208530805686,
+        "observed_90pct_interval": [
+          0.09479122611560109,
+          0.17055357783078762
+        ]
+      },
+      {
+        "bin": [
+          0.2,
+          0.3
+        ],
+        "games": 788,
+        "mean_predicted": 0.25322772302241625,
+        "observed_rate": 0.26649746192893403,
+        "observed_90pct_interval": [
+          0.24142110814638776,
+          0.29317184868069207
+        ]
+      },
+      {
+        "bin": [
+          0.3,
+          0.4
+        ],
+        "games": 1284,
+        "mean_predicted": 0.35315277991292676,
+        "observed_rate": 0.338006230529595,
+        "observed_90pct_interval": [
+          0.3166527175013819,
+          0.36004102739304733
+        ]
+      },
+      {
+        "bin": [
+          0.4,
+          0.5
+        ],
+        "games": 1927,
+        "mean_predicted": 0.45166654787654703,
+        "observed_rate": 0.44680851063829785,
+        "observed_90pct_interval": [
+          0.4282666830434565,
+          0.46549950087574254
+        ]
+      },
+      {
+        "bin": [
+          0.5,
+          0.6
+        ],
+        "games": 2298,
+        "mean_predicted": 0.5524681575297941,
+        "observed_rate": 0.5108790252393386,
+        "observed_90pct_interval": [
+          0.49372364793489304,
+          0.5280088144511969
+        ]
+      },
+      {
+        "bin": [
+          0.6,
+          0.7
+        ],
+        "games": 2465,
+        "mean_predicted": 0.6505794316918543,
+        "observed_rate": 0.61947261663286,
+        "observed_90pct_interval": [
+          0.6032643909406226,
+          0.6354188527510163
+        ]
+      },
+      {
+        "bin": [
+          0.7,
+          0.8
+        ],
+        "games": 2337,
+        "mean_predicted": 0.7498272564942089,
+        "observed_rate": 0.7068891741548995,
+        "observed_90pct_interval": [
+          0.6911688031833012,
+          0.722131041172793
+        ]
+      },
+      {
+        "bin": [
+          0.8,
+          0.9
+        ],
+        "games": 1635,
+        "mean_predicted": 0.8447061652690636,
+        "observed_rate": 0.8006116207951071,
+        "observed_90pct_interval": [
+          0.7838675142241142,
+          0.8163624308721981
+        ]
+      },
+      {
+        "bin": [
+          0.9,
+          1.0
+        ],
+        "games": 387,
+        "mean_predicted": 0.9239789242672158,
+        "observed_rate": 0.8682170542635659,
+        "observed_90pct_interval": [
+          0.837360050601523,
+          0.8939610538061652
+        ]
+      }
+    ],
+    "expected_calibration_error": 0.03098462367646429,
+    "games": 13332
+  },
+  "by_season": {
+    "2014": {
+      "expected_calibration_error": 0.08880803944369703,
+      "games": 142
+    },
+    "2015": {
+      "expected_calibration_error": 0.018988219017465516,
+      "games": 1230
+    },
+    "2016": {
+      "expected_calibration_error": 0.036088646539909966,
+      "games": 1230
+    },
+    "2017": {
+      "expected_calibration_error": 0.033098379187988185,
+      "games": 1230
+    },
+    "2018": {
+      "expected_calibration_error": 0.03301554741425362,
+      "games": 1230
+    },
+    "2019": {
+      "expected_calibration_error": 0.04356627557972972,
+      "games": 1059
+    },
+    "2020": {
+      "expected_calibration_error": 0.07276737984137613,
+      "games": 1080
+    },
+    "2021": {
+      "expected_calibration_error": 0.053585656117561366,
+      "games": 1215
+    },
+    "2022": {
+      "expected_calibration_error": 0.036060387131036716,
+      "games": 1230
+    },
+    "2023": {
+      "expected_calibration_error": 0.04915876381723116,
+      "games": 1230
+    },
+    "2024": {
+      "expected_calibration_error": 0.052980365667265196,
+      "games": 1226
+    },
+    "2025": {
+      "expected_calibration_error": 0.04590698103954022,
+      "games": 1230
+    }
+  },
+  "provenance": {
+    "generated_at": "2026-09-28T20:23:26",
+    "git_commit": "d759213361e7f2ed92db6574381bfa1110126f95",
+    "git_dirty": true,
+    "versions": {
+      "python": "3.12.10",
+      "numpy": "2.5.2",
+      "pandas": "2.3.3",
+      "sklearn": "1.9.0"
+    },
+    "data": {
+      "game_features.csv": {
+        "bytes": 41181541,
+        "modified": "2026-08-13T14:15:39",
+        "sha256_16": "8eea7704d59d6e68"
+      },
+      "nba.db": {
+        "bytes": 990609408,
+        "modified": "2026-08-11T14:17:48"
+      }
+    }
+  }
+}

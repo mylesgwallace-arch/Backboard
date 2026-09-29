@@ -263,6 +263,15 @@ def test_roster_move_render_is_grounded():
 
 
 @pytest.mark.requires_data
+def test_why_questions_explain_the_matchup():
+    assert tools_of("Why are the Celtics favored over the Lakers?") == ["predict_matchup", "explain_matchup"]
+    steps = plan_question("Explain the pick for Knicks vs Heat on 2026-03-01")
+    assert steps[1]["parameters"]["game_date"] == "2026-03-01"
+    # Without two teams it is still the global feature-importance question.
+    assert tools_of("What drives the model's pick?") == ["validation_report"]
+
+
+@pytest.mark.requires_data
 def test_what_if_without_the_replaced_player_asks():
     with pytest.raises(ValueError, match="name both players"):
         plan_question("What if the 1992-93 Bulls had 2015-16 Stephen Curry instead of somebody?")
