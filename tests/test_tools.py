@@ -146,6 +146,7 @@ def test_predict_matchup_routes_to_production_model_and_preserves_result(monkeyp
     assert captured["away_team_id"] == 1610612747
 
 
+@pytest.mark.requires_data
 def test_predict_matchup_rejects_missing_team_with_structured_error(monkeypatch):
     monkeypatch.setattr("src.tools.predict_matchup", lambda **kwargs: None)
 
