@@ -20,6 +20,7 @@ def tools_of(question, context=None):
     return [step["tool"] for step in plan_question(question, context)]
 
 
+@pytest.mark.requires_data
 def test_single_and_multi_tool_plans():
     assert tools_of("Who is favored in Celtics vs Lakers?") == ["predict_matchup"]
     assert sorted(tools_of("What is the predicted score of Celtics vs Lakers, and who wins?")) == [
@@ -30,6 +31,7 @@ def test_single_and_multi_tool_plans():
     assert tools_of("How good is the prediction model overall?") == ["validation_report"]
 
 
+@pytest.mark.requires_data
 def test_home_and_away_follow_the_wording():
     visit = plan_question("Who's favored when the Celtics visit the Knicks?")[0]["parameters"]
     assert (visit["home_team_id"], visit["away_team_id"]) == (KNICKS, CELTICS)
@@ -37,6 +39,7 @@ def test_home_and_away_follow_the_wording():
     assert (host["home_team_id"], host["away_team_id"]) == (KNICKS, CELTICS)
 
 
+@pytest.mark.requires_data
 def test_dates_seasons_and_players_are_extracted():
     step = plan_question("As of January 15, 2026, what did the rest-of-season projection look like "
                          "for the Spurs?")[0]
@@ -48,6 +51,7 @@ def test_dates_seasons_and_players_are_extracted():
                      "focus": None}
 
 
+@pytest.mark.requires_data
 def test_ambiguous_references_ask_instead_of_guessing():
     with pytest.raises(ValueError, match="Los Angeles"):
         plan_question("Who is favored in Los Angeles vs Denver?")
@@ -57,6 +61,7 @@ def test_ambiguous_references_ask_instead_of_guessing():
         plan_question("What is the meaning of life?")
 
 
+@pytest.mark.requires_data
 def test_follow_up_reuses_context_teams():
     steps = plan_question("What would the model have predicted for that matchup on 2026-04-12?",
                           context={"teams": [CELTICS, LAKERS]})
@@ -78,6 +83,7 @@ def _fake_execute(tool, parameters):
             "parameters": parameters, "data": data}
 
 
+@pytest.mark.requires_data
 def test_deterministic_answer_is_sectioned_and_grounded(monkeypatch):
     monkeypatch.setattr(nl_agent, "execute_tool", _fake_execute)
     result = answer("What was Boston's 2025 record, and who is favored in Celtics vs Lakers?")
@@ -94,6 +100,7 @@ def test_deterministic_answer_is_sectioned_and_grounded(monkeypatch):
     assert result["context"]["teams"] == [CELTICS, LAKERS]
 
 
+@pytest.mark.requires_data
 def test_unsupported_question_is_a_clear_error():
     result = answer("Tell me a joke about basketball")
     assert result["status"] == "error"
@@ -138,6 +145,7 @@ def _response(stop_reason, *blocks):
     return SimpleNamespace(stop_reason=stop_reason, content=list(blocks))
 
 
+@pytest.mark.requires_data
 def test_llm_loop_calls_tools_and_returns_grounded_answer(monkeypatch):
     monkeypatch.setattr(nl_agent, "execute_tool", _fake_execute)
     client = ScriptedClient([
@@ -161,6 +169,7 @@ def test_llm_loop_calls_tools_and_returns_grounded_answer(monkeypatch):
     assert '"home_win_probability":0.61' in tool_turn["content"][0]["content"]
 
 
+@pytest.mark.requires_data
 def test_llm_invented_numbers_get_one_retry_then_a_warning(monkeypatch):
     monkeypatch.setattr(nl_agent, "execute_tool", _fake_execute)
     client = ScriptedClient([
@@ -176,6 +185,7 @@ def test_llm_invented_numbers_get_one_retry_then_a_warning(monkeypatch):
     assert "could not be traced" in result["answer"]
 
 
+@pytest.mark.requires_data
 def test_llm_failures_fall_back_to_the_deterministic_planner(monkeypatch):
     monkeypatch.setattr(nl_agent, "execute_tool", _fake_execute)
     refusing = ScriptedClient([_response("refusal")])
@@ -193,6 +203,7 @@ def test_llm_failures_fall_back_to_the_deterministic_planner(monkeypatch):
     assert result["status"] == "success"
 
 
+@pytest.mark.requires_data
 def test_what_if_swap_questions_become_one_era_swap_call():
     steps = plan_question("How would the 1993 Chicago Bulls change if they had 2016 Steph Curry "
                           "instead of B.J. Armstrong?")
@@ -208,6 +219,7 @@ def test_what_if_swap_questions_become_one_era_swap_call():
     assert apostrophe[0]["parameters"]["season"] == 1995
 
 
+@pytest.mark.requires_data
 def test_what_if_without_the_replaced_player_asks():
     with pytest.raises(ValueError, match="name both players"):
         plan_question("What if the 1992-93 Bulls had 2015-16 Stephen Curry instead of somebody?")

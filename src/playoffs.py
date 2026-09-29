@@ -48,6 +48,7 @@ try:
     )
     from src.simulate_season import conference_of, load_team_names
     from src.main import TEAM_DB_PATH
+    from src.provenance import with_provenance
 except ImportError:  # pragma: no cover - direct-script support
     from forward_projection import (
         _logit,
@@ -60,6 +61,7 @@ except ImportError:  # pragma: no cover - direct-script support
     )
     from simulate_season import conference_of, load_team_names
     from main import TEAM_DB_PATH
+    from provenance import with_provenance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -896,7 +898,7 @@ def main(argv=None):
     if args.validate:
         report = validate_playoffs(inputs)
         PLAYOFF_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        PLAYOFF_METRICS_PATH.write_text(json.dumps(report, indent=2, default=str) + "\n",
+        PLAYOFF_METRICS_PATH.write_text(json.dumps(with_provenance(report), indent=2, default=str) + "\n",
                                         encoding="utf-8")
         for key in ("games", "series"):
             row = report[key]

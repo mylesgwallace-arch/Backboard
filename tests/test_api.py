@@ -138,6 +138,7 @@ def test_method_not_allowed():
     assert status == 405
 
 
+@pytest.mark.requires_data
 def test_real_ask_resolves_team_without_model_load():
     # Real, cheap end-to-end path: resolve_team_name hits the DB only.
     status, payload = api.handle_request(

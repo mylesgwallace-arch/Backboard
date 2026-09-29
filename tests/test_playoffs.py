@@ -199,6 +199,7 @@ def _league_inputs(season_start):
     )
 
 
+@pytest.mark.requires_data
 @pytest.mark.parametrize("season_start,play_in", [(2024, True), (2015, False)])
 def test_season_playoff_odds_totals(season_start, play_in):
     inputs = _league_inputs(season_start)

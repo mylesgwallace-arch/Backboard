@@ -49,6 +49,7 @@ try:
         load_team_names,
         summarize_team_wins,
     )
+    from src.provenance import with_provenance
 except ImportError:  # pragma: no cover - direct-script support
     from main import FEATURES_PATH, METRICS_PATH, MODEL_PATH, load_elo_config
     from train_baseline_model import build_game_dataset, elo_win_probability
@@ -62,6 +63,7 @@ except ImportError:  # pragma: no cover - direct-script support
         load_team_names,
         summarize_team_wins,
     )
+    from provenance import with_provenance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -749,7 +751,7 @@ def main(argv=None):
             },
         }
         BACKTEST_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        BACKTEST_METRICS_PATH.write_text(json.dumps(reports, indent=2) + "\n",
+        BACKTEST_METRICS_PATH.write_text(json.dumps(with_provenance(reports), indent=2) + "\n",
                                          encoding="utf-8")
         for label in ("calibrated_strength_uncertainty", "strength_layer", "game_noise_only"):
             print(label)

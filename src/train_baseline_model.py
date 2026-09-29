@@ -17,12 +17,14 @@ try:
         IsotonicProbabilityCalibrator,
         SigmoidProbabilityCalibrator,
     )
+    from src.provenance import with_provenance
 except ImportError:
     from model_calibration import (
         CalibratedProbabilityModel,
         IsotonicProbabilityCalibrator,
         SigmoidProbabilityCalibrator,
     )
+    from provenance import with_provenance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1239,7 +1241,7 @@ def main():
             },
             output,
         )
-    METRICS_PATH.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    METRICS_PATH.write_text(json.dumps(with_provenance(metadata), indent=2) + "\n", encoding="utf-8")
 
     print(f"Complete games: {len(games):,}")
     print(f"Chronological split: {len(train):,} train / {len(test):,} test")

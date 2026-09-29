@@ -983,5 +983,27 @@
     "0.5": 0.4,
     "0.75": 0.4,
     "1.0": 0.4
+  },
+  "provenance": {
+    "generated_at": "2026-09-28T19:41:06",
+    "git_commit": "23c0e7926d100598f092590311f42c461a2417ce",
+    "git_dirty": true,
+    "versions": {
+      "python": "3.12.10",
+      "numpy": "2.5.2",
+      "pandas": "2.3.3",
+      "sklearn": "1.9.0"
+    },
+    "data": {
+      "game_features.csv": {
+        "bytes": 41181541,
+        "modified": "2026-08-13T14:15:39",
+        "sha256_16": "8eea7704d59d6e68"
+      },
+      "nba.db": {
+        "bytes": 990609408,
+        "modified": "2026-08-11T14:17:48"
+      }
+    }
   }
 }

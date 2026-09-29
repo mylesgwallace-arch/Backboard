@@ -8,8 +8,10 @@ import numpy as np
 import pandas as pd
 
 if __package__:
+    from .provenance import with_provenance
     from .roster_change_data import validate_roster_change_events
 else:
+    from provenance import with_provenance
     from roster_change_data import validate_roster_change_events
 
 
@@ -989,7 +991,7 @@ def main(argv=None):
     metrics = validate_player_impact(
         player_games, team_games, roster_events=roster_events
     )
-    METRICS_PATH.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
+    METRICS_PATH.write_text(json.dumps(with_provenance(metrics), indent=2) + "\n", encoding="utf-8")
     print(json.dumps(metrics, indent=2))
     print(f"Saved to: {METRICS_PATH}")
     return 0

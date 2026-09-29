@@ -27,6 +27,8 @@ models/*
 !models/nl_eval_report.json
 !models/era_swap_model.json
 !models/strength_layer.json
+# Recorded bounds for src/metrics_gate.py (CI).
+!models/metric_gates.json
 
 # Environment variables
 .env

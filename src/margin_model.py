@@ -37,10 +37,12 @@ try:
     from src.main import FEATURES_PATH, METRICS_PATH, MODEL_PATH, load_elo_config
     from src.train_baseline_model import TEST_FRACTION, build_game_dataset, elo_win_probability
     from src.forward_projection import elo_ratings_before, team_snapshots
+    from src.provenance import with_provenance
 except ImportError:  # pragma: no cover - direct-script support
     from main import FEATURES_PATH, METRICS_PATH, MODEL_PATH, load_elo_config
     from train_baseline_model import TEST_FRACTION, build_game_dataset, elo_win_probability
     from forward_projection import elo_ratings_before, team_snapshots
+    from provenance import with_provenance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -409,7 +411,7 @@ def main(argv=None):
         MARGIN_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
         with MARGIN_MODEL_PATH.open("wb") as handle:
             pickle.dump(bundle, handle)
-        MARGIN_METRICS_PATH.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        MARGIN_METRICS_PATH.write_text(json.dumps(with_provenance(report), indent=2) + "\n", encoding="utf-8")
         for target in ("margin", "total"):
             section = report[target]
             print(f"{target}: selected {section['selected_model']}")

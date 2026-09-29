@@ -3,6 +3,7 @@ import math
 
 import numpy as np
 import pandas as pd
+import pytest
 from sklearn.linear_model import LogisticRegression
 
 from src.train_baseline_model import (
@@ -358,6 +359,7 @@ def test_add_opponent_form_features_creates_relative_form_columns():
     )
 
 
+@pytest.mark.requires_data
 def test_evaluate_opponent_form_experiment_reports_key_metrics():
     features = pd.read_csv("data/processed/game_features.csv")
     metrics = evaluate_opponent_form_experiment(features)
@@ -367,6 +369,7 @@ def test_evaluate_opponent_form_experiment_reports_key_metrics():
     assert set(metrics["baseline"]) >= {"accuracy", "log_loss", "brier_score"}
 
 
+@pytest.mark.requires_data
 def test_evaluate_player_efficiency_experiment_reports_key_metrics():
     features = pd.read_csv("data/processed/game_features.csv")
     metrics = evaluate_player_efficiency_experiment(features)
@@ -405,6 +408,7 @@ def test_add_player_context_features_normalizes_player_volume_by_rotation_size()
     assert result["player_assists_rolling_10_per_active_player_rolling_10"].tolist() == [4.8, 3.5]
 
 
+@pytest.mark.requires_data
 def test_evaluate_player_context_experiment_reports_key_metrics():
     features = pd.read_csv("data/processed/game_features.csv")
     metrics = evaluate_player_context_experiment(features)
@@ -414,6 +418,7 @@ def test_evaluate_player_context_experiment_reports_key_metrics():
     assert set(metrics["baseline"]) >= {"accuracy", "log_loss", "brier_score"}
 
 
+@pytest.mark.requires_data
 def test_player_context_experiment_does_not_beat_production_holdout():
     features = pd.read_csv("data/processed/game_features.csv")
     candidate = evaluate_player_context_experiment(features)

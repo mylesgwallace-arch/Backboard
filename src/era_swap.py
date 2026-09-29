@@ -59,8 +59,10 @@ import pandas as pd
 
 try:
     from src.main import TEAM_DB_PATH
+    from src.provenance import with_provenance
 except ImportError:  # pragma: no cover - direct-script support
     from main import TEAM_DB_PATH
+    from provenance import with_provenance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -621,7 +623,7 @@ def build_era_model(rebuild_tables=False, alpha=1.0):
 
 def write_reports(model, path=ERA_MODEL_PATH):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(model["reports"], indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(with_provenance(model["reports"]), indent=2) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------

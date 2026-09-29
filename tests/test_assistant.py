@@ -23,6 +23,7 @@ from src.assistant import (
 # Extraction helpers
 # ---------------------------------------------------------------------------
 
+@pytest.mark.requires_data
 def test_extract_team_ids_handles_city_name_and_alias():
     assert extract_team_ids("Who is favored in Celtics vs Lakers?") == [
         1610612738,
@@ -37,6 +38,7 @@ def test_extract_team_ids_handles_city_name_and_alias():
     ]
 
 
+@pytest.mark.requires_data
 def test_extract_team_ids_prefers_full_franchise_phrase():
     # "Los Angeles" alone is ambiguous (Lakers/Clippers); the full franchise
     # phrase must win and the ambiguous city phrase must not be used.
@@ -46,11 +48,13 @@ def test_extract_team_ids_prefers_full_franchise_phrase():
     ]
 
 
+@pytest.mark.requires_data
 def test_extract_player_ids_finds_nba_player():
     matches = extract_player_ids("What does the diagnostic say about Steven Adams?")
     assert 203500 in matches
 
 
+@pytest.mark.requires_data
 def test_load_team_labels_covers_current_franchises():
     labels = load_team_labels()
     assert labels[1610612738] == "Boston Celtics"
@@ -62,6 +66,7 @@ def test_load_team_labels_covers_current_franchises():
 # Intent routing
 # ---------------------------------------------------------------------------
 
+@pytest.mark.requires_data
 def test_routes_head_to_head_before_record():
     tool, params = resolve_intent(
         "What is the head to head record between Boston and LA Lakers?"
@@ -72,6 +77,7 @@ def test_routes_head_to_head_before_record():
     assert params["season"] == 2025
 
 
+@pytest.mark.requires_data
 def test_routes_team_record():
     tool, params = resolve_intent("What was OKC's record in the 2024 season?")
     assert tool == "team_record"
@@ -79,6 +85,7 @@ def test_routes_team_record():
     assert params["season"] == 2024
 
 
+@pytest.mark.requires_data
 def test_routes_predict_matchup():
     tool, params = resolve_intent("Who is favored in Celtics vs Lakers?")
     assert tool == "predict_matchup"
@@ -86,17 +93,20 @@ def test_routes_predict_matchup():
     assert params["away_team_id"] == 1610612747
 
 
+@pytest.mark.requires_data
 def test_routes_predict_matchup_will_win():
     tool, _ = resolve_intent("Who will win between the Celtics and the Lakers?")
     assert tool == "predict_matchup"
 
 
+@pytest.mark.requires_data
 def test_routes_season_projection():
     tool, params = resolve_intent("What are the projected playoff teams?")
     assert tool == "simulate_season"
     assert params["season"] == 2025
 
 
+@pytest.mark.requires_data
 def test_routes_team_projection_seed():
     tool, params = resolve_intent(
         "What is Boston's probability of getting the 1 seed?"
@@ -106,6 +116,7 @@ def test_routes_team_projection_seed():
     assert params["season"] == 2025
 
 
+@pytest.mark.requires_data
 def test_routes_team_projection_wins():
     tool, params = resolve_intent(
         "How many wins does the simulator project for OKC?"
@@ -114,6 +125,7 @@ def test_routes_team_projection_wins():
     assert params["team_id"] == 1610612760
 
 
+@pytest.mark.requires_data
 def test_routes_player_impact():
     tool, params = resolve_intent(
         "What does the player-impact diagnostic say about Steven Adams?"
@@ -122,6 +134,7 @@ def test_routes_player_impact():
     assert params["person_id"] == 203500
 
 
+@pytest.mark.requires_data
 def test_routes_player_scenario():
     tool, params = resolve_intent(
         "How does Steven Adams change the Celtics vs Lakers scenario?"
@@ -132,6 +145,7 @@ def test_routes_player_scenario():
     assert params["person_id"] == 203500
 
 
+@pytest.mark.requires_data
 def test_routes_resolve_team_name():
     tool, params = resolve_intent("What is the team id for the Boston Celtics?")
     assert tool == "resolve_team_name"
@@ -142,6 +156,7 @@ def test_routes_resolve_team_name():
 # Ambiguity and unsupported questions
 # ---------------------------------------------------------------------------
 
+@pytest.mark.requires_data
 def test_rejects_ambiguous_city_only_question():
     # "Los Angeles" is ambiguous (Lakers and Clippers), so it resolves to
     # neither team, leaving only Denver -> the matchup cannot be completed.
@@ -149,11 +164,13 @@ def test_rejects_ambiguous_city_only_question():
         resolve_intent("Who is favored in Los Angeles vs Denver?")
 
 
+@pytest.mark.requires_data
 def test_rejects_missing_team_for_matchup():
     with pytest.raises(ValueError, match="Two different teams are required"):
         resolve_intent("Who is favored?")
 
 
+@pytest.mark.requires_data
 def test_rejects_unsupported_question():
     with pytest.raises(ValueError, match="could not map"):
         resolve_intent("What is the meaning of life?")
@@ -233,6 +250,7 @@ def test_render_error_and_unavailable():
 # End-to-end through the real tool layer (monkeypatched execute)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.requires_data
 def test_answer_question_returns_structured_result(monkeypatch):
     def fake_execute(tool_name, parameters):
         return {
@@ -264,6 +282,7 @@ def test_answer_question_returns_structured_result(monkeypatch):
     assert result["envelope"]["data"]["prediction"]["home_win_probability"] == 0.7
 
 
+@pytest.mark.requires_data
 def test_answer_question_unsupported_is_graceful(monkeypatch):
     result = answer_question("Tell me a joke about basketball")
     assert result["tool"] is None

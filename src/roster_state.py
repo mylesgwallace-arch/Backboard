@@ -49,6 +49,7 @@ try:
         DEFAULT_PLAYER_MOVEMENT_EVENTS_PATH,
         load_roster_change_events,
     )
+    from src.provenance import with_provenance
 except ImportError:  # pragma: no cover - direct-script support
     from forward_projection import team_snapshots
     from main import TEAM_DB_PATH
@@ -56,6 +57,7 @@ except ImportError:  # pragma: no cover - direct-script support
         DEFAULT_PLAYER_MOVEMENT_EVENTS_PATH,
         load_roster_change_events,
     )
+    from provenance import with_provenance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -468,7 +470,7 @@ def main(argv=None):
             from forward_projection import load_model_inputs
         report = roster_adjustment_backtest(load_model_inputs())
         BACKTEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-        BACKTEST_PATH.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        BACKTEST_PATH.write_text(json.dumps(with_provenance(report), indent=2) + "\n", encoding="utf-8")
         for row in report["by_season"]:
             print(
                 f"{row['season']}: moves {row['transactions_applied']:4d} | MAE "

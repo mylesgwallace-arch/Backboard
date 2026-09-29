@@ -32,11 +32,13 @@ try:
         add_elo_rating_deltas,
         build_game_dataset,
     )
+    from src.provenance import with_provenance
 except ImportError:  # pragma: no cover - direct-script support
     from train_baseline_model import (
         add_elo_rating_deltas,
         build_game_dataset,
     )
+    from provenance import with_provenance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -543,7 +545,7 @@ def validate_seasons(
 
 def write_metrics(metrics, path=SIMULATION_METRICS_PATH):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(with_provenance(metrics), indent=2) + "\n", encoding="utf-8")
 
 
 def parse_args(argv=None):

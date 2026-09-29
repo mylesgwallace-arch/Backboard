@@ -98,7 +98,7 @@ def test_projection_applies_a_layer_only_when_asked(monkeypatch):
     monkeypatch.setattr(sl, "runtime_signals", lambda *args, **kwargs: signals)
     layer = {"signals": ["model", "margin"],
              "weights_by_checkpoint": {"0.00": [0.0, 0.5], "1.00": [0.0, 0.5]}}
-    kwargs = dict(n_simulations=400, random_state=1, strength_sd=0.0)
+    kwargs = dict(n_simulations=400, random_state=1, strength_sd=0.0, schedule=inputs.games)
     frozen = project_from_date(2024, "2024-10-25", inputs, strength_layer=False, **kwargs)
     layered = project_from_date(2024, "2024-10-25", inputs, strength_layer=layer, **kwargs)
     assert frozen["strength_layer"] == {"applied": False}

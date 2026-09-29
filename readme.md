@@ -341,6 +341,18 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 | **Season simulator** | Replays 2023–2025; MAE 3.76–4.70 wins; playoff overlap 9–11/12; 19 regression tests (incl. seed-probability consistency) | Validated | Uses the full historical schedule structure, not the current season's real schedule; conference membership hard-coded to the current 30 franchises; no playoff-bracket layer |
 | **Player-impact confidence gating** | Tool layer marks <5 prior games as `low` confidence; no-history → `unavailable`; benchmark CIs are game-cluster bootstraps | Diagnostic | All results are association-only; roster-change benchmark fails to beat its control; no causal claims supported |
 | **Tests** | 114 test functions in 8 files | Working tree ahead of docs | Full `pytest -q` is slow (repeated 133k-row CSV loads); the "71 tests" figure in `PROJECT_CONTEXT.md` is stale |
+| **CI + metrics gate** | `.github/workflows/ci.yml` on every push/PR: syntax check, the data-free tests (tests marked `requires_data` skip without `data/`), and `python src/metrics_gate.py`, which fails if a committed report in `models/` regressed past its bound in `models/metric_gates.json` or stopped beating its baseline | Active | CI cannot regenerate reports (no data on the runner); it checks the committed ones. Regenerate locally and re-run the full suite before merging model changes |
+
+### Developer checks
+
+```bash
+python -m pytest -q                 # full suite (needs data/)
+python src/metrics_gate.py          # headline metrics vs recorded bounds
+python src/metrics_gate.py --update # re-record bounds after an intentional, explained change
+```
+
+Every generated report carries a `provenance` block (git commit, dirty flag,
+library versions, data fingerprint) written by `src/provenance.py`.
 
 ---
 

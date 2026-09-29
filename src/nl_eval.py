@@ -18,8 +18,10 @@ from pathlib import Path
 
 try:
     from src.nl_agent import answer
+    from src.provenance import with_provenance
 except ImportError:  # pragma: no cover
     from nl_agent import answer
+    from provenance import with_provenance
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_PATH = ROOT / "models" / "nl_eval_report.json"
@@ -196,7 +198,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     report = evaluate(args.mode)
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
+    REPORT_PATH.write_text(json.dumps(with_provenance(report), indent=2, default=str) + "\n", encoding="utf-8")
     for row in report["rows"]:
         flag = "OK " if row["routing_correct"] and row["status"] == "success" and row["grounded"] else "!! "
         print(f"{flag}[{row['group']}] {row['question'][:70]:70s} -> {row['tools']} {row['status']} "

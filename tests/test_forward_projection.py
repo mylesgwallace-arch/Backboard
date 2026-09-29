@@ -103,7 +103,8 @@ def test_unknown_team_is_rejected():
 def test_projection_keeps_actual_record_and_simulates_the_rest():
     inputs = _synthetic_inputs()
     as_of = "2024-11-03"
-    projection = project_from_date(2024, as_of, inputs, n_simulations=200, random_state=3)
+    projection = project_from_date(2024, as_of, inputs, n_simulations=200, random_state=3,
+                                   schedule=inputs.games)
 
     completed = inputs.games[inputs.games["gameDateTimeEst"] < pd.Timestamp(as_of)]
     assert projection["games_completed"] == len(completed)
@@ -125,7 +126,8 @@ def test_projection_keeps_actual_record_and_simulates_the_rest():
 
 def test_projection_after_the_last_game_is_the_actual_standings():
     inputs = _synthetic_inputs()
-    projection = project_from_date(2024, "2025-06-30", inputs, n_simulations=50)
+    projection = project_from_date(2024, "2025-06-30", inputs, n_simulations=50,
+                                   schedule=inputs.games)
     assert projection["games_remaining"] == 0
     for row in projection["projected_standings"]:
         assert row["mean_wins"] == row["current_wins"]

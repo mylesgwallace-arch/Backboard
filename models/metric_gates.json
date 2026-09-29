@@ -1,0 +1,124 @@
+{
+  "tolerance": 0.005,
+  "bounds": {
+    "production_log_loss": {
+      "report": "baseline_metrics.json",
+      "path": "metrics.elo_boosted_ensemble.log_loss",
+      "direction": "lower",
+      "recorded": 0.6227669239562265,
+      "bound": 0.6258807585760076
+    },
+    "production_accuracy": {
+      "report": "baseline_metrics.json",
+      "path": "metrics.elo_boosted_ensemble.accuracy",
+      "direction": "higher",
+      "recorded": 0.6507650765076508,
+      "bound": 0.6475112511251125
+    },
+    "production_calibration_ece": {
+      "report": "baseline_metrics.json",
+      "path": "calibration.elo_boosted_ensemble.expected_calibration_error",
+      "direction": "lower",
+      "recorded": 0.030987393136217817,
+      "bound": 0.031142330101898905
+    },
+    "margin_holdout_mae": {
+      "report": "margin_metrics.json",
+      "path": "margin.holdout.selected_model.mae",
+      "direction": "lower",
+      "recorded": 10.566195990128557,
+      "bound": 10.6190269700792
+    },
+    "playoff_game_log_loss": {
+      "report": "playoff_validation.json",
+      "path": "games.model_log_loss",
+      "direction": "lower",
+      "recorded": 0.6386268072927742,
+      "bound": 0.641819941329238
+    },
+    "playoff_series_log_loss": {
+      "report": "playoff_validation.json",
+      "path": "series.model_log_loss",
+      "direction": "lower",
+      "recorded": 0.562816600127268,
+      "bound": 0.5656306831279043
+    },
+    "nl_success_rate": {
+      "report": "nl_eval_report.json",
+      "path": "summary.success_status",
+      "direction": "higher",
+      "recorded": 1.0,
+      "bound": 0.995
+    },
+    "nl_grounded_rate": {
+      "report": "nl_eval_report.json",
+      "path": "summary.grounded",
+      "direction": "higher",
+      "recorded": 1.0,
+      "bound": 0.995
+    },
+    "nl_wrong_tool_answers": {
+      "report": "nl_eval_report.json",
+      "path": "summary.wrong_tool_answers",
+      "direction": "lower",
+      "recorded": 0.0,
+      "bound": 0.0
+    },
+    "projection_mae_0.00": {
+      "report": "forward_projection_backtest.json",
+      "path": "strength_layer.summary_by_checkpoint.0.00.model_mae_wins",
+      "direction": "lower",
+      "recorded": 8.151333333333334,
+      "bound": 8.19209
+    },
+    "projection_mae_0.25": {
+      "report": "forward_projection_backtest.json",
+      "path": "strength_layer.summary_by_checkpoint.0.25.model_mae_wins",
+      "direction": "lower",
+      "recorded": 5.336333333333334,
+      "bound": 5.363015000000001
+    },
+    "projection_mae_0.50": {
+      "report": "forward_projection_backtest.json",
+      "path": "strength_layer.summary_by_checkpoint.0.50.model_mae_wins",
+      "direction": "lower",
+      "recorded": 3.8913166666666665,
+      "bound": 3.91077325
+    },
+    "projection_mae_0.75": {
+      "report": "forward_projection_backtest.json",
+      "path": "strength_layer.summary_by_checkpoint.0.75.model_mae_wins",
+      "direction": "lower",
+      "recorded": 2.190783333333333,
+      "bound": 2.20173725
+    },
+    "projection_crps_0.00": {
+      "report": "forward_projection_backtest.json",
+      "path": "strength_layer.summary_by_checkpoint.0.00.mean_crps_wins",
+      "direction": "lower",
+      "recorded": 5.910039283333335,
+      "bound": 5.939589479750001
+    },
+    "projection_crps_0.25": {
+      "report": "forward_projection_backtest.json",
+      "path": "strength_layer.summary_by_checkpoint.0.25.mean_crps_wins",
+      "direction": "lower",
+      "recorded": 3.6811871000000003,
+      "bound": 3.6995930355000004
+    },
+    "projection_crps_0.50": {
+      "report": "forward_projection_backtest.json",
+      "path": "strength_layer.summary_by_checkpoint.0.50.mean_crps_wins",
+      "direction": "lower",
+      "recorded": 2.7114397500000003,
+      "bound": 2.7249969487500003
+    },
+    "projection_crps_0.75": {
+      "report": "forward_projection_backtest.json",
+      "path": "strength_layer.summary_by_checkpoint.0.75.mean_crps_wins",
+      "direction": "lower",
+      "recorded": 1.547734249999999,
+      "bound": 1.5554729212499991
+    }
+  }
+}

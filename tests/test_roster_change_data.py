@@ -201,6 +201,7 @@ def test_player_movement_rows_are_normalized_into_high_confidence_events_with_au
     assert "contract conversion" in excluded.iloc[1]["exclusion_reason"]
 
 
+@pytest.mark.requires_data
 def test_player_movement_summary_matches_real_raw_source_counts_and_date_coverage():
     source = load_nba_player_movement_source()
     events, audit = normalize_nba_player_movement_records(source)
@@ -264,6 +265,7 @@ def test_roster_events_include_confidence_metadata_and_high_confidence_summary()
     assert summary["high_confidence_event_count"] == 1
 
 
+@pytest.mark.requires_data
 def test_basketball_reference_add_event_is_resolved_to_repo_ids():
     from bs4 import BeautifulSoup
 
@@ -283,6 +285,7 @@ def test_basketball_reference_add_event_is_resolved_to_repo_ids():
     assert result[0]["person_id"] == 76001
 
 
+@pytest.mark.requires_data
 def test_basketball_reference_trade_event_is_split_into_two_roster_moves():
     from bs4 import BeautifulSoup
 

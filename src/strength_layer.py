@@ -49,12 +49,14 @@ try:
         frozen_matchup_probabilities, load_model_inputs, season_schedule, strength_table,
     )
     from src.main import TEAM_DB_PATH
+    from src.provenance import with_provenance
 except ImportError:  # pragma: no cover - direct-script support
     from forward_projection import (
         BACKTEST_CHECKPOINTS, BACKTEST_SEASONS, CALIBRATION_SEASONS, _checkpoint_cutoff,
         frozen_matchup_probabilities, load_model_inputs, season_schedule, strength_table,
     )
     from main import TEAM_DB_PATH
+    from provenance import with_provenance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -584,7 +586,7 @@ def main(argv=None):
     layer = fit_production_layer(inputs)
     layer.update(calibrate_layer_strength_sd(inputs, layer))
     LAYER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    LAYER_PATH.write_text(json.dumps(layer, indent=2) + "\n", encoding="utf-8")
+    LAYER_PATH.write_text(json.dumps(with_provenance(layer), indent=2) + "\n", encoding="utf-8")
     print(f"shrink {layer['shrink_minutes']:g} | signals {layer['selected_signal_set']}")
     for key, row in layer["holdout_remaining_game_log_loss"].items():
         weights = np.round(layer["weights_by_checkpoint"][key], 4).tolist()

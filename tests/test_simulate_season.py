@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.simulate_season import (
     DEFAULT_SIMULATIONS,
@@ -367,6 +368,7 @@ def test_write_metrics_persists_json(tmp_path):
     assert payload["season"] == 2025
 
 
+@pytest.mark.requires_data
 def test_load_pregame_probabilities_returns_valid_ensemble_values(monkeypatch):
     """Check the probability loader via a monkeypatched cheap pipeline.
 

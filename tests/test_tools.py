@@ -44,6 +44,7 @@ def test_list_tools_exposes_expected_capabilities():
         assert tool["parameters"] is not None
 
 
+@pytest.mark.requires_data
 def test_list_teams_returns_the_30_current_franchises():
     envelope = execute_tool("list_teams", {})
 
