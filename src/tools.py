@@ -78,7 +78,7 @@ try:
         season_playoff_odds,
     )
     from src.margin_model import load_margin_bundle, predict_margin
-    from src import era_swap
+    from src import era_swap, roster_moves
 except ImportError:  # pragma: no cover - direct-script support
     from main import (
         FEATURES_PATH,
@@ -127,6 +127,7 @@ except ImportError:  # pragma: no cover - direct-script support
     )
     from margin_model import load_margin_bundle, predict_margin
     import era_swap
+    import roster_moves
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -136,6 +137,8 @@ VALIDATION_REPORTS = {
     "playoffs": ROOT / "models" / "playoff_validation.json",
     "margin": ROOT / "models" / "margin_metrics.json",
     "era_swap": ROOT / "models" / "era_swap_model.json",
+    "strength_layer": ROOT / "models" / "strength_layer.json",
+    "roster_moves": ROOT / "models" / "roster_moves_validation.json",
 }
 
 PRODUCTION_MODEL = "elo_boosted_ensemble"
@@ -690,6 +693,60 @@ def _execute_simulate_era_swap(parameters):
         "scenarios": result["scenarios"],
         "team_name": team_name,
     }
+
+
+def _roster_moves_validation():
+    path = VALIDATION_REPORTS["roster_moves"]
+    if not path.exists():
+        return None
+    report = json.loads(path.read_text(encoding="utf-8"))["holdout_seasons"]
+    return {key: report[key] for key in ("seasons", "team_seasons", "slope_through_origin",
+                                         "correlation", "mae_without_moves", "mae_with_moves",
+                                         "large_effects")}
+
+
+def _execute_project_roster_move(parameters):
+    """What-if: move one or two players to other teams and re-project the season."""
+    season = parameters["season"]
+    inputs = _cached_model_inputs()
+    try:
+        schedule = season_schedule(inputs, season)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    as_of = parameters.get("as_of") or str(schedule["gameDateTimeEst"].min().date())
+    moves = []
+    for suffix in ("", "_2"):
+        if parameters.get(f"player{suffix}") is None and parameters.get(f"person_id{suffix}") is None:
+            continue
+        person_id = _person_id_or_name(
+            {"person_id": parameters.get(f"person_id{suffix}"),
+             "player": parameters.get(f"player{suffix}"), "season": season - 1},
+        )
+        team_id = _team_id_or_name(parameters, f"to_team_id{suffix}", f"to_team{suffix}")
+        moves.append({"person_id": person_id, "to_team_id": team_id})
+    if not moves:
+        raise ValueError("Provide 'player' (or 'person_id') and 'to_team' (or 'to_team_id').")
+    try:
+        result = roster_moves.project_with_moves(
+            season, as_of, inputs, moves,
+            n_simulations=parameters.get("n_simulations", 1000),
+            random_state=parameters.get("random_state", 42),
+            schedule=schedule, team_names=load_team_names(season),
+        )
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+    names = {}
+    with sqlite3.connect(TEAM_DB_PATH) as connection:
+        for person, first, last in connection.execute(
+            f"SELECT personId, firstName, lastName FROM players WHERE personId IN "
+            f"({', '.join('?' for _ in moves)})", [move["person_id"] for move in moves]
+        ):
+            names[int(person)] = f"{first} {last}".strip()
+    for player in result["moves"]:
+        player["name"] = names.get(player["person_id"], str(player["person_id"]))
+    result["confidence"] = "Low"
+    result["validation"] = _roster_moves_validation()
+    return result
 
 
 def _execute_team_season_roster(parameters):
@@ -1526,6 +1583,71 @@ TOOLS = {
             "and the season probabilities are loaded once).",
         ],
         "execute": _execute_simulate_era_swap,
+    },
+    "project_roster_move": {
+        "name": "project_roster_move",
+        "description": (
+            "WHAT-IF: move a player (optionally a second one, for a two-way "
+            "trade) to another team on a date and re-project that season: "
+            "change in projected wins and top-six playoff odds for every team "
+            "the move touches, from paired simulations with and without it."
+        ),
+        "category": "simulation",
+        "model": "strength layer roster signal (previous-season plus-minus, weight fitted "
+                 "2015-2021) + elo_boosted_ensemble season Monte Carlo",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "Season START year to project (2025 = 2025-26)."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Date of the move, YYYY-MM-DD (default: the season's "
+                            "first game, i.e. an offseason move)."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Name of the player who moves."},
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "personId of the player who moves."},
+            {"name": "to_team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city he moves to."},
+            {"name": "to_team_id", "type": INT_TYPE, "required": False,
+             "description": "teamId he moves to."},
+            {"name": "player_2", "type": STR_TYPE, "required": False,
+             "description": "Optional second player (e.g. the one going back)."},
+            {"name": "person_id_2", "type": INT_TYPE, "required": False,
+             "description": "personId of the optional second player."},
+            {"name": "to_team_2", "type": STR_TYPE, "required": False,
+             "description": "Destination of the second player."},
+            {"name": "to_team_id_2", "type": INT_TYPE, "required": False,
+             "description": "teamId destination of the second player."},
+            {"name": "n_simulations", "type": INT_TYPE, "required": False,
+             "description": "Monte Carlo seasons (default 1000)."},
+            {"name": "random_state", "type": INT_TYPE, "required": False,
+             "description": "Random seed (default 42)."},
+        ],
+        "assumptions": [
+            "A player's value is his previous-season plus-minus per 48 minutes, "
+            "shrunk toward average (PM / (minutes + 4000) * 48), weighted by his "
+            "previous-season minutes; the team's other players' minutes scale "
+            "down to make room, and minutes a roster does not cover are played at "
+            "replacement level (fringe players' plus-minus per 48), so a player "
+            "above that level helps a thin roster even with a negative plus-minus.",
+            "The move changes only the strength layer's roster signal; its weight "
+            "was fitted on 2015-2021 and is largest preseason.",
+            "Both projections use the same seed and strength shocks, so the "
+            "difference is the move, not simulation noise.",
+        ],
+        "limitations": [
+            "Confidence is Low. On held-out 2022-2025 the real offseason "
+            "transactions' projected effects point the right way (slope 0.74, "
+            "correlation 0.15; 8 of 11 effects of 3+ wins had the right sign) "
+            "but did not reduce win error overall (8.09 -> 8.15). See "
+            "models/roster_moves_validation.json.",
+            "Plus-minus carries the old team's context; fit, usage, injuries, "
+            "salary-cap legality and the rest of a real trade are not modeled.",
+            "Rookies and players with no previous-season minutes count at "
+            "replacement level. Playoff series and title odds are not re-run.",
+            "After a quarter of the season the roster weight is small, so "
+            "mid-season trade effects are likely understated.",
+        ],
+        "execute": _execute_project_roster_move,
     },
     "team_season_roster": {
         "name": "team_season_roster",

@@ -73,6 +73,10 @@ HARD_QUESTIONS = [
      {"player_impact", "player_season_stats"}),
     ("How would the 1993 Chicago Bulls change if they had 2016 Steph Curry instead of B.J. Armstrong?",
      {"simulate_era_swap"}),
+    # The PROJECT.md headline example (added with project_roster_move; tuned set).
+    ("If Stephen Curry were traded to the San Antonio Spurs, how would their ratings improve?",
+     {"project_roster_move"}),
+    ("What if LeBron James signed with the Boston Celtics?", {"project_roster_move"}),
 ]
 
 # Written after the planner was tuned on the two lists above, and scored once

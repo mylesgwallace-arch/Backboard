@@ -220,6 +220,49 @@ def test_what_if_swap_questions_become_one_era_swap_call():
 
 
 @pytest.mark.requires_data
+def test_trade_questions_become_one_roster_move_call():
+    steps = plan_question("If Stephen Curry were traded to the San Antonio Spurs, how would their "
+                          "ratings improve?")
+    assert [s["tool"] for s in steps] == ["project_roster_move"]
+    assert steps[0]["parameters"]["person_id"] == 201939
+    assert steps[0]["parameters"]["to_team_id"] == 1610612759
+    dated = plan_question("What if LeBron James signed with the Celtics on 2026-01-15?")[0]
+    assert dated["parameters"]["as_of"] == "2026-01-15" and dated["parameters"]["season"] == 2025
+    with pytest.raises(ValueError, match="Which player"):
+        plan_question("What if the Lakers traded for someone?")
+    with pytest.raises(ValueError, match="only the destination"):
+        plan_question("What if Curry were traded to the Spurs or the Heat?")
+    # A plain roster question is not a what-if.
+    assert tools_of("Who joined the Lakers since last season?") == ["team_roster"]
+
+
+def test_roster_move_render_is_grounded():
+    data = {
+        "season": 2025, "as_of": "2025-10-21", "confidence": "Low",
+        "replacement_value_per_48": -4.959,
+        "moves": [{"person_id": 1, "name": "A Player", "from_team_id": CELTICS, "to_team_id": LAKERS,
+                   "previous_season_minutes": 2240.0, "previous_season_plus_minus": 298.0,
+                   "previous_season_value_per_48": 2.292}],
+        "team_effects": [{"teamId": LAKERS, "teamName": "Los Angeles Lakers",
+                          "mean_wins_before": 35.624, "mean_wins_after": 37.752, "mean_wins_change": 2.13,
+                          "direct_playoff_probability_before": 0.099,
+                          "direct_playoff_probability_after": 0.153}],
+        "validation": {"seasons": [2022, 2025], "slope_through_origin": 0.74, "correlation": 0.15,
+                       "mae_without_moves": 8.09, "mae_with_moves": 8.15,
+                       "large_effects": {"threshold_wins": 3, "count": 11,
+                                         "direction_correct_share": 0.727}},
+        "warnings": [],
+    }
+    envelope = {"tool": "project_roster_move", "status": "success", "data": data}
+    lines = nl_agent.render_step({"tool": "project_roster_move", "parameters": {}}, envelope,
+                                 {CELTICS: "Boston Celtics", LAKERS: "Los Angeles Lakers"})
+    text = "\n".join(line for _, line in lines)
+    assert "WHAT-IF" in text and "35.6 -> 37.8" in text and "Confidence: Low" in text
+    from src.grounding import check_grounding
+    assert check_grounding(text, [envelope])["unsupported"] == []
+
+
+@pytest.mark.requires_data
 def test_what_if_without_the_replaced_player_asks():
     with pytest.raises(ValueError, match="name both players"):
         plan_question("What if the 1992-93 Bulls had 2015-16 Stephen Curry instead of somebody?")

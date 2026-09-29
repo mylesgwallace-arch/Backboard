@@ -776,3 +776,32 @@ def test_era_swap_requires_both_players(monkeypatch):
                                                 "in_season": 2015, "in_person_id": 201939})
     assert result["status"] == "error"
     assert "out_player" in result["error"]["message"]
+
+
+def test_project_roster_move_builds_moves_and_attaches_validation(monkeypatch):
+    captured = {}
+
+    def fake_project(season, as_of, inputs, moves, **kwargs):
+        captured.update({"season": season, "as_of": as_of, "moves": moves})
+        return {"moves": [{"person_id": move["person_id"]} for move in moves], "team_effects": []}
+
+    schedule = pd.DataFrame({"gameDateTimeEst": pd.to_datetime(["2025-10-21 19:30", "2025-10-22 19:30"])})
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: object())
+    monkeypatch.setattr("src.tools.season_schedule", lambda inputs, season: schedule)
+    monkeypatch.setattr("src.tools.load_team_names", lambda season: {})
+    monkeypatch.setattr("src.tools.roster_moves.project_with_moves", fake_project)
+
+    result = execute_tool("project_roster_move", {
+        "season": 2025, "person_id": 201939, "to_team_id": 1610612759,
+        "person_id_2": 1641705, "to_team_id_2": 1610612744,
+    })
+    assert result["status"] == "success", result
+    assert captured["as_of"] == "2025-10-21"  # default: opening day
+    assert captured["moves"] == [{"person_id": 201939, "to_team_id": 1610612759},
+                                 {"person_id": 1641705, "to_team_id": 1610612744}]
+    assert result["data"]["confidence"] == "Low"
+
+
+def test_project_roster_move_requires_a_player():
+    result = execute_tool("project_roster_move", {"season": 2025, "to_team_id": 1610612759})
+    assert result["status"] == "error"

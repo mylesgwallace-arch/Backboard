@@ -38,6 +38,8 @@ TRACKED = [
     ("nl_success_rate", "nl_eval_report.json", "summary.success_status", "higher"),
     ("nl_grounded_rate", "nl_eval_report.json", "summary.grounded", "higher"),
     ("nl_wrong_tool_answers", "nl_eval_report.json", "summary.wrong_tool_answers", "lower"),
+    ("roster_moves_holdout_slope", "roster_moves_validation.json",
+     "holdout_seasons.slope_through_origin", "higher"),
 ] + [
     (f"projection_mae_{key}", "forward_projection_backtest.json",
      f"strength_layer.summary_by_checkpoint.{key}.model_mae_wins", "lower")

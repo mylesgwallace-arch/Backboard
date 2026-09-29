@@ -164,6 +164,15 @@ export function simulateEraSwap({ teamId, season, outPersonId, inPlayer, inPerso
   return runTool("simulate_era_swap", parameters);
 }
 
+export function projectRosterMove({ season, asOf, player, personId, toTeamId, nSimulations }) {
+  const parameters = { season, to_team_id: toTeamId };
+  if (personId != null) parameters.person_id = personId;
+  else parameters.player = player;
+  if (asOf) parameters.as_of = asOf;
+  if (nSimulations) parameters.n_simulations = nSimulations;
+  return runTool("project_roster_move", parameters);
+}
+
 export function getValidationReport(component) {
   return runTool("validation_report", { component });
 }

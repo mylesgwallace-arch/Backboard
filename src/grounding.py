@@ -25,7 +25,9 @@ SMALL_INTEGER_LIMIT = 10
 # Definitional labels, not data: the names of interval conventions.
 LABEL_PHRASES = re.compile(
     r"\b5(?:th)?\s*(?:-|–|to)\s*95(?:th)?(?:\s*percentile|%)?|\b(?:10th|90th|95th|5th)\s*percentile|"
-    r"\b80%\s*(?:range|interval)s?|\b90%\s*(?:range|interval|of outcomes)",
+    r"\b80%\s*(?:range|interval)s?|\b90%\s*(?:range|interval|of outcomes)|"
+    # A rate unit ("plus-minus per 48 minutes"), not a data value.
+    r"\bper[ -]48(?: minutes)?\b",
     re.IGNORECASE,
 )
 

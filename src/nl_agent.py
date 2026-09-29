@@ -229,6 +229,34 @@ def _plan_era_swap(question, teams):
     }, focus={"host_year_kind": host_kind, "in_year_kind": in_kind})
 
 
+MOVE_MARKER = re.compile(
+    r"\b(traded|trade|sign(s|ed|ing)? with|join(s|ed|ing)?|mov(e|es|ed|ing) to|went to|goes to|"
+    r"lands? (in|with))\b"
+)
+
+
+def _plan_roster_move(question, text, teams, season, date):
+    """``project_roster_move`` step for 'what if player X were traded to team Y' questions."""
+    if not MOVE_MARKER.search(text) or not re.search(r"\bif\b|what if|would|could", text):
+        return None
+    if len(teams) != 1:
+        if len(teams) > 1:
+            raise ValueError("For a what-if move name only the destination team, e.g. "
+                             "'What if Stephen Curry were traded to the San Antonio Spurs?'")
+        return None
+    players = extract_person_ids(question) or _players_from_partial_names(question, teams)
+    if not players:
+        raise ValueError("Which player moves? Name him, e.g. 'What if Stephen Curry were traded "
+                         "to the San Antonio Spurs?'")
+    params = {"person_id": players[0], "to_team_id": teams[0],
+              "season": season if season is not None else DEFAULT_SEASON}
+    if date:
+        params["as_of"] = date
+        if season is None:
+            params["season"] = season_of_date(date)
+    return _step("project_roster_move", params)
+
+
 QUESTION_WORDS = {
     "who", "what", "how", "which", "when", "where", "why", "did", "does", "is", "are",
     "was", "were", "the", "and", "his", "her", "their", "in", "of", "for", "per", "by",
@@ -305,6 +333,9 @@ def plan_question(question, context=None):
     swap = _plan_era_swap(question, teams)
     if swap is not None:
         return [swap]
+    move = _plan_roster_move(question, text, teams, season, date)
+    if move is not None:
+        return [move]
 
     # --- meta / data questions -------------------------------------------
     if has(r"what tools|which tools|tools (does|do|are|can)|what can (you|the engine)|capabilit"):
@@ -668,6 +699,8 @@ def render_step(step, envelope, labels):
         out.extend(_render_validation(step, data, labels))
     elif tool == "simulate_era_swap":
         out.extend(_render_era_swap(step, data))
+    elif tool == "project_roster_move":
+        out.extend(_render_roster_move(data, labels))
     elif tool == "playoff_odds":
         rows = data.get("teams") or []
         key = "champion" if rows and "champion" in rows[0] else "p_champion"
@@ -863,6 +896,54 @@ def _render_era_swap(step, data):
             "A single year was read as the season ending that year (e.g. '1993' as 1992-93); "
             "name the season as '1992-93' to be explicit."
         )))
+    return out
+
+
+def _render_roster_move(data, labels):
+    moves = data.get("moves") or []
+    out = []
+    for move in moves:
+        origin = _name(labels, move.get("from_team_id")) if move.get("from_team_id") else "no team"
+        out.append(("model", (
+            f"WHAT-IF, not a prediction of a real trade: {move.get('name')} moves from {origin} to "
+            f"{_name(labels, move.get('to_team_id'))} on {data.get('as_of')} "
+            f"({_season_label(data.get('season'))} season)."
+        )))
+    for row in data.get("team_effects") or []:
+        out.append(("model", (
+            f"{_name(labels, row['teamId'], row)}: {row['mean_wins_before']:.1f} -> "
+            f"{row['mean_wins_after']:.1f} projected wins ({row['mean_wins_change']:+.2f}), top-six "
+            f"(direct playoff) probability {_pct(row['direct_playoff_probability_before'])} -> "
+            f"{_pct(row['direct_playoff_probability_after'])}."
+        )))
+    for move in moves:
+        if move.get("previous_season_minutes"):
+            out.append(("model", (
+                f"{move.get('name')}'s value comes from last season: {move['previous_season_plus_minus']:+.0f} "
+                f"plus-minus in {move['previous_season_minutes']:.0f} minutes "
+                f"({move['previous_season_value_per_48']:+.3f} per 48 after shrinkage)."
+            )))
+    out.append(("reliability", f"Confidence: {data.get('confidence')}."))
+    validation = data.get("validation")
+    if validation:
+        large = validation.get("large_effects") or {}
+        out.append(("reliability", (
+            f"On held-out {validation['seasons'][0]}-{validation['seasons'][-1]} seasons the real "
+            f"offseason moves' projected effects pointed the right way (slope "
+            f"{validation['slope_through_origin']:.2f}, correlation {validation['correlation']:.2f}; "
+            f"{_pct(large.get('direction_correct_share'), 0)} of the {large.get('count')} effects of "
+            f"{large.get('threshold_wins')}+ wins had the right sign) but did not lower the win error "
+            f"({validation['mae_without_moves']:.2f} -> {validation['mae_with_moves']:.2f})."
+        )))
+    if data.get("replacement_value_per_48") is not None:
+        out.append(("uncertainty", (
+            f"Minutes a roster does not cover are played at replacement level "
+            f"({data['replacement_value_per_48']:+.3f} per 48 last season), so a player above that "
+            "level helps a thin roster even with a below-average plus-minus, and his old team "
+            "falls back toward it."
+        )))
+    for warning in data.get("warnings") or []:
+        out.append(("uncertainty", warning))
     return out
 
 

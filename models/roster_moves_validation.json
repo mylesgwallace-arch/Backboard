@@ -1,0 +1,66 @@
+{
+  "method": "Per team-season: projected effect of the real offseason moves vs the outcome.",
+  "calibration_seasons": {
+    "seasons": [
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021
+    ],
+    "team_seasons": 210,
+    "slope_through_origin": 1.0852121152997156,
+    "correlation": 0.3591427447981812,
+    "mae_with_moves": 6.824666666666668,
+    "mae_without_moves": 7.034857142857143,
+    "large_effects": {
+      "threshold_wins": 3,
+      "count": 58,
+      "direction_correct_share": 0.6551724137931034
+    },
+    "mean_abs_effect": 2.197857142857143
+  },
+  "holdout_seasons": {
+    "seasons": [
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "team_seasons": 120,
+    "slope_through_origin": 0.7398486140146897,
+    "correlation": 0.1461664919457176,
+    "mae_with_moves": 8.154833333333334,
+    "mae_without_moves": 8.093083333333333,
+    "large_effects": {
+      "threshold_wins": 3,
+      "count": 11,
+      "direction_correct_share": 0.7272727272727273
+    },
+    "mean_abs_effect": 1.2886666666666666
+  },
+  "provenance": {
+    "generated_at": "2026-09-28T19:50:30",
+    "git_commit": "a2c81f4c1289c619d01a43d6f936ae2a28a00cc9",
+    "git_dirty": true,
+    "versions": {
+      "python": "3.12.10",
+      "numpy": "2.5.2",
+      "pandas": "2.3.3",
+      "sklearn": "1.9.0"
+    },
+    "data": {
+      "game_features.csv": {
+        "bytes": 41181541,
+        "modified": "2026-08-13T14:15:39",
+        "sha256_16": "8eea7704d59d6e68"
+      },
+      "nba.db": {
+        "bytes": 990609408,
+        "modified": "2026-08-11T14:17:48"
+      }
+    }
+  }
+}

@@ -410,7 +410,7 @@ def simulate_remaining_wins(base_wins, home_index, away_index, probabilities,
 def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
                       random_state=42, schedule=None, team_names=None,
                       strength_sd=None, return_samples=False, shocks=None,
-                      snapshots=None, strength_layer=None):
+                      snapshots=None, strength_layer=None, layer_transactions=None):
     """Project final standings from the actual record at ``as_of``.
 
     ``schedule`` defaults to the season's games in the model dataset; a caller
@@ -425,6 +425,8 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
     production feature snapshots at the cutoff. ``strength_layer``: ``None``
     applies the default layer (``USE_STRENGTH_LAYER``), ``False`` uses the
     frozen model's probabilities alone, a dict applies that layer.
+    ``layer_transactions`` replaces the transaction feed the layer's roster
+    signal reads (``roster_moves`` passes the feed plus hypothetical moves).
     """
     layer = resolve_strength_layer(strength_layer)
     if schedule is None:
@@ -459,7 +461,7 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
         if layer is not None:
             probabilities = _apply_strength_layer(
                 layer, remaining, probabilities, inputs, season, cutoff, teams,
-                fraction_completed, snapshots,
+                fraction_completed, snapshots, layer_transactions,
             )
         home_index = remaining["homeTeamId"].map(team_index).to_numpy()
         away_index = remaining["awayTeamId"].map(team_index).to_numpy()
@@ -507,12 +509,13 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
 
 
 def _apply_strength_layer(layer, remaining, probabilities, inputs, season, cutoff, teams,
-                          fraction_completed, snapshots):
+                          fraction_completed, snapshots, transactions=None):
     try:
         from src.strength_layer import layered_probabilities, runtime_signals
     except ImportError:  # pragma: no cover
         from strength_layer import layered_probabilities, runtime_signals
-    signals = runtime_signals(inputs, season, cutoff, teams, layer, snapshots=snapshots)
+    signals = runtime_signals(inputs, season, cutoff, teams, layer, snapshots=snapshots,
+                              transactions=transactions)
     return layered_probabilities(
         remaining[["homeTeamId", "awayTeamId"]], probabilities, signals, layer, fraction_completed
     )

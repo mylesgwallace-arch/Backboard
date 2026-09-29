@@ -570,6 +570,39 @@ injuries and in-season trades are not modeled. The frozen model, its pickle,
 `tests/test_strength_layer.py` (roster bookkeeping, leakage, fit recovery,
 wiring).
 
+## Trade / signing what-ifs (2026-09-28) -- built; validated as directionally right, Low confidence
+
+**`src/roster_moves.py` -> tool `project_roster_move`, `/ask` routing, What-if
+Lab "Trade or signing" card.** A hypothetical move is a transaction (remove
+from current team, add to destination) one second before the cutoff; the
+season is projected twice with the same seed and strength shocks, with and
+without it, so the difference is the move. Only the strength layer's roster
+signal changes. Output: per touched team wins before/after/change, top-six
+odds before/after, the moved player's previous-season minutes/plus-minus,
+replacement level, the roster weight used, warnings (no previous-season
+minutes; mid-season weight small), and the validation below.
+
+Example (2025-26 opening day): Stephen Curry to San Antonio -> Warriors 47.4
+-> 42.9 wins (top-six 59% -> 39%), Spurs 35.6 -> 37.8 (10% -> 15%).
+
+**Validation of the transaction component alone**
+(`python src/roster_moves.py --validate` -> `models/roster_moves_validation.json`):
+for each team-season, projected effect of the real offseason transactions
+(projection with the feed minus projection with no transactions) vs the actual
+residual. Calibration 2015-2021 (where the weight was fitted): slope 1.09,
+correlation 0.36, MAE 7.03 -> 6.82. **Held-out 2022-2025: slope 0.74,
+correlation 0.15, MAE 8.09 -> 8.15 (slightly worse); 8 of 11 effects of 3+
+wins had the right sign.** So the signal points the right way but is weak out
+of sample; the tool says Low confidence and shows these numbers. Known
+property: minutes a roster does not cover are replacement level (about -5 per
+48), so a player with a below-average plus-minus can still help a thin roster.
+Playoff series/title odds are not re-run. `/ask`: "If Stephen Curry were
+traded to the San Antonio Spurs, how would their ratings improve?" and "What
+if LeBron James signed with the Boston Celtics?" were added to the eval's
+tuned (hard) set; the eval is 64/64 routed and grounded. The What-if Lab trade
+form mirrors its inputs into the URL (`#/what-if?player=...&to=...&season=...`)
+so a scenario link can be shared and re-run.
+
 ---
 
 # 1. Current Objective
