@@ -736,12 +736,15 @@ def _execute_project_roster_move(parameters):
     except ValueError as exc:
         raise ToolUnavailable(str(exc))
     names = {}
-    with sqlite3.connect(TEAM_DB_PATH) as connection:
-        for person, first, last in connection.execute(
-            f"SELECT personId, firstName, lastName FROM players WHERE personId IN "
-            f"({', '.join('?' for _ in moves)})", [move["person_id"] for move in moves]
-        ):
-            names[int(person)] = f"{first} {last}".strip()
+    try:
+        with sqlite3.connect(TEAM_DB_PATH) as connection:
+            for person, first, last in connection.execute(
+                f"SELECT personId, firstName, lastName FROM players WHERE personId IN "
+                f"({', '.join('?' for _ in moves)})", [move["person_id"] for move in moves]
+            ):
+                names[int(person)] = f"{first} {last}".strip()
+    except sqlite3.Error:
+        pass  # names are cosmetic; the ids are in the result either way
     for player in result["moves"]:
         player["name"] = names.get(player["person_id"], str(player["person_id"]))
     result["confidence"] = "Low"
