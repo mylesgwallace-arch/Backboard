@@ -170,6 +170,8 @@ export function render(container, { navigate } = {}) {
             <input type="checkbox" id="ingest-dry-run" checked>
             Dry-run (validate + plan only, no database writes)
           </label>
+          <p class="text-muted" style="font-size:0.75rem;">Real writes need the API started with
+            <code>--allow-ingest-writes</code>.</p>
           <button class="btn mt-1" id="ingest-btn">Ingest</button>
           <pre class="output-pane mt-1" id="ingest-output">// ingestion manifest (provenance) appears here</pre>
         </div>

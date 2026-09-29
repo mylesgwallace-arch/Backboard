@@ -64,6 +64,13 @@
       "recorded": 0.0,
       "bound": 0.0
     },
+    "data_check_failures": {
+      "report": "data_checks.json",
+      "path": "summary.fail",
+      "direction": "lower",
+      "recorded": 0.0,
+      "bound": 0.0
+    },
     "roster_moves_holdout_slope": {
       "report": "roster_moves_validation.json",
       "path": "holdout_seasons.slope_through_origin",

@@ -38,6 +38,7 @@ TRACKED = [
     ("nl_success_rate", "nl_eval_report.json", "summary.success_status", "higher"),
     ("nl_grounded_rate", "nl_eval_report.json", "summary.grounded", "higher"),
     ("nl_wrong_tool_answers", "nl_eval_report.json", "summary.wrong_tool_answers", "lower"),
+    ("data_check_failures", "data_checks.json", "summary.fail", "lower"),
     ("roster_moves_holdout_slope", "roster_moves_validation.json",
      "holdout_seasons.slope_through_origin", "higher"),
 ] + [

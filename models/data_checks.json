@@ -1,0 +1,259 @@
+{
+  "summary": {
+    "pass": 34,
+    "warn": 6,
+    "fail": 0
+  },
+  "ok": true,
+  "checks": [
+    {
+      "check": "games.duplicate_game_id",
+      "status": "pass",
+      "detail": "gameId must be unique in games.",
+      "count": 0
+    },
+    {
+      "check": "games.home_equals_away",
+      "status": "pass",
+      "detail": "A game cannot have the same home and away team.",
+      "count": 0
+    },
+    {
+      "check": "games.winner_not_a_participant",
+      "status": "pass",
+      "detail": "A recorded winner must be the home or away team.",
+      "count": 0
+    },
+    {
+      "check": "games.winner_disagrees_with_score",
+      "status": "pass",
+      "detail": "The winner must be the team with more points.",
+      "count": 0
+    },
+    {
+      "check": "games.tied_final_score",
+      "status": "warn",
+      "detail": "NBA games cannot end tied; a tie is a source-data score error (the margin model reads these as 0).",
+      "count": 2,
+      "examples": [
+        21000028,
+        20400090
+      ]
+    },
+    {
+      "check": "games.regular_season_missing_team_rows",
+      "status": "warn",
+      "detail": "Every played regular-season game since 2003 needs exactly two team_statistics rows.",
+      "count": 2
+    },
+    {
+      "check": "team_statistics.team_not_in_game",
+      "status": "warn",
+      "detail": "Rows whose teamId is neither team in the game (e.g. teamId 0 placeholders); they also create a bogus team in derived tables.",
+      "count": 2,
+      "examples": [
+        22500652,
+        22500651
+      ]
+    },
+    {
+      "check": "team_statistics.score_disagrees_with_game",
+      "status": "pass",
+      "detail": "A team's box-score points must equal its score in games.",
+      "count": 0
+    },
+    {
+      "check": "team_statistics.duplicate_team_game",
+      "status": "pass",
+      "detail": "One row per team per game.",
+      "count": 0
+    },
+    {
+      "check": "player_statistics.negative_minutes",
+      "status": "pass",
+      "detail": "Minutes cannot be negative (games the models use).",
+      "count": 0
+    },
+    {
+      "check": "player_statistics.negative_minutes_other_games",
+      "status": "warn",
+      "detail": "Negative minutes in preseason/exhibition games (no model reads these).",
+      "count": 2,
+      "examples": [
+        10800035,
+        10800045
+      ]
+    },
+    {
+      "check": "player_statistics.team_not_in_game",
+      "status": "pass",
+      "detail": "A player's team must be one of the two teams in the game.",
+      "count": 0
+    },
+    {
+      "check": "games.latest_result",
+      "status": "pass",
+      "detail": "Latest game with a result: 2026-06-13 20:30:00."
+    },
+    {
+      "check": "features.duplicate_team_game",
+      "status": "pass",
+      "detail": "One feature row per team per game.",
+      "count": 0
+    },
+    {
+      "check": "features.game_without_two_teams",
+      "status": "warn",
+      "detail": "Each game should have a row for both teams (unpaired games are dropped from the model dataset).",
+      "count": 32
+    },
+    {
+      "check": "features.negative_rest_days",
+      "status": "pass",
+      "detail": "rest_days cannot be negative (would mean the rows are out of order).",
+      "count": 0
+    },
+    {
+      "check": "features.null_share.rest_days",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.teamScore_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.opponentScore_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.assists_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.steals_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.blocks_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.fieldGoalsPercentage_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.threePointersPercentage_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.freeThrowsPercentage_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.reboundsTotal_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.turnovers_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.plusMinusPoints_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.win_rate_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.active_players_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.active_players_last_game",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.player_minutes_rolling_10",
+      "status": "pass",
+      "detail": "3.9% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.player_points_rolling_10",
+      "status": "pass",
+      "detail": "3.9% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.player_points_per_minute_rolling_10",
+      "status": "warn",
+      "detail": "100.0% of rows since 2003 are empty. Known issue (NaN propagation in build_features.py; documented)."
+    },
+    {
+      "check": "features.null_share.player_assists_rolling_10",
+      "status": "pass",
+      "detail": "3.9% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.player_rebounds_rolling_10",
+      "status": "pass",
+      "detail": "3.9% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.opponent_win_rate_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.opponent_adjusted_win_rate_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.opponent_plusMinusPoints_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    },
+    {
+      "check": "features.null_share.opponent_adjusted_plusMinusPoints_rolling_10",
+      "status": "pass",
+      "detail": "0.0% of rows since 2003 are empty."
+    }
+  ],
+  "provenance": {
+    "generated_at": "2026-09-28T20:13:21",
+    "git_commit": "4e8f384d17cd6132a175e7c616ce5cd8ddd82d70",
+    "git_dirty": true,
+    "versions": {
+      "python": "3.12.10",
+      "numpy": "2.5.2",
+      "pandas": "2.3.3",
+      "sklearn": "1.9.0"
+    },
+    "data": {
+      "game_features.csv": {
+        "bytes": 41181541,
+        "modified": "2026-08-13T14:15:39",
+        "sha256_16": "8eea7704d59d6e68"
+      },
+      "nba.db": {
+        "bytes": 990609408,
+        "modified": "2026-08-11T14:17:48"
+      }
+    }
+  }
+}

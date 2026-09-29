@@ -159,7 +159,8 @@ def test_socket_integration_server():
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as resp:
             assert resp.status == 200
             assert resp.headers.get("Content-Type") == "application/json"
-            assert resp.headers.get("Access-Control-Allow-Origin") == "*"
+            # No wildcard CORS: the bundled front end is same-origin.
+            assert resp.headers.get("Access-Control-Allow-Origin") is None
             data = json.loads(resp.read())
             assert data["model"] == "elo_boosted_ensemble"
     finally:
@@ -194,11 +195,17 @@ def test_ingest_routes_to_live_data_with_safe_default(monkeypatch):
     assert captured["dry_run"] is True
     assert payload["validation_status"] == "passed"
 
-    # Explicit dry_run: false is honored.
-    status, _ = api.handle_request(
-        "POST", "/ingest",
-        json.dumps({"source": "data/raw/x.csv", "dry_run": False}).encode("utf-8"),
-    )
+    # dry_run: false is refused unless the server allows ingest writes...
+    captured.clear()
+    body = json.dumps({"source": "data/raw/x.csv", "dry_run": False}).encode("utf-8")
+    status, payload = api.handle_request("POST", "/ingest", body)
+    assert status == 403 and payload["error"] == "ingest_writes_disabled"
+    assert captured == {}
+
+    # ...and honored when it does.
+    status, _ = api.handle_request("POST", "/ingest", body,
+                                   config=api.ServerConfig(allow_ingest_writes=True))
+    assert status == 200
     assert captured["dry_run"] is False
 
 
@@ -329,3 +336,69 @@ def test_static_asset_path_blocks_traversal_outside_web_dir():
     assert api._static_asset_path("/../../etc/passwd") is None
     assert api._static_asset_path("/does-not-exist.js") is None
     assert api._static_asset_path("/styles.css") is not None
+
+
+def test_body_and_question_size_limits(monkeypatch):
+    monkeypatch.setattr("src.api.answer_question", lambda question, **kwargs: {"answer": "ok"})
+    status, payload = api.handle_request("POST", "/ask", b"x" * (api.MAX_BODY_BYTES + 1))
+    assert status == 413
+    long_question = json.dumps({"question": "a" * (api.MAX_QUESTION_CHARS + 1)}).encode("utf-8")
+    status, payload = api.handle_request("POST", "/ask", long_question)
+    assert status == 400 and payload["error"] == "question_too_long"
+
+
+def test_rate_limit_is_per_client_and_bucket(monkeypatch):
+    monkeypatch.setattr("src.api.answer_question", lambda question, **kwargs: {"answer": "ok"})
+    clock = [0.0]
+    limiter = api.RateLimiter(clock=lambda: clock[0])
+    config = api.ServerConfig(rate_limits={"ask": (2, 60.0), "ask_llm": (1, 60.0),
+                                           "tools": (5, 60.0)})
+    body = json.dumps({"question": "hi"}).encode("utf-8")
+    ask = lambda client, payload=body: api.handle_request(
+        "POST", "/ask", payload, client=client, config=config, limiter=limiter)
+    assert ask("a")[0] == 200 and ask("a")[0] == 200
+    status, payload = ask("a")
+    assert status == 429 and payload["retry_after_seconds"] == 60
+    assert ask("b")[0] == 200            # another client has its own budget
+    llm = json.dumps({"question": "hi", "mode": "llm"}).encode("utf-8")
+    assert ask("b", llm)[0] == 200 and ask("b", llm)[0] == 429   # tighter LLM bucket
+    clock[0] = 61.0
+    assert ask("a")[0] == 200            # the window slides
+    # No client (direct calls, tests) means no limiting.
+    assert all(api.handle_request("POST", "/ask", body, config=config, limiter=limiter)[0] == 200
+               for _ in range(5))
+
+
+def _post(url, body, headers):
+    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(request) as resp:
+            return resp.status, dict(resp.headers), json.loads(resp.read())
+    except urllib.error.HTTPError as err:
+        return err.code, dict(err.headers), json.loads(err.read())
+
+
+def test_socket_refuses_cross_origin_and_non_json_posts(monkeypatch):
+    monkeypatch.setattr("src.api.execute_tool", lambda name, params: {"status": "success"})
+    server = api.make_server("127.0.0.1", 0, api.ServerConfig(
+        allowed_origins=frozenset({"http://localhost:4173"})))
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{port}/tools/list_teams"
+    body = b'{"parameters": {}}'
+    try:
+        status, _, payload = _post(url, body, {"Content-Type": "application/json",
+                                               "Origin": "https://evil.example"})
+        assert status == 403 and payload["error"] == "origin_not_allowed"
+        status, _, payload = _post(url, body, {"Content-Type": "text/plain"})
+        assert status == 415
+        status, headers, _ = _post(url, body, {"Content-Type": "application/json",
+                                               "Origin": f"http://127.0.0.1:{port}"})
+        assert status == 200 and "Access-Control-Allow-Origin" not in headers
+        status, headers, _ = _post(url, body, {"Content-Type": "application/json",
+                                               "Origin": "http://localhost:4173"})
+        assert status == 200
+        assert headers["Access-Control-Allow-Origin"] == "http://localhost:4173"
+    finally:
+        server.shutdown()

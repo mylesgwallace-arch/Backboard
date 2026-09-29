@@ -349,7 +349,23 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 python -m pytest -q                 # full suite (needs data/)
 python src/metrics_gate.py          # headline metrics vs recorded bounds
 python src/metrics_gate.py --update # re-record bounds after an intentional, explained change
+python src/data_checks.py           # database/feature integrity (after any data rebuild or ingest)
 ```
+
+`src/data_checks.py` writes `models/data_checks.json` (pass/warn/fail per
+check, with example gameIds). Current warnings are source-data defects left
+untouched in the database: two regular-season games recorded as ties
+(20400090, 21000028), two January 2026 games with an extra `teamId 0`
+team-statistics row (22500651, 22500652), negative minutes in two 2008
+preseason games, and the known empty `player_points_per_minute_rolling_10`.
+
+### API safety defaults
+
+`python src/api.py` refuses cross-origin POSTs (allow one with
+`--allow-origin http://host:port`), requires `Content-Type: application/json`
+and bodies up to 64 KiB, limits questions to 1,000 characters, rate-limits
+`/ask` (30/min; 6/min in LLM mode) and `/tools` (240/min) per client, and
+runs `/ingest` as dry-run only unless started with `--allow-ingest-writes`.
 
 Every generated report carries a `provenance` block (git commit, dirty flag,
 library versions, data fingerprint) written by `src/provenance.py`.
