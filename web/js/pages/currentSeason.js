@@ -116,7 +116,7 @@ function renderProjectionCard(container, season, today) {
             <td class="num">${titles.has(r.teamId) ? pct(titles.get(r.teamId)) : "—"}</td></tr>`).join("")}
         </tbody>
       </table>
-      <p class="text-muted mt-1">Backtested preseason error is about 8.7 wins per team (2022-2025); the ranges are calibrated to cover roughly 90% of outcomes.</p>`;
+      <p class="text-muted mt-1">Backtested preseason error is about 8.2 wins per team (2022-2025), using opening-day rosters; preseason ranges covered the actual total about 81% of the time, so treat them as slightly too narrow.</p>`;
   });
 }
 

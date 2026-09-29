@@ -636,6 +636,11 @@ def test_project_rest_of_season_highlights_requested_team(monkeypatch):
     assert result["data"]["team_projection"]["mean_wins"] == 58.5
     assert captured["as_of"] == "2025-01-15"
     assert captured["n_simulations"] == 1000
+    assert captured["strength_layer"] is None  # default layer
+
+    execute_tool("project_rest_of_season",
+                 {"season": 2024, "as_of": "2025-01-15", "strength_layer": False})
+    assert captured["strength_layer"] is False
 
 
 def test_phase_two_tools_are_registered():

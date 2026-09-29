@@ -592,6 +592,7 @@ def _execute_project_rest_of_season(parameters):
             team_names=load_team_names(season),
             schedule=schedule,
             snapshots=snapshots,
+            strength_layer=None if parameters.get("strength_layer", True) else False,
         )
     except ValueError as exc:
         raise ToolUnavailable(str(exc))
@@ -940,6 +941,7 @@ def _execute_validation_report(parameters):
             "calibration_seasons": report.get("calibration_seasons"),
             "strength_sd_by_season_fraction": report.get("strength_sd_by_season_fraction"),
             "calibrated": report["calibrated_strength_uncertainty"]["summary_by_checkpoint"],
+            "strength_layer": (report.get("strength_layer") or {}).get("summary_by_checkpoint"),
             "game_noise_only": report["game_noise_only"]["summary_by_checkpoint"],
             "evaluation_seasons": report["calibrated_strength_uncertainty"]["seasons"],
         }
@@ -1358,10 +1360,11 @@ TOOLS = {
             "record on a cutoff date: games before the date keep their real "
             "results, remaining games are simulated with production-model "
             "probabilities computed from information available at the cutoff "
-            "only."
+            "only, adjusted by the validated strength layer (season-to-date "
+            "margin and opening-day roster value)."
         ),
         "category": "simulation",
-        "model": "elo_boosted_ensemble (strength frozen at cutoff) + Monte Carlo",
+        "model": "elo_boosted_ensemble (strength frozen at cutoff) + strength layer + Monte Carlo",
         "parameters": [
             {"name": "season", "type": INT_TYPE, "required": True,
              "description": "NBA season start year, e.g. 2024."},
@@ -1380,25 +1383,37 @@ TOOLS = {
              "description": "Experimental: recompute each team's roster-derived "
                             "inputs from transactions since its last game "
                             "(default false; did not improve the backtest)."},
+            {"name": "strength_layer", "type": BOOL_TYPE, "required": False,
+             "description": "Apply the strength layer (default true). False "
+                            "gives the frozen production model alone."},
         ],
         "assumptions": [
-            "Every remaining game uses the same probability predict_matchup "
+            "Every remaining game starts from the probability predict_matchup "
             "would give with game_date = the cutoff: each team's latest "
             "pregame feature row on or before it and Elo from games strictly "
             "before it. Team strength is frozen at the cutoff.",
-            "Simulations add a per-team strength shock (log-odds SD 0.6 "
-            "preseason, 0.4 from a quarter of the season on) so the win "
+            "The strength layer then shifts each game's log-odds by the "
+            "home-minus-away difference of three team signals: the frozen "
+            "model's own strength (shrunk), season-to-date point margin, and "
+            "an opening-day roster value (last season's plus-minus of the "
+            "players on the roster after transactions before the cutoff). "
+            "Weights were fitted on 2015-2021 only (models/strength_layer.json).",
+            "Simulations add a per-team strength shock (log-odds SD 0.4 with "
+            "the layer; 0.6 preseason / 0.4 later without it) so the win "
             "ranges reflect uncertainty about team strength, not just game "
             "luck. The SD was chosen on 2015-2021 seasons only.",
         ],
         "limitations": [
             "Backtested on 2022-2025 (models/forward_projection_backtest.json): "
-            "mean absolute error in final wins is about 8.7 preseason, 5.5 at "
-            "a quarter of the season, 4.0 at the halfway point and 2.2 at "
-            "three quarters. At the halfway point it is no better than "
-            "carrying each team's current win percentage forward (3.95).",
-            "No roster changes, injuries or trades after the cutoff are "
-            "modeled; the frozen strength does not update.",
+            "mean absolute error in final wins is about 8.2 preseason, 5.3 at "
+            "a quarter of the season, 3.9 at the halfway point and 2.2 at "
+            "three quarters (frozen model alone: 8.7, 5.5, 4.0, 2.2). "
+            "Carrying current win percentage forward scores 10.2, 6.0, 3.95, 2.4.",
+            "Preseason 5-95% win ranges cover the actual total about 81% of "
+            "the time in the backtest (slightly too narrow); 88-92% later.",
+            "Rookies and players with no NBA minutes count at replacement "
+            "level; retired or unsigned players stay on their last team; "
+            "injuries and trades after the cutoff are not modeled.",
             "The schedule is the season's games in the repository. An upcoming "
             "season can be projected once its schedule is ingested "
             "(python src/live_data.py --source <schedule.csv>); results "

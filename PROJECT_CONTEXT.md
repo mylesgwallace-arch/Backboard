@@ -506,6 +506,70 @@ scenario (not validated): +13.55 net, +17.3 wins. Confidence: Low.**
    --normalize-player-movement data/raw/nba_player_movement_raw.csv` on a newer
    feed, or add rows to `data/manual/roster_transactions.csv`.
 
+## Projection strength layer (2026-09-28) -- built, validated, on by default
+
+**Why the Phase 3 roster adjustment could not help:** it only changed the
+player box-score sums, which are minor inputs; the model is ~63% `elo_delta`
+(feature importance), and Elo never regresses between seasons and is never
+touched by roster moves. Preseason strength was therefore last season's
+end-of-year state carried over as is.
+
+**`src/strength_layer.py` (`python src/strength_layer.py --fit` ->
+`models/strength_layer.json`).** Each remaining game keeps the frozen model's
+probability as an offset and gets `logit p' = logit p + sum_k w_k (x_k,home -
+x_k,away)` over per-team signals, all centered:
+
+* `model` -- the frozen model's strength (logit of its win probability vs
+  every other team, `strength_table`);
+* `margin` -- season-to-date point margin per game (0 preseason);
+* `roster` -- opening-day roster value: every player's previous-season
+  plus-minus per 48 minutes, shrunk as `PM / (minutes + 4000) * 48`,
+  minutes-weighted over the players on the team after applying the
+  transaction feed up to the cutoff; minutes the roster does not cover are
+  filled at replacement level (fringe players' plus-minus per 48).
+
+Weights are fitted per checkpoint (0/25/50/75% of the season) by logistic
+regression with offset on the remaining games of **2015-2021 only** and
+interpolated. Shrinkage (grid 250-16000) and the signal set (5 candidates,
+including a roster-free control, last season's margin) were chosen by
+leave-one-season-out CV on 2015-2021, with a parsimony rule (fewest signals
+within 0.0005 log loss of the best). The strength-uncertainty SD was
+recalibrated with the layer applied (CRPS, 2015-2021): 0.4 at every
+checkpoint. `USE_STRENGTH_LAYER = True` in `forward_projection.py`;
+`strength_layer=False` per call (or the tool parameter) gives the frozen model
+alone. Playoff odds use the layer for the rest of the regular season only; the
+postseason matrix is unchanged.
+
+Selected weights (model, margin, roster): preseason -0.97, 0, 0.30 (the
+frozen model's preseason strength is almost entirely replaced by the roster
+value); 25% -0.90, 0.05, 0.16; 50% -0.64, 0.06, 0.02; 75% -0.66, 0.06, 0.04.
+
+**Held-out 2022-2025** (`python src/forward_projection.py --backtest`):
+
+| Cutoff | Win MAE frozen -> layer | Pace MAE | CRPS | Direct-playoff Brier | 5-95% coverage | Playoff field |
+|---|---|---|---|---|---|---|
+| 0% | 8.68 -> **8.15** | 10.19 | 6.35 -> 5.91 | 0.207 -> 0.201 | 86% -> 81% | 6.5 -> 7.2 /12 |
+| 25% | 5.49 -> **5.34** | 5.95 | 3.91 -> 3.68 | 0.151 -> 0.145 | 87% -> 92% | 8.0 -> 8.2 |
+| 50% | 4.05 -> **3.89** | 3.95 | 2.83 -> 2.71 | 0.102 -> 0.104 | 90% -> 88% | 10.0 -> 10.2 |
+| 75% | 2.19 -> 2.19 | 2.38 | 1.57 -> 1.55 | 0.066 -> 0.065 | 92% -> 89% | 10.5 -> 10.8 |
+
+Remaining-game log loss: 0.6858 -> 0.6640, 0.6486 -> 0.6398, 0.6358 ->
+0.6304, 0.6083 -> 0.6070.
+
+Honest reading: CRPS improves at every checkpoint and MAE improves or ties;
+the mid-season projection now edges the carry-pace baseline (3.89 vs 3.95)
+instead of losing to it. Preseason ranges are a bit too narrow (81% coverage).
+Rosters vs last season's margin: roster wins clearly in CV preseason
+(0.6455 vs 0.6522) but the two are about tied on the holdout (0.6640 vs
+0.6654 with margin). Caveat: exploratory runs printed holdout log loss for
+several signal sets before the parsimony rule was added, so the holdout is not
+perfectly untouched (recorded in the JSON's `note`). Known gaps: rookies count
+at replacement level; retired or unsigned players stay on their last team;
+injuries and in-season trades are not modeled. The frozen model, its pickle,
+`predict_matchup` and the playoff replay numbers are unchanged. Tests:
+`tests/test_strength_layer.py` (roster bookkeeping, leakage, fit recovery,
+wiring).
+
 ---
 
 # 1. Current Objective

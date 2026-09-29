@@ -411,7 +411,7 @@ def roster_adjustment_backtest(inputs, seasons=None, db_path=TEAM_DB_PATH,
         for label, snapshots in (("production", None), ("roster_adjusted", adjusted)):
             projection, samples, teams = project_from_date(
                 season, cutoff, inputs, n_simulations=n_simulations, schedule=schedule,
-                return_samples=True, snapshots=snapshots,
+                return_samples=True, snapshots=snapshots, strength_layer=False,
             )
             actual = np.array([final.get(team, 0) for team in teams])
             means = samples.mean(axis=0)

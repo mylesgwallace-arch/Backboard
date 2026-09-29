@@ -80,10 +80,40 @@ CALIBRATION_SEASONS = [2015, 2016, 2017, 2018, 2019, 2020, 2021]
 STRENGTH_SD_BY_SEASON_FRACTION = {0.0: 0.6, 0.25: 0.4, 0.5: 0.4, 0.75: 0.4, 1.0: 0.4}
 
 
-def default_strength_sd(fraction_completed):
-    """Calibrated strength uncertainty for a cutoff ``fraction_completed`` in."""
-    points = sorted(STRENGTH_SD_BY_SEASON_FRACTION)
-    values = [STRENGTH_SD_BY_SEASON_FRACTION[point] for point in points]
+# Projections stack season-to-date margin and an opening-day roster value on
+# the frozen model (``src/strength_layer.py``, fitted and selected on the
+# calibration seasons; ``models/strength_layer.json``). ``False`` here, or
+# ``strength_layer=False`` per call, gives the frozen model alone.
+USE_STRENGTH_LAYER = True
+
+
+def resolve_strength_layer(strength_layer=None):
+    """The layer dict to apply: ``None`` = default, ``False`` = none, or a dict."""
+    if strength_layer is False:
+        return None
+    if isinstance(strength_layer, dict):
+        return strength_layer
+    if not USE_STRENGTH_LAYER:
+        return None
+    try:
+        from src.strength_layer import load_layer
+    except ImportError:  # pragma: no cover
+        from strength_layer import load_layer
+    return load_layer()
+
+
+def default_strength_sd(fraction_completed, strength_layer=None):
+    """Calibrated strength uncertainty for a cutoff ``fraction_completed`` in.
+
+    With a strength layer, the layer's own SD table (calibrated the same way,
+    with the layer applied) is used when it has one.
+    """
+    table = STRENGTH_SD_BY_SEASON_FRACTION
+    if strength_layer and strength_layer.get("strength_sd_by_season_fraction"):
+        table = {float(key): float(value)
+                 for key, value in strength_layer["strength_sd_by_season_fraction"].items()}
+    points = sorted(table)
+    values = [table[point] for point in points]
     return float(np.interp(float(fraction_completed), points, values))
 
 
@@ -378,7 +408,7 @@ def simulate_remaining_wins(base_wins, home_index, away_index, probabilities,
 def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
                       random_state=42, schedule=None, team_names=None,
                       strength_sd=None, return_samples=False, shocks=None,
-                      snapshots=None):
+                      snapshots=None, strength_layer=None):
     """Project final standings from the actual record at ``as_of``.
 
     ``schedule`` defaults to the season's games in the model dataset; a caller
@@ -390,8 +420,11 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
     simulates game-outcome noise only. With ``return_samples`` the result is
     ``(projection, wins_matrix, team_ids)``. ``snapshots`` (e.g. roster-
     adjusted ones from ``roster_state.adjusted_snapshots``) replaces the
-    production feature snapshots at the cutoff.
+    production feature snapshots at the cutoff. ``strength_layer``: ``None``
+    applies the default layer (``USE_STRENGTH_LAYER``), ``False`` uses the
+    frozen model's probabilities alone, a dict applies that layer.
     """
+    layer = resolve_strength_layer(strength_layer)
     if schedule is None:
         schedule = season_schedule(inputs, season)
     schedule = schedule.copy()
@@ -410,7 +443,7 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
     remaining = schedule[~played].reset_index(drop=True)
     fraction_completed = len(completed) / max(len(schedule), 1)
     if strength_sd is None:
-        strength_sd = default_strength_sd(fraction_completed)
+        strength_sd = default_strength_sd(fraction_completed, layer)
 
     current_wins, current_losses = _record_to_date(completed, teams)
     team_index = {team: index for index, team in enumerate(teams)}
@@ -421,6 +454,11 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
             remaining[["homeTeamId", "awayTeamId"]], cutoff, inputs, snapshots=snapshots
         )
         probabilities = scored["home_win_probability"].to_numpy(dtype=float)
+        if layer is not None:
+            probabilities = _apply_strength_layer(
+                layer, remaining, probabilities, inputs, season, cutoff, teams,
+                fraction_completed, snapshots,
+            )
         home_index = remaining["homeTeamId"].map(team_index).to_numpy()
         away_index = remaining["awayTeamId"].map(team_index).to_numpy()
         mean_remaining_probability = float(probabilities.mean())
@@ -455,6 +493,7 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
         "fraction_completed": float(fraction_completed),
         "mean_remaining_home_win_probability": mean_remaining_probability,
         "strength_sd": float(strength_sd),
+        "strength_layer": _layer_summary(layer, fraction_completed),
         "projected_standings": summary.to_dict(orient="records"),
         "projected_seedings": build_seedings_table(summary),
         "league_summary": build_league_summary(summary),
@@ -463,6 +502,37 @@ def project_from_date(season, as_of, inputs, n_simulations=DEFAULT_SIMULATIONS,
     if return_samples:
         return projection, wins, teams
     return projection
+
+
+def _apply_strength_layer(layer, remaining, probabilities, inputs, season, cutoff, teams,
+                          fraction_completed, snapshots):
+    try:
+        from src.strength_layer import layered_probabilities, runtime_signals
+    except ImportError:  # pragma: no cover
+        from strength_layer import layered_probabilities, runtime_signals
+    signals = runtime_signals(inputs, season, cutoff, teams, layer, snapshots=snapshots)
+    return layered_probabilities(
+        remaining[["homeTeamId", "awayTeamId"]], probabilities, signals, layer, fraction_completed
+    )
+
+
+def _layer_summary(layer, fraction_completed):
+    if layer is None:
+        return {"applied": False}
+    try:
+        from src.strength_layer import interpolate_weights
+    except ImportError:  # pragma: no cover
+        from strength_layer import interpolate_weights
+    weights = interpolate_weights(layer, fraction_completed)
+    return {
+        "applied": True,
+        "signals": list(layer["signals"]),
+        "weights": [round(float(value), 4) for value in weights],
+        "source": "models/strength_layer.json",
+        "description": "Frozen-model probabilities shifted by season-to-date point "
+                       "margin and an opening-day roster value (weights fitted on "
+                       "2015-2021 remaining games).",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -508,7 +578,8 @@ def _checkpoint_cutoff(schedule, fraction):
 
 
 def backtest(inputs, seasons=None, checkpoints=None,
-             n_simulations=DEFAULT_SIMULATIONS, random_state=42, strength_sd=None):
+             n_simulations=DEFAULT_SIMULATIONS, random_state=42, strength_sd=None,
+             strength_layer=False):
     """Score forward projections against actual final standings.
 
     For each season and checkpoint fraction ``f`` the cutoff is the date of
@@ -518,6 +589,8 @@ def backtest(inputs, seasons=None, checkpoints=None,
     ``coin_flip``: every remaining game 50/50), plus direct-playoff-field
     overlap, the Brier score of the direct-playoff probabilities, the
     coverage of the 5th-95th percentile win range, and mean CRPS.
+    ``strength_layer`` is passed to ``project_from_date`` (default ``False``:
+    the frozen model alone, which is what the historical numbers describe).
     """
     seasons = seasons or BACKTEST_SEASONS
     checkpoints = checkpoints or BACKTEST_CHECKPOINTS
@@ -532,6 +605,7 @@ def backtest(inputs, seasons=None, checkpoints=None,
                 season, as_of, inputs, n_simulations=n_simulations,
                 random_state=random_state, schedule=schedule,
                 strength_sd=strength_sd, return_samples=True,
+                strength_layer=strength_layer,
             )
             crps = crps_from_samples(samples, [final_wins[team] for team in teams])
             rows = pd.DataFrame(projection["projected_standings"])
@@ -585,6 +659,7 @@ def backtest(inputs, seasons=None, checkpoints=None,
         }
     return {
         "model": PRODUCTION_MODEL,
+        "strength_layer": strength_layer is not False,
         "n_simulations": int(n_simulations),
         "random_state": int(random_state),
         "strength_sd": (
@@ -599,7 +674,8 @@ def backtest(inputs, seasons=None, checkpoints=None,
 
 
 def calibrate_strength_sd(inputs, seasons, checkpoints=None, grid=None,
-                          n_simulations=DEFAULT_SIMULATIONS, random_state=42):
+                          n_simulations=DEFAULT_SIMULATIONS, random_state=42,
+                          strength_layer=False):
     """Pick ``strength_sd`` per checkpoint by mean CRPS on ``seasons``.
 
     Call it with seasons that are strictly earlier than the ones used to
@@ -611,7 +687,7 @@ def calibrate_strength_sd(inputs, seasons, checkpoints=None, grid=None,
     for strength_sd in grid:
         report = backtest(inputs, seasons=seasons, checkpoints=checkpoints,
                           n_simulations=n_simulations, random_state=random_state,
-                          strength_sd=strength_sd)
+                          strength_sd=strength_sd, strength_layer=strength_layer)
         for key, row in report["summary_by_checkpoint"].items():
             table.setdefault(key, {})[f"{strength_sd:.2f}"] = {
                 "mean_crps_wins": row["mean_crps_wins"],
@@ -658,6 +734,11 @@ def main(argv=None):
                 inputs, n_simulations=args.simulations,
                 random_state=args.random_state, strength_sd=None,
             ),
+            "strength_layer": backtest(
+                inputs, n_simulations=args.simulations,
+                random_state=args.random_state, strength_sd=None,
+                strength_layer=resolve_strength_layer(None) or False,
+            ),
             "game_noise_only": backtest(
                 inputs, n_simulations=args.simulations,
                 random_state=args.random_state, strength_sd=0.0,
@@ -670,7 +751,7 @@ def main(argv=None):
         BACKTEST_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
         BACKTEST_METRICS_PATH.write_text(json.dumps(reports, indent=2) + "\n",
                                          encoding="utf-8")
-        for label in ("calibrated_strength_uncertainty", "game_noise_only"):
+        for label in ("calibrated_strength_uncertainty", "strength_layer", "game_noise_only"):
             print(label)
             for key, row in reports[label]["summary_by_checkpoint"].items():
                 print(

@@ -14,6 +14,13 @@ from src.simulate_season import (
     add_season_labels,
 )
 
+
+@pytest.fixture(autouse=True)
+def _frozen_model_only(monkeypatch):
+    """Synthetic inputs: keep projections on the frozen model (no DB-backed layer)."""
+    monkeypatch.setattr("src.forward_projection.USE_STRENGTH_LAYER", False)
+
+
 EAST = sorted(EASTERN_CONFERENCE_TEAM_IDS)[:10]
 WEST = sorted(WESTERN_CONFERENCE_TEAM_IDS)[:10]
 ELO = {"initial_rating": 1500.0, "k_factor": 20.0, "home_advantage": 65.0}

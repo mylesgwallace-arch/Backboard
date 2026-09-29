@@ -1,0 +1,539 @@
+{
+  "signals": [
+    "model",
+    "margin",
+    "roster"
+  ],
+  "weights_by_checkpoint": {
+    "0.00": [
+      -0.9686063424598782,
+      0.0,
+      0.29926284787823776
+    ],
+    "0.25": [
+      -0.8973602560753613,
+      0.05060454511806956,
+      0.16269078216677035
+    ],
+    "0.50": [
+      -0.6349583290871091,
+      0.06224384487852114,
+      0.018470878338955676
+    ],
+    "0.75": [
+      -0.6553309587536273,
+      0.06011327583163838,
+      0.037989346975362034
+    ],
+    "1.00": [
+      -0.6553309587536273,
+      0.06011327583163838,
+      0.037989346975362034
+    ]
+  },
+  "fit_diagnostics": {
+    "0.00": {
+      "games": 8274,
+      "frozen_log_loss": 0.6646739111268287,
+      "layered_log_loss": 0.6446771278304666
+    },
+    "0.25": {
+      "games": 6245,
+      "frozen_log_loss": 0.6404406957501994,
+      "layered_log_loss": 0.631608723441397
+    },
+    "0.50": {
+      "games": 4173,
+      "frozen_log_loss": 0.6303425351164622,
+      "layered_log_loss": 0.6257850771662281
+    },
+    "0.75": {
+      "games": 2084,
+      "frozen_log_loss": 0.6249743358047469,
+      "layered_log_loss": 0.6212203582861496
+    }
+  },
+  "shrink_minutes": 4000.0,
+  "selected_signal_set": "model+margin+roster",
+  "calibration_seasons": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021
+  ],
+  "holdout_seasons": [
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "selection": {
+    "criterion": "leave-one-season-out log loss of remaining games, calibration seasons only (shrinkage: preseason checkpoint; signal set: fewest signals within PARSIMONY_TOLERANCE of the best mean over checkpoints)",
+    "parsimony_tolerance": 0.0005,
+    "shrink_cv_preseason_log_loss": {
+      "250": 0.6471767382985272,
+      "500": 0.6470083866098951,
+      "1000": 0.6466491522230162,
+      "2000": 0.6460718945948933,
+      "4000": 0.6455067395080534,
+      "8000": 0.6456367697430104,
+      "16000": 0.646741684786304
+    },
+    "signal_set_cv": {
+      "model": {
+        "0.00": {
+          "games": 8274,
+          "frozen_log_loss": 0.6646739111268287,
+          "layered_log_loss": 0.6533185849477144
+        },
+        "0.25": {
+          "games": 6245,
+          "frozen_log_loss": 0.6404406957501994,
+          "layered_log_loss": 0.6391359431875944
+        },
+        "0.50": {
+          "games": 4173,
+          "frozen_log_loss": 0.6303425351164622,
+          "layered_log_loss": 0.6302608920131826
+        },
+        "0.75": {
+          "games": 2084,
+          "frozen_log_loss": 0.624974335804747,
+          "layered_log_loss": 0.6245821988053432
+        }
+      },
+      "model+margin": {
+        "0.00": {
+          "games": 8274,
+          "frozen_log_loss": 0.6646739111268287,
+          "layered_log_loss": 0.6533185849477144
+        },
+        "0.25": {
+          "games": 6245,
+          "frozen_log_loss": 0.6404406957501994,
+          "layered_log_loss": 0.6363568413598651
+        },
+        "0.50": {
+          "games": 4173,
+          "frozen_log_loss": 0.6303425351164622,
+          "layered_log_loss": 0.6277113780202482
+        },
+        "0.75": {
+          "games": 2084,
+          "frozen_log_loss": 0.624974335804747,
+          "layered_log_loss": 0.6230675504596273
+        }
+      },
+      "model+margin+last_margin": {
+        "0.00": {
+          "games": 8274,
+          "frozen_log_loss": 0.6646739111268287,
+          "layered_log_loss": 0.6522325747436165
+        },
+        "0.25": {
+          "games": 6245,
+          "frozen_log_loss": 0.6404406957501994,
+          "layered_log_loss": 0.6363258820437269
+        },
+        "0.50": {
+          "games": 4173,
+          "frozen_log_loss": 0.6303425351164622,
+          "layered_log_loss": 0.6284977414143125
+        },
+        "0.75": {
+          "games": 2084,
+          "frozen_log_loss": 0.624974335804747,
+          "layered_log_loss": 0.6238466777707363
+        }
+      },
+      "model+margin+roster": {
+        "0.00": {
+          "games": 8274,
+          "frozen_log_loss": 0.6646739111268287,
+          "layered_log_loss": 0.6455067395080534
+        },
+        "0.25": {
+          "games": 6245,
+          "frozen_log_loss": 0.6404406957501994,
+          "layered_log_loss": 0.6336575099439473
+        },
+        "0.50": {
+          "games": 4173,
+          "frozen_log_loss": 0.6303425351164622,
+          "layered_log_loss": 0.6281581046660234
+        },
+        "0.75": {
+          "games": 2084,
+          "frozen_log_loss": 0.624974335804747,
+          "layered_log_loss": 0.624272302428492
+        }
+      },
+      "all": {
+        "0.00": {
+          "games": 8274,
+          "frozen_log_loss": 0.6646739111268287,
+          "layered_log_loss": 0.6462766307084001
+        },
+        "0.25": {
+          "games": 6245,
+          "frozen_log_loss": 0.6404406957501994,
+          "layered_log_loss": 0.6336112242862187
+        },
+        "0.50": {
+          "games": 4173,
+          "frozen_log_loss": 0.6303425351164622,
+          "layered_log_loss": 0.6286530391678727
+        },
+        "0.75": {
+          "games": 2084,
+          "frozen_log_loss": 0.624974335804747,
+          "layered_log_loss": 0.6220016172324158
+        }
+      }
+    }
+  },
+  "holdout_remaining_game_log_loss": {
+    "0.00": {
+      "games": 4916,
+      "frozen_log_loss": 0.6857649621571158,
+      "layered_log_loss": 0.6640439213679127
+    },
+    "0.25": {
+      "games": 3689,
+      "frozen_log_loss": 0.6485761845401686,
+      "layered_log_loss": 0.6398061723399695
+    },
+    "0.50": {
+      "games": 2471,
+      "frozen_log_loss": 0.6357593121605978,
+      "layered_log_loss": 0.6303916624556051
+    },
+    "0.75": {
+      "games": 1236,
+      "frozen_log_loss": 0.608279781094913,
+      "layered_log_loss": 0.6069955528463417
+    }
+  },
+  "holdout_by_signal_set": {
+    "model": {
+      "0.00": {
+        "games": 4916,
+        "frozen_log_loss": 0.6857649621571158,
+        "layered_log_loss": 0.6673227611166868
+      },
+      "0.25": {
+        "games": 3689,
+        "frozen_log_loss": 0.6485761845401686,
+        "layered_log_loss": 0.6466591012619717
+      },
+      "0.50": {
+        "games": 2471,
+        "frozen_log_loss": 0.6357593121605978,
+        "layered_log_loss": 0.6363621776716968
+      },
+      "0.75": {
+        "games": 1236,
+        "frozen_log_loss": 0.608279781094913,
+        "layered_log_loss": 0.6106859099414373
+      }
+    },
+    "model+margin": {
+      "0.00": {
+        "games": 4916,
+        "frozen_log_loss": 0.6857649621571158,
+        "layered_log_loss": 0.6673227611166868
+      },
+      "0.25": {
+        "games": 3689,
+        "frozen_log_loss": 0.6485761845401686,
+        "layered_log_loss": 0.6389089099520104
+      },
+      "0.50": {
+        "games": 2471,
+        "frozen_log_loss": 0.6357593121605978,
+        "layered_log_loss": 0.6300821559373331
+      },
+      "0.75": {
+        "games": 1236,
+        "frozen_log_loss": 0.608279781094913,
+        "layered_log_loss": 0.6067078627273091
+      }
+    },
+    "model+margin+last_margin": {
+      "0.00": {
+        "games": 4916,
+        "frozen_log_loss": 0.6857649621571158,
+        "layered_log_loss": 0.6654142260869548
+      },
+      "0.25": {
+        "games": 3689,
+        "frozen_log_loss": 0.6485761845401686,
+        "layered_log_loss": 0.6388996117573984
+      },
+      "0.50": {
+        "games": 2471,
+        "frozen_log_loss": 0.6357593121605978,
+        "layered_log_loss": 0.6301342789363065
+      },
+      "0.75": {
+        "games": 1236,
+        "frozen_log_loss": 0.608279781094913,
+        "layered_log_loss": 0.6066185379540654
+      }
+    },
+    "model+margin+roster": {
+      "0.00": {
+        "games": 4916,
+        "frozen_log_loss": 0.6857649621571158,
+        "layered_log_loss": 0.6640439213679127
+      },
+      "0.25": {
+        "games": 3689,
+        "frozen_log_loss": 0.6485761845401686,
+        "layered_log_loss": 0.6398061723399695
+      },
+      "0.50": {
+        "games": 2471,
+        "frozen_log_loss": 0.6357593121605978,
+        "layered_log_loss": 0.6303916624556051
+      },
+      "0.75": {
+        "games": 1236,
+        "frozen_log_loss": 0.608279781094913,
+        "layered_log_loss": 0.6069955528463417
+      }
+    },
+    "all": {
+      "0.00": {
+        "games": 4916,
+        "frozen_log_loss": 0.6857649621571158,
+        "layered_log_loss": 0.6647320108186746
+      },
+      "0.25": {
+        "games": 3689,
+        "frozen_log_loss": 0.6485761845401686,
+        "layered_log_loss": 0.6408837264287751
+      },
+      "0.50": {
+        "games": 2471,
+        "frozen_log_loss": 0.6357593121605978,
+        "layered_log_loss": 0.6321887430933901
+      },
+      "0.75": {
+        "games": 1236,
+        "frozen_log_loss": 0.608279781094913,
+        "layered_log_loss": 0.6086736428426939
+      }
+    }
+  },
+  "note": "Every choice above uses the calibration seasons only. Caveat: during development, exploratory runs printed holdout log loss for several signal sets before the parsimony rule was added, so the holdout is not perfectly untouched; holdout_by_signal_set is reported for transparency.",
+  "strength_sd_by_season_fraction": {
+    "0.00": 0.4,
+    "0.25": 0.4,
+    "0.50": 0.4,
+    "0.75": 0.4,
+    "1.00": 0.4
+  },
+  "strength_sd_calibration": {
+    "seasons": [
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021
+    ],
+    "criterion": "mean CRPS of simulated final wins (lower is better)",
+    "grid": [
+      0.0,
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6
+    ],
+    "by_checkpoint": {
+      "0.00": {
+        "0.00": {
+          "mean_crps_wins": 5.166689352380952,
+          "actual_within_p5_p95_share": 0.5952380952380952,
+          "direct_playoff_brier": 0.1966051523809524,
+          "model_mae_wins": 6.8105238095238105
+        },
+        "0.10": {
+          "mean_crps_wins": 5.0796426,
+          "actual_within_p5_p95_share": 0.6428571428571429,
+          "direct_playoff_brier": 0.1953475047619048,
+          "model_mae_wins": 6.796647619047619
+        },
+        "0.20": {
+          "mean_crps_wins": 4.911898771428571,
+          "actual_within_p5_p95_share": 0.7142857142857144,
+          "direct_playoff_brier": 0.18586984761904765,
+          "model_mae_wins": 6.78432380952381
+        },
+        "0.30": {
+          "mean_crps_wins": 4.774422914285716,
+          "actual_within_p5_p95_share": 0.7952380952380952,
+          "direct_playoff_brier": 0.17954258095238096,
+          "model_mae_wins": 6.774123809523809
+        },
+        "0.40": {
+          "mean_crps_wins": 4.7076249809523825,
+          "actual_within_p5_p95_share": 0.8857142857142856,
+          "direct_playoff_brier": 0.1750887238095238,
+          "model_mae_wins": 6.770095238095238
+        },
+        "0.50": {
+          "mean_crps_wins": 4.711992533333335,
+          "actual_within_p5_p95_share": 0.9523809523809524,
+          "direct_playoff_brier": 0.17408643809523808,
+          "model_mae_wins": 6.769038095238095
+        },
+        "0.60": {
+          "mean_crps_wins": 4.767242676190477,
+          "actual_within_p5_p95_share": 0.9761904761904763,
+          "direct_playoff_brier": 0.17567819047619046,
+          "model_mae_wins": 6.768257142857144
+        }
+      },
+      "0.25": {
+        "0.00": {
+          "mean_crps_wins": 3.4439633904761906,
+          "actual_within_p5_p95_share": 0.7285714285714285,
+          "direct_playoff_brier": 0.14478967619047617,
+          "model_mae_wins": 4.672771428571429
+        },
+        "0.10": {
+          "mean_crps_wins": 3.412949133333334,
+          "actual_within_p5_p95_share": 0.7476190476190476,
+          "direct_playoff_brier": 0.14234853333333333,
+          "model_mae_wins": 4.67127619047619
+        },
+        "0.20": {
+          "mean_crps_wins": 3.3527273333333327,
+          "actual_within_p5_p95_share": 0.8142857142857142,
+          "direct_playoff_brier": 0.13922180952380953,
+          "model_mae_wins": 4.673685714285715
+        },
+        "0.30": {
+          "mean_crps_wins": 3.312049514285713,
+          "actual_within_p5_p95_share": 0.8857142857142856,
+          "direct_playoff_brier": 0.1355890476190476,
+          "model_mae_wins": 4.679866666666666
+        },
+        "0.40": {
+          "mean_crps_wins": 3.3103575523809528,
+          "actual_within_p5_p95_share": 0.9333333333333333,
+          "direct_playoff_brier": 0.1335864857142857,
+          "model_mae_wins": 4.689714285714286
+        },
+        "0.50": {
+          "mean_crps_wins": 3.3505136380952396,
+          "actual_within_p5_p95_share": 0.9571428571428573,
+          "direct_playoff_brier": 0.13335214285714286,
+          "model_mae_wins": 4.705742857142857
+        },
+        "0.60": {
+          "mean_crps_wins": 3.42091845714286,
+          "actual_within_p5_p95_share": 0.9714285714285715,
+          "direct_playoff_brier": 0.13387497142857144,
+          "model_mae_wins": 4.7268285714285705
+        }
+      },
+      "0.50": {
+        "0.00": {
+          "mean_crps_wins": 2.4881677904761896,
+          "actual_within_p5_p95_share": 0.7904761904761906,
+          "direct_playoff_brier": 0.11699240000000001,
+          "model_mae_wins": 3.4287238095238095
+        },
+        "0.10": {
+          "mean_crps_wins": 2.4787452476190484,
+          "actual_within_p5_p95_share": 0.7952380952380952,
+          "direct_playoff_brier": 0.11641377142857143,
+          "model_mae_wins": 3.433495238095237
+        },
+        "0.20": {
+          "mean_crps_wins": 2.447722,
+          "actual_within_p5_p95_share": 0.8190476190476189,
+          "direct_playoff_brier": 0.1139556,
+          "model_mae_wins": 3.434285714285714
+        },
+        "0.30": {
+          "mean_crps_wins": 2.422949723809524,
+          "actual_within_p5_p95_share": 0.8809523809523812,
+          "direct_playoff_brier": 0.11144470476190475,
+          "model_mae_wins": 3.437104761904762
+        },
+        "0.40": {
+          "mean_crps_wins": 2.41524719047619,
+          "actual_within_p5_p95_share": 0.9142857142857144,
+          "direct_playoff_brier": 0.10840736190476193,
+          "model_mae_wins": 3.4416952380952384
+        },
+        "0.50": {
+          "mean_crps_wins": 2.4323557619047618,
+          "actual_within_p5_p95_share": 0.942857142857143,
+          "direct_playoff_brier": 0.10717393333333333,
+          "model_mae_wins": 3.453590476190475
+        },
+        "0.60": {
+          "mean_crps_wins": 2.4666035809523814,
+          "actual_within_p5_p95_share": 0.980952380952381,
+          "direct_playoff_brier": 0.10604360952380952,
+          "model_mae_wins": 3.4642476190476197
+        }
+      },
+      "0.75": {
+        "0.00": {
+          "mean_crps_wins": 1.3923010190476188,
+          "actual_within_p5_p95_share": 0.8904761904761905,
+          "direct_playoff_brier": 0.07065426666666667,
+          "model_mae_wins": 2.004514285714286
+        },
+        "0.10": {
+          "mean_crps_wins": 1.392620133333333,
+          "actual_within_p5_p95_share": 0.9,
+          "direct_playoff_brier": 0.07063094285714286,
+          "model_mae_wins": 2.009447619047619
+        },
+        "0.20": {
+          "mean_crps_wins": 1.386572676190476,
+          "actual_within_p5_p95_share": 0.9190476190476191,
+          "direct_playoff_brier": 0.07001422857142857,
+          "model_mae_wins": 2.0130190476190477
+        },
+        "0.30": {
+          "mean_crps_wins": 1.381249761904762,
+          "actual_within_p5_p95_share": 0.9476190476190477,
+          "direct_playoff_brier": 0.06921870476190475,
+          "model_mae_wins": 2.0166571428571425
+        },
+        "0.40": {
+          "mean_crps_wins": 1.3799325428571425,
+          "actual_within_p5_p95_share": 0.9571428571428572,
+          "direct_playoff_brier": 0.06809336190476191,
+          "model_mae_wins": 2.0196952380952378
+        },
+        "0.50": {
+          "mean_crps_wins": 1.386473190476191,
+          "actual_within_p5_p95_share": 0.9761904761904763,
+          "direct_playoff_brier": 0.06727612380952382,
+          "model_mae_wins": 2.0228666666666664
+        },
+        "0.60": {
+          "mean_crps_wins": 1.3999335523809526,
+          "actual_within_p5_p95_share": 0.9857142857142858,
+          "direct_playoff_brier": 0.06749210476190477,
+          "model_mae_wins": 2.0315809523809523
+        }
+      }
+    }
+  }
+}

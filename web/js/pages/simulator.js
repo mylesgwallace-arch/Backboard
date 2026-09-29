@@ -156,7 +156,7 @@ function wireRunButton(container, ctx) {
       dateInput.value = `${season + 1}-01-15`;
     }
     modeNote.textContent = asOf
-      ? "Games before the cutoff keep their real results; every later game uses the production model with team strength frozen at the cutoff, plus a calibrated per-team strength uncertainty. Backtested on 2022-2025: about 8.7 wins average error preseason, 4.0 at mid-season (no better than carrying current win% forward), 2.2 with a quarter of the season left."
+      ? "Games before the cutoff keep their real results; every later game uses the production model with team strength frozen at the cutoff, adjusted by season-to-date point margin and an opening-day roster value, plus a calibrated per-team strength uncertainty. Backtested on 2022-2025: about 8.2 wins average error preseason, 3.9 at mid-season (carrying current win% forward: 3.95), 2.2 with a quarter of the season left."
       : "Replay mode gives each game the model's pregame probability, which already reflects every earlier result that season. It is a replay check, not a forecast made on one date.";
   };
   modeSelect.addEventListener("change", syncMode);

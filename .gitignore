@@ -26,6 +26,7 @@ models/*
 !models/roster_adjustment_backtest.json
 !models/nl_eval_report.json
 !models/era_swap_model.json
+!models/strength_layer.json
 
 # Environment variables
 .env

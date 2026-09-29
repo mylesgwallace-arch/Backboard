@@ -43,6 +43,7 @@ try:
         frozen_matchup_probabilities,
         load_model_inputs,
         project_from_date,
+        resolve_strength_layer,
         season_schedule,
     )
     from src.simulate_season import conference_of, load_team_names
@@ -54,6 +55,7 @@ except ImportError:  # pragma: no cover - direct-script support
         frozen_matchup_probabilities,
         load_model_inputs,
         project_from_date,
+        resolve_strength_layer,
         season_schedule,
     )
     from simulate_season import conference_of, load_team_names
@@ -702,7 +704,10 @@ def season_playoff_odds(season, as_of, inputs, n_simulations=1000, random_state=
     if strength_sd is None:
         # A complete regular season freezes strength where the playoff
         # replay validation measured it (no extra shock helped there).
-        sd = default_strength_sd(fraction_completed) if fraction_completed < 1 else 0.0
+        sd = (
+            default_strength_sd(fraction_completed, resolve_strength_layer(None))
+            if fraction_completed < 1 else 0.0
+        )
     else:
         sd = float(strength_sd)
     rng = np.random.default_rng(random_state + 1)

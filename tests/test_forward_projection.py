@@ -22,6 +22,12 @@ TEAMS = [EAST_A, EAST_B, WEST_A, WEST_B]
 ELO = {"initial_rating": 1500.0, "k_factor": 20.0, "home_advantage": 65.0}
 
 
+@pytest.fixture(autouse=True)
+def _frozen_model_only(monkeypatch):
+    """Synthetic inputs: keep projections on the frozen model (no DB-backed layer)."""
+    monkeypatch.setattr("src.forward_projection.USE_STRENGTH_LAYER", False)
+
+
 class StubModel:
     """predict_proba from the teamScore delta and elo_delta, deterministic."""
 
