@@ -27,8 +27,6 @@
     --f-rans: "Abril Fatface", Georgia, serif;
     --ease: cubic-bezier(0.16, 1, 0.3, 1);
     --fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .32 0 0 0 0 .28 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-    --blotch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='700'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.007 .011' numOctaves='4' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .6 0 0 0 0 .6 0 0 0 0 .58 0 0 0 2.6 -1.15'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-    --speck: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='s' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='3' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 9 -6.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
   }
   * { box-sizing: border-box; margin: 0; }
   html { scroll-behavior: smooth; scrollbar-color: var(--red) var(--ground); background: var(--ground); }
@@ -41,8 +39,6 @@
   .wrap { position: relative; max-width: 1320px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 52px); }
   .num { font-family: var(--f-head); font-variant-numeric: tabular-nums; line-height: 0.9; }
 
-  /* grain over everything, fixed, cheap */
-  body::after { content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0.13; mix-blend-mode: screen; background-image: var(--speck); }
 
   /* ---------- torn paper: a white fibrous rim under a colored face, both with rough edges ---------- */
   .scrap { position: relative; isolation: isolate; padding: var(--pad, 1.5rem); color: var(--k, var(--ink)); }
@@ -56,25 +52,14 @@
     clip-path: polygon(1% 0, 99% 0, 100% 14%, 97% 28%, 100% 42%, 97% 56%, 100% 70%, 97% 84%, 99% 100%, 1% 100%, 0 84%, 3% 70%, 0 56%, 3% 42%, 0 28%, 3% 14%); }
   .tape.y { background-color: rgb(243 227 42 / 0.86); }
 
-  /* boil: the stop-motion shiver, three frames at about 8 fps */
-  @media (prefers-reduced-motion: no-preference) {
-    .boil { animation: boil 0.36s steps(1, end) infinite; animation-delay: var(--bd, 0s); }
-    @keyframes boil {
-      0% { translate: 0 0; rotate: 0deg; } 33% { translate: 1.2px -1px; rotate: 0.5deg; } 66% { translate: -1px 1px; rotate: -0.4deg; }
-    }
-  }
 
   /* ---------- pages: black, white, red and yellow sheets, each torn onto the last ---------- */
   .page { position: relative; padding-block: clamp(4.5rem, 9vw, 8rem); }
   .page + .page::before { content: ""; position: absolute; z-index: 5; left: -3%; right: -3%; top: -20px; height: 40px; background-color: var(--paper); background-image: var(--fiber); filter: url(#tear-edge); pointer-events: none; }
   .page.dark { background: var(--ground); color: var(--fg); }
-  .page.dark::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0.3; background-image: var(--blotch); mix-blend-mode: screen; }
   .page.white { background: var(--paper); color: var(--ink); }
-  .page.white::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.16; background-image: var(--blotch); mix-blend-mode: multiply; }
   .page.red { background: var(--red); color: var(--ink); }
-  .page.red::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.3; background-image: var(--blotch); mix-blend-mode: multiply; }
   .page.yellow { background: var(--yellow); color: var(--ink); }
-  .page.yellow::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.28; background-image: var(--blotch); mix-blend-mode: multiply; }
   .page > .wrap { z-index: 2; }
 
   .h2 { font: 400 clamp(3.2rem, 8.2vw, 7.6rem)/0.9 var(--f-head); text-transform: uppercase; letter-spacing: 0.005em; text-wrap: balance; }
@@ -92,8 +77,19 @@
   .link { font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.95rem; text-underline-offset: 0.3em; text-decoration-thickness: 3px; }
 
   /* ---------- cover ---------- */
-  .cover { min-height: min(100dvh, 940px); display: grid; align-items: center; padding-block: 5.5rem 4rem; overflow: hidden; }
-  .cover > .wrap { width: 100%; display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; }
+  .cover { min-height: min(100dvh, 940px); display: grid; align-items: center; padding-block: 5.5rem 5rem; overflow: hidden; }
+  .herobg { position: absolute; inset: 0; z-index: 0; background: #0a0a0a; }
+  .herobg img, .herobg video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: grayscale(0.25) contrast(1.12) brightness(0.82); }
+  .herobg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(10 10 10 / 0.86), rgb(10 10 10 / 0.6) 55%, rgb(10 10 10 / 0.3)), repeating-linear-gradient(0deg, rgb(0 0 0 / 0.2) 0 1px, transparent 1px 3px); }
+  .bgpp { position: absolute; z-index: 6; left: clamp(16px, 4vw, 52px); bottom: 1.3rem; display: inline-flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0 1rem 0 0.8rem; background: #0e0e0e; color: var(--fg); border: 2px solid var(--fg); cursor: pointer; font: 800 0.78rem var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; }
+  .bgpp:hover { border-color: var(--yellow); color: var(--yellow); }
+  .bgpp svg { width: 14px; height: 14px; fill: currentColor; }
+  .bgpp .ic-play, .bgpp .t-play { display: none; } .bgpp[data-state="paused"] .ic-play, .bgpp[data-state="paused"] .t-play { display: inline; } .bgpp[data-state="paused"] .ic-pause, .bgpp[data-state="paused"] .t-pause { display: none; }
+  .bgpp[data-state="paused"] svg.ic-play { display: block; }
+  .stickers { position: relative; z-index: 3; display: grid; gap: 2rem; justify-items: start; align-self: end; max-width: 330px; justify-self: end; }
+  .vtag { max-width: 100%; font: 700 0.95rem/1.25 var(--f-type); text-transform: uppercase; color: var(--ink); background: var(--yellow); padding: 0.7rem 1rem; transform: rotate(-3deg); clip-path: polygon(0 0, 98% 3%, 100% 100%, 2% 96%); }
+  .vtag b { font: 400 1.7rem/1 var(--f-head); }
+  .cover > .wrap { width: 100%; display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; }
   .nav { position: absolute; z-index: 20; top: 0; left: 0; right: 0; }
   .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 72px; }
   .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; font: 400 1.5rem/1 var(--f-head); letter-spacing: 0.06em; text-transform: uppercase; }
@@ -113,20 +109,7 @@
   .say em { font-style: normal; color: var(--red); }
   .sub { margin-top: 1rem; max-width: 34ch; font-size: clamp(1.05rem, 1.5vw, 1.3rem); font-weight: 600; }
   .go { display: flex; flex-wrap: wrap; align-items: center; gap: 1.6rem; margin-top: 1.8rem; }
-  .tvwrap { position: relative; justify-self: center; width: min(100%, 470px); transform: rotate(2.4deg); }
-  .tv { --face: #2b2b2a; --pad: 1.2rem; --rim: 9px; }
-  .tv .bezel { display: block; }
-  .screen { position: relative; overflow: hidden; aspect-ratio: 464 / 480; border-radius: 9% / 8%; background: #000; box-shadow: inset 0 0 0 3px #0a0a0a; }
-  .screen video, .screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgb(0 0 0 / 0.22) 0 1px, transparent 1px 3px), radial-gradient(120% 120% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.55)); }
-  .tvbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.9rem; }
-  .knobs { display: flex; gap: 0.6rem; } .knobs i { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #777, #222 70%); box-shadow: inset 0 0 0 2px #0a0a0a; }
-  .spk { flex: 1; height: 22px; background: repeating-linear-gradient(90deg, #0a0a0a 0 3px, transparent 3px 8px); opacity: 0.85; }
-  .tvpp { min-width: 44px; min-height: 44px; border: 2px solid #0a0a0a; background: #3a3a38; cursor: pointer; display: grid; place-items: center; }
-  .tvpp svg { width: 16px; height: 16px; fill: var(--paper); } .tvpp .ic-play { display: none; } .tvpp[data-state="paused"] .ic-play { display: block; } .tvpp[data-state="paused"] .ic-pause { display: none; }
-  .tvtag { position: absolute; z-index: 6; left: -6%; bottom: 14%; max-width: 62%; font: 700 0.86rem/1.25 var(--f-type); text-transform: uppercase; color: var(--ink); background: var(--yellow); padding: 0.55rem 0.8rem; transform: rotate(-4deg); clip-path: polygon(0 0, 98% 3%, 100% 100%, 2% 96%); }
-  .tvtag b { font: 400 1.5rem/1 var(--f-head); }
-  .star { position: absolute; z-index: 7; right: -4%; top: -6%; width: 128px; aspect-ratio: 1; display: grid; place-items: center; text-align: center; background: var(--red); color: var(--ink); font: 400 1rem/0.95 var(--f-head); text-transform: uppercase; padding: 1.2rem; clip-path: polygon(50% 0, 60% 17%, 79% 7%, 78% 27%, 98% 25%, 88% 42%, 100% 55%, 82% 62%, 88% 82%, 68% 78%, 60% 98%, 50% 82%, 38% 100%, 32% 80%, 12% 88%, 18% 66%, 0 55%, 16% 44%, 4% 26%, 24% 27%, 22% 8%, 40% 17%); }
+  .star { position: relative; z-index: 7; justify-self: end; transform: rotate(8deg); width: 128px; aspect-ratio: 1; display: grid; place-items: center; text-align: center; background: var(--red); color: var(--ink); font: 400 1rem/0.95 var(--f-head); text-transform: uppercase; padding: 1.2rem; clip-path: polygon(50% 0, 60% 17%, 79% 7%, 78% 27%, 98% 25%, 88% 42%, 100% 55%, 82% 62%, 88% 82%, 68% 78%, 60% 98%, 50% 82%, 38% 100%, 32% 80%, 12% 88%, 18% 66%, 0 55%, 16% 44%, 4% 26%, 24% 27%, 22% 8%, 40% 17%); }
 
   /* ---------- matchup ---------- */
   .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; margin-top: 3rem; }
@@ -238,8 +221,9 @@
     .nav nav { display: none; }
     .cover { min-height: auto; padding-top: 5rem; }
     .cover > .wrap, .duo, .rc, .odds { grid-template-columns: minmax(0, 1fr); }
-    .tvwrap { width: min(86%, 400px); margin-top: 2rem; }
-    .star { width: 100px; right: -2%; }
+    .stickers { justify-self: start; margin-top: 1rem; grid-auto-flow: row; }
+    .star { width: 100px; justify-self: start; }
+    .bgpp { bottom: 0.9rem; }
     .duo .side.away { order: 3; } .duo .center { order: 2; }
     .flipper { --w: min(58vw, 250px); }
     .move { grid-template-columns: minmax(0, 1fr); } .arrow { transform: rotate(90deg); justify-self: center; margin-block: 0.4rem; }
@@ -257,10 +241,13 @@
   <filter id="tear-edge" x="0" y="-60%" width="100%" height="220%"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.06" numOctaves="4" seed="6" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="26" xChannelSelector="R" yChannelSelector="G" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="2" seed="11" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="7" xChannelSelector="G" yChannelSelector="B"/></filter>
 </defs></svg>
 
-<div class="damaged" hidden></div>
-
 <!-- COVER -->
 <header class="page dark cover" id="top">
+  <div class="herobg" aria-hidden="true">
+    <img src="media/still-166.jpg" alt="" width="696" height="720">
+    <video id="herovid" muted loop playsinline preload="metadata" poster="media/still-166.jpg" tabindex="-1"><source src="media/montage.mp4" type="video/mp4"></video>
+  </div>
+  <button class="bgpp" id="herobtn" type="button" data-state="paused" aria-label="Play background footage"><svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg><svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg><span class="t-pause">Pause footage</span><span class="t-play">Play footage</span></button>
   <div class="nav"><div class="wrap">
     <a class="brand" href="#top" aria-label="Backboard home"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="3" width="40" height="26" fill="none" stroke="#ecebe5" stroke-width="3"/><rect x="16" y="12" width="16" height="11" fill="none" stroke="#ee3a1f" stroke-width="3"/><ellipse cx="24" cy="33.2" rx="10.2" ry="2.8" fill="none" stroke="#ee3a1f" stroke-width="3.2"/><path d="M15 34 18.5 46M33 34 29.5 46M24 36v10" fill="none" stroke="#ecebe5" stroke-width="1.6" stroke-linecap="round"/></svg>Backboard</a>
     <nav aria-label="Sections"><a href="#matchup">Matchup</a><a href="#receipts">Receipts</a><a href="#odds">Odds</a><a href="#whatif">What if</a></nav>
@@ -272,18 +259,9 @@
       <p class="sub">Win probabilities for any NBA matchup, from a model that shows its work.</p>
       <div class="go"><a class="btn" href="#matchup">Predict a matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></a><a class="link" href="#receipts">See the receipts</a></div>
     </div>
-    <div class="tvwrap boil" style="--bd: 0.05s">
-      <div class="scrap t2 tv">
-        <i class="tape" style="left: 16%; top: -22px; --tr: -6deg"></i><i class="tape" style="right: 12%; top: -20px; --tr: 5deg"></i>
-        <div class="screen hf-slot" data-hf="Optional: a still from the 90s dunk montage with a cutout player and thick white torn outline, halftone, no logos" data-hf-size="1200x1240">
-          <img src="media/still-166.jpg" alt="" width="696" height="720">
-          <video id="tvvid" muted loop playsinline preload="metadata" poster="media/still-166.jpg" tabindex="-1" aria-label="90s dunk montage, looping, no sound"><source src="media/montage.mp4" type="video/mp4"></video>
-        </div>
-        <div class="tvbar"><div class="knobs" aria-hidden="true"><i></i><i></i></div><div class="spk" aria-hidden="true"></div>
-          <button class="tvpp" id="tvpp" type="button" data-state="paused" aria-label="Play dunk montage"><svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg><svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg></button></div>
-      </div>
-      <div class="tvtag" id="tvtag" aria-live="polite"></div>
-      <div class="star boil" style="--bd: 0.12s" aria-hidden="true">Not always right</div>
+    <div class="stickers">
+      <div class="vtag" id="vtag" aria-live="polite"></div>
+      <div class="star" aria-hidden="true">Not always right</div>
     </div>
   </div>
 </header>
@@ -397,7 +375,7 @@
       const face = faces[Math.floor(r() * faces.length)];
       const serif = r() < 0.16 ? " f2" : "";
       const rot = ((r() - 0.5) * 5).toFixed(1), y = ((r() - 0.5) * 0.06).toFixed(3), s = (0.96 + r() * 0.08).toFixed(2);
-      return `<span class="tile ${face}${serif} boil" style="--r:${rot}deg;--y:${y}em;--s:${s}em;--bd:${(r() * 0.3).toFixed(2)}s">${ch}</span>`;
+      return `<span class="tile ${face}${serif}" style="--r:${rot}deg;--y:${y}em;--s:${s}em;--bd:${(r() * 0.3).toFixed(2)}s">${ch}</span>`;
     }).join("");
   }
 
@@ -430,8 +408,8 @@
 
   /* ---------- cover ---------- */
   document.querySelectorAll("[data-tiles]").forEach(tiles);
-  const vid = $("#tvvid"), pp = $("#tvpp");
-  function setPP() { const paused = vid.paused; pp.dataset.state = paused ? "paused" : "playing"; pp.setAttribute("aria-label", paused ? "Play dunk montage" : "Pause dunk montage"); }
+  const vid = $("#herovid"), pp = $("#herobtn");
+  function setPP() { const paused = vid.paused; pp.dataset.state = paused ? "paused" : "playing"; pp.setAttribute("aria-label", paused ? "Play background footage" : "Pause background footage"); }
   pp.addEventListener("click", () => { if (vid.paused) vid.play().catch(() => {}); else vid.pause(); setPP(); });
   vid.addEventListener("play", setPP); vid.addEventListener("pause", setPP);
   vid.style.opacity = "0";
@@ -446,7 +424,7 @@
     const champ = BB.teams.find((t) => t.po && t.po.actual === "won the title");
     const inPair = champ && (champ === p.home || champ === p.away);
     const line = inPair ? (champ === p.favTeam ? `Model said ${p.favTeam.abbr} ${fmt.pct0(p.favP)}%. ${champ.abbr} won it.` : `Model said ${p.favTeam.abbr} ${fmt.pct0(p.favP)}%. ${champ.abbr} won it anyway.`) : `Finals: ${p.favTeam.abbr} ${fmt.pct0(p.favP)}%.`;
-    $("#tvtag").innerHTML = `<b>${line}</b>`;
+    $("#vtag").innerHTML = `<b>${line}</b>`;
   }
 
   /* ---------- matchup ---------- */
@@ -508,7 +486,7 @@
   function paintReceipts() {
     const h = BB.meta.holdout;
     $("#receipt").innerHTML = `<i class="tape" style="left: 34%; top: -22px; --tr: -3deg"></i>Backboard receipt<br>${BB.meta.model.replace(/_/g, " ")}<br>------------------------<span class="big"><span id="acc">0</span><small>%</small></span>picked right<dl><dt>Games it never saw</dt><dd>${h.games.toLocaleString("en-US")}</dd><dt>Log loss</dt><dd>${h.logLoss.toFixed(4)}</dd><dt>Calibration error</dt><dd>${h.ece.toFixed(3)}</dd><dt>Holdout starts</dt><dd>${h.start}</dd></dl><br>thank you. probabilities are not guarantees.`;
-    onFirstView($("#receipt"), () => { countTo($("#acc"), h.accuracy * 100); uncrumple($("#receipt")); });
+    onFirstView($("#receipt"), () => { uncrumple($("#receipt")); });
     $("#acc").textContent = fmt.pct(h.accuracy, 1);
     const bins = BB.calibration;
     const W = 560, H = 430, m = { l: 58, r: 20, t: 20, b: 56 };
@@ -526,8 +504,6 @@
       <text transform="translate(16 ${(m.t + H - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="14" font-weight="700">WHAT HAPPENED</text></svg>
       <p class="pen">said ${fmt.pct0(hi.pred)}, got ${fmt.pct0(hi.obs)}. a little cocky.</p>
       <div class="sr-only"><table><caption>Calibration groups</caption><thead><tr><th>Group</th><th>Games</th><th>Model said</th><th>Home won</th></tr></thead><tbody>${table}</tbody></table></div>`;
-    $("#graphbox").addEventListener("x", () => {});
-    inView.observe($("#graphbox")); $("#graphbox")._count = () => uncrumple($("#graphbox"));
   }
 
   /* ---------- odds ---------- */
@@ -542,7 +518,6 @@
       <div class="scrap t3 fb"><i class="tape y" style="left: 30%; top: -22px; --tr: -4deg"></i><span class="n"><span id="cn-b">0</span><small>%</small></span><p>${fmt.fullName(champ)}. ${BB.RESULT_LABEL[champ.po.actual]}.</p></div>
       <div class="scrap photo fc"><div class="pic"><img src="media/still-84.jpg" alt="" width="696" height="720" loading="lazy"></div></div>`;
     $("#cn-a").textContent = fmt.pct(top.po.title); $("#cn-b").textContent = fmt.pct(champ.po.title);
-    onFirstView($("#facts"), () => { $("#cn-a")._v = 0; $("#cn-b")._v = 0; countTo($("#cn-a"), top.po.title * 100, 1, 1100); countTo($("#cn-b"), champ.po.title * 100, 1, 1100); });
     $("#ledger").insertAdjacentHTML("beforeend", `<table><thead><tr><th>Team</th><th style="text-align:right">Title odds</th><th>What happened</th></tr></thead><tbody>${rows.map((t) => `<tr class="${t === champ ? "champ" : ""}"><td>${t.abbr}</td><td class="n2">${fmt.pct(t.po.title)}%</td><td>${BB.RESULT_LABEL[t.po.actual]}</td></tr>`).join("")}</tbody></table><p class="fine">Odds use the real seeded bracket with team strength frozen at the end of the regular season. Results come from the games database.</p>`);
   }
 
@@ -565,7 +540,7 @@
   repaint = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
   BB.state.subscribe((p) => { paintCards(p); paintCenter(p); paintTags(p); syncQuick(); });
   coverTag(); paintReceipts(); paintOdds(); paintWhatIf();
-  $("#fine").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed. Dunk montage is your own 90s edit.`;
+  $("#fine").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed. Hero footage is a 90s dunk montage edit.`;
 })();
 </script>
 </body>
