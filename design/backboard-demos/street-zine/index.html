@@ -77,7 +77,7 @@
   .link { font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.95rem; text-underline-offset: 0.3em; text-decoration-thickness: 3px; }
 
   /* ---------- cover ---------- */
-  .cover { min-height: min(100dvh, 940px); display: grid; align-items: center; padding-block: 5.5rem 5rem; overflow: hidden; }
+  .cover { min-height: 100vh; min-height: 100svh; display: grid; align-items: center; padding-block: 5.5rem 5.5rem; overflow: hidden; }
   .herobg { position: absolute; inset: 0; z-index: 0; background: #0a0a0a; }
   .herobg img, .herobg video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: grayscale(0.25) contrast(1.12) brightness(0.82); }
   .herobg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(10 10 10 / 0.86), rgb(10 10 10 / 0.6) 55%, rgb(10 10 10 / 0.3)), repeating-linear-gradient(0deg, rgb(0 0 0 / 0.2) 0 1px, transparent 1px 3px); }
@@ -86,10 +86,7 @@
   .bgpp svg { width: 14px; height: 14px; fill: currentColor; }
   .bgpp .ic-play, .bgpp .t-play { display: none; } .bgpp[data-state="paused"] .ic-play, .bgpp[data-state="paused"] .t-play { display: inline; } .bgpp[data-state="paused"] .ic-pause, .bgpp[data-state="paused"] .t-pause { display: none; }
   .bgpp[data-state="paused"] svg.ic-play { display: block; }
-  .stickers { position: relative; z-index: 3; display: grid; gap: 2rem; justify-items: start; align-self: end; max-width: 330px; justify-self: end; }
-  .vtag { max-width: 100%; font: 700 0.95rem/1.25 var(--f-type); text-transform: uppercase; color: var(--ink); background: var(--yellow); padding: 0.7rem 1rem; transform: rotate(-3deg); clip-path: polygon(0 0, 98% 3%, 100% 100%, 2% 96%); }
-  .vtag b { font: 400 1.7rem/1 var(--f-head); }
-  .cover > .wrap { width: 100%; display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; }
+  .cover > .wrap { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; }
   .nav { position: absolute; z-index: 20; top: 0; left: 0; right: 0; }
   .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 72px; }
   .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; font: 400 1.5rem/1 var(--f-head); letter-spacing: 0.06em; text-transform: uppercase; }
@@ -98,7 +95,7 @@
   .nav nav a { text-decoration: none; font: 800 0.85rem var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; padding: 0.6rem 0; border-bottom: 3px solid transparent; }
   .nav nav a:hover { border-color: var(--red); }
   .mastcol { container-type: inline-size; min-width: 0; }
-  .mast { display: flex; flex-direction: column; gap: 0.06em; font-size: clamp(4rem, 26.5cqw, 14rem); font-weight: 400; }
+  .mast { display: flex; flex-direction: column; gap: 0.06em; font-size: clamp(4rem, min(19cqw, 22svh), 15rem); font-weight: 400; }
   .row { display: flex; flex-wrap: nowrap; gap: 0.05em; }
   .tile { position: relative; isolation: isolate; display: inline-block; line-height: 0.95; padding: 0.03em 0.1em 0; font-family: var(--f-head); color: var(--ink); transform: translateY(var(--y, 0)) rotate(var(--r, 0deg)); font-size: var(--s, 1em); }
   .tile.f2 { font-family: var(--f-rans); }
@@ -109,7 +106,6 @@
   .say em { font-style: normal; color: var(--red); }
   .sub { margin-top: 1rem; max-width: 34ch; font-size: clamp(1.05rem, 1.5vw, 1.3rem); font-weight: 600; }
   .go { display: flex; flex-wrap: wrap; align-items: center; gap: 1.6rem; margin-top: 1.8rem; }
-  .star { position: relative; z-index: 7; justify-self: end; transform: rotate(8deg); width: 128px; aspect-ratio: 1; display: grid; place-items: center; text-align: center; background: var(--red); color: var(--ink); font: 400 1rem/0.95 var(--f-head); text-transform: uppercase; padding: 1.2rem; clip-path: polygon(50% 0, 60% 17%, 79% 7%, 78% 27%, 98% 25%, 88% 42%, 100% 55%, 82% 62%, 88% 82%, 68% 78%, 60% 98%, 50% 82%, 38% 100%, 32% 80%, 12% 88%, 18% 66%, 0 55%, 16% 44%, 4% 26%, 24% 27%, 22% 8%, 40% 17%); }
 
   /* ---------- matchup ---------- */
   .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; margin-top: 3rem; }
@@ -219,10 +215,8 @@
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .flip-in { transition: none; } }
   @media (max-width: 900px) {
     .nav nav { display: none; }
-    .cover { min-height: auto; padding-top: 5rem; }
+    .mast { font-size: clamp(4rem, min(26.5cqw, 24svh), 9rem); }
     .cover > .wrap, .duo, .rc, .odds { grid-template-columns: minmax(0, 1fr); }
-    .stickers { justify-self: start; margin-top: 1rem; grid-auto-flow: row; }
-    .star { width: 100px; justify-self: start; }
     .bgpp { bottom: 0.9rem; }
     .duo .side.away { order: 3; } .duo .center { order: 2; }
     .flipper { --w: min(58vw, 250px); }
@@ -258,10 +252,6 @@
       <p class="say" aria-hidden="true">Know who <em>wins.</em></p>
       <p class="sub">Win probabilities for any NBA matchup, from a model that shows its work.</p>
       <div class="go"><a class="btn" href="#matchup">Predict a matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></a><a class="link" href="#receipts">See the receipts</a></div>
-    </div>
-    <div class="stickers">
-      <div class="vtag" id="vtag" aria-live="polite"></div>
-      <div class="star" aria-hidden="true">Not always right</div>
     </div>
   </div>
 </header>
@@ -418,15 +408,6 @@
     new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { vid.play().catch(() => {}); } else { vid.pause(); } })).observe(vid);
   }
 
-  function coverTag() {
-    const [hi, ai] = BB.featured[0];
-    const p = BB.predict(hi, ai);
-    const champ = BB.teams.find((t) => t.po && t.po.actual === "won the title");
-    const inPair = champ && (champ === p.home || champ === p.away);
-    const line = inPair ? (champ === p.favTeam ? `Model said ${p.favTeam.abbr} ${fmt.pct0(p.favP)}%. ${champ.abbr} won it.` : `Model said ${p.favTeam.abbr} ${fmt.pct0(p.favP)}%. ${champ.abbr} won it anyway.`) : `Finals: ${p.favTeam.abbr} ${fmt.pct0(p.favP)}%.`;
-    $("#vtag").innerHTML = `<b>${line}</b>`;
-  }
-
   /* ---------- matchup ---------- */
   const flipped = { h: false, a: false };
   function faceHTML(t, color, role) {
@@ -539,7 +520,7 @@
   paintQuick();
   repaint = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
   BB.state.subscribe((p) => { paintCards(p); paintCenter(p); paintTags(p); syncQuick(); });
-  coverTag(); paintReceipts(); paintOdds(); paintWhatIf();
+  paintReceipts(); paintOdds(); paintWhatIf();
   $("#fine").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed. Hero footage is a 90s dunk montage edit.`;
 })();
 </script>
