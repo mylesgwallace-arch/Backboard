@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backboard | Arena Scoreboard, Impeccable</title>
+<meta name="description" content="Backboard as the arena scoreboard: a rigid LED mask where unlit segments are designed too, panel buttons set the teams, and PREDICT ignites real model output.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@400;700;900&family=Familjen+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../shared/slots.css">
+<style>
+  :root {
+    --night: #08080a;
+    --housing: #101013;
+    --bezel: #2b2b31;
+    --window: #050506;
+    --amber: #ffab1f; --amber-off: #2a1b07;
+    --red: #ff3d2e;   --red-off: #2b0e0a;
+    --green: #35e07a; --green-off: #0b2a17;
+    --text: #d9d6cf; --dim: #8f8b82;
+    --line: rgb(255 255 255 / 0.11);
+    --f-dm: "Doto", "Courier New", monospace;
+    --f-body: "Familjen Grotesk", system-ui, "Segoe UI", sans-serif;
+    --seg-on: var(--amber); --seg-off: var(--amber-off);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; scrollbar-color: #3b3b44 var(--night); background: var(--night); }
+  body { background: var(--night); color: var(--text); font: 400 1.0625rem/1.55 var(--f-body); -webkit-font-smoothing: antialiased; overflow-x: hidden; caret-color: var(--amber); }
+  ::selection { background: var(--amber); color: #170e02; }
+  a { color: inherit; }
+  button, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 clamp(14px, 3vw, 40px); }
+  .dm { font-family: var(--f-dm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--amber); }
+  .sevenseg { display: block; overflow: visible; width: 100%; height: auto; }
+  .seg-on { fill: var(--seg-on); } .seg-off { fill: var(--seg-off); }
+  .bloom .seg-on, .bloom .cell.on { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--seg-on, var(--amber)) 55%, transparent)); }
+  .red { --seg-on: var(--red); --seg-off: var(--red-off); } .green { --seg-on: var(--green); --seg-off: var(--green-off); }
+  .blink .seg-on { animation: blink 1s steps(2, end) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* housing: rigid mask, four bezel screws */
+  .housing { position: relative; background: linear-gradient(180deg, #17171b, var(--housing)); border: 2px solid var(--bezel); border-radius: 10px; padding: clamp(18px, 2.4vw, 32px); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07), 0 40px 70px -40px rgb(0 0 0 / 0.95); }
+  .housing::before, .housing::after { content: ""; position: absolute; top: 9px; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5b5b64, #1c1c21 70%); box-shadow: inset 0 0 0 1px #0a0a0c; }
+  .housing::before { left: 9px; } .housing::after { right: 9px; }
+  .housing .scr-b { position: absolute; bottom: 9px; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5b5b64, #1c1c21 70%); box-shadow: inset 0 0 0 1px #0a0a0c; }
+  .win { background: var(--window); border: 1px solid #1c1c20; border-radius: 3px; padding: 0.9rem 1.1rem; box-shadow: inset 0 0 30px rgb(0 0 0 / 0.8); }
+  .lab { font: 700 1.05rem/1 var(--f-dm); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+  .lab.on { color: var(--amber); }
+
+  .ribbon { position: sticky; top: 0; z-index: 40; background: #0a0a0c; border-bottom: 1px solid var(--line); }
+  .ribbon .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; font: 900 1.5rem/1 var(--f-dm); color: var(--amber); text-transform: uppercase; }
+  .brand svg { width: 30px; height: 30px; }
+  .ribbon nav { display: flex; gap: clamp(0.8rem, 2vw, 1.8rem); }
+  .ribbon nav a { text-decoration: none; font: 700 0.98rem/1 var(--f-dm); text-transform: uppercase; color: var(--dim); padding: 0.7rem 0.1rem; border-bottom: 2px solid transparent; }
+  .ribbon nav a:hover { color: var(--amber); border-color: var(--amber); }
+
+  /* ---------- hero: the center-hung board ---------- */
+  .hero { padding: clamp(1.2rem, 3vh, 2.2rem) 0 clamp(2rem, 5vh, 3.5rem); min-height: min(calc(100dvh - 56px), 900px); display: grid; align-items: center; }
+  .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.6rem 2rem; margin-bottom: clamp(0.8rem, 2vh, 1.4rem); }
+  .head h1 { font: 900 clamp(2.4rem, 5.2vw, 4.6rem)/0.95 var(--f-dm); color: var(--amber); text-transform: uppercase; }
+  .head p { max-width: 30ch; font-size: clamp(1rem, 1.3vw, 1.2rem); }
+  .mask { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 3fr) minmax(0, 5fr); gap: 0.8rem; }
+  .side .who { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; gap: 0.6rem; }
+  .side .nick { font: 900 clamp(1.8rem, 3.6vw, 3rem)/1 var(--f-dm); text-transform: uppercase; }
+  .side .city { font: 700 0.95rem/1 var(--f-dm); color: var(--dim); text-transform: uppercase; }
+  .side .win { aspect-ratio: 2.3 / 1; display: grid; align-items: center; }
+  .mid { display: grid; grid-template-rows: auto 1fr auto; gap: 0.6rem; }
+  .mid .win { display: grid; align-items: center; }
+  .lamps { display: grid; gap: 0.5rem; padding-top: 0.3rem; }
+  .lamp { display: flex; align-items: center; gap: 0.6rem; font: 700 0.95rem/1 var(--f-dm); text-transform: uppercase; color: #4a4033; }
+  .lamp i { width: 14px; height: 14px; border-radius: 50%; background: #241a0c; box-shadow: inset 0 0 0 1px #3a2c14; flex: none; }
+  .lamp.lit { color: var(--amber); } .lamp.lit i { background: var(--amber); box-shadow: none; }
+  .bloom .lamp.lit i { box-shadow: 0 0 8px var(--amber); }
+  .proj-l { font: 700 0.95rem/1 var(--f-dm); color: var(--dim); text-transform: uppercase; margin-bottom: 0.4rem; }
+  .panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; margin-top: 0.8rem; align-items: end; }
+  .ctrls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 0.7rem; }
+  .ctrls label { display: block; }
+  .ctrls select { appearance: none; width: 100%; min-height: 48px; margin-top: 0.3rem; padding: 0.3rem 2rem 0.3rem 0.8rem; background: var(--window); border: 2px solid var(--bezel); border-radius: 3px; cursor: pointer; font: 700 1rem/1.2 var(--f-dm); text-transform: uppercase; color: var(--amber);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23ffab1f' stroke-width='2.6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.7rem center; }
+  .ctrls select:hover { border-color: var(--amber); } .ctrls option { font-family: var(--f-body); text-transform: none; color: #111; }
+  .pk { min-height: 48px; padding: 0.4rem 1rem; border-radius: 3px; border: 1px solid var(--bezel); border-top-color: #43434b; background: linear-gradient(180deg, #24242a, #16161a); box-shadow: 0 3px 0 #040405; cursor: pointer; font: 700 0.95rem/1 var(--f-dm); text-transform: uppercase; color: var(--amber); letter-spacing: 0.05em; transition: transform 0.08s, box-shadow 0.08s; }
+  .pk:hover { color: #fff; } .pk:active { transform: translateY(3px); box-shadow: 0 0 0 #040405; }
+  .pk[aria-pressed="true"] { background: var(--amber); color: #170e02; border-color: var(--amber); }
+  .swap { align-self: end; }
+  .picks { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+  .predict { min-height: 76px; padding: 0.6rem 1.6rem; border-radius: 4px; border: 2px solid var(--amber); background: var(--amber); color: #170e02; cursor: pointer; font: 900 1.5rem/1 var(--f-dm); text-transform: uppercase; letter-spacing: 0.04em; box-shadow: 0 5px 0 #7a5208; transition: transform 0.08s, box-shadow 0.08s; white-space: nowrap; }
+  .predict:hover { filter: brightness(1.07); } .predict:active { transform: translateY(5px); box-shadow: none; }
+  .predict:disabled { cursor: progress; filter: saturate(0.4) brightness(0.8); }
+  .stale .predict { animation: press 1s steps(2, end) infinite; }
+  @keyframes press { 50% { background: #7a5208; color: var(--amber); } }
+  .caption { margin-top: 1rem; font-size: 0.95rem; color: var(--dim); max-width: 78ch; }
+  .caption b { color: var(--text); }
+
+  /* ---------- rooms: each section is its own board ---------- */
+  section.room { padding-block: clamp(2.5rem, 6vw, 5rem); }
+  .room .title { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.6rem 2rem; margin-bottom: 1rem; }
+  .room h2 { font: 900 clamp(2rem, 4.4vw, 3.8rem)/1 var(--f-dm); color: var(--amber); text-transform: uppercase; }
+  .room .lede { max-width: 46ch; color: var(--dim); font-size: 1.1rem; }
+  .hdr { display: grid; grid-template-columns: minmax(9rem, 24%) minmax(0, 1fr) 2px minmax(0, 1fr) 5rem; gap: 0.8rem; align-items: end; padding: 0 0.2rem 0.6rem; }
+  .hdr .a { color: var(--red); text-align: right; } .hdr .h { color: var(--amber); }
+  .krow { display: grid; grid-template-columns: minmax(9rem, 24%) minmax(0, 1fr) 2px minmax(0, 1fr) 5rem; gap: 0.8rem; align-items: center; padding: 0.7rem 0.2rem; border-top: 1px solid var(--line); }
+  .krow .k { font: 700 1rem/1.1 var(--f-dm); text-transform: uppercase; color: var(--text); }
+  .krow .ax { align-self: stretch; background: var(--bezel); }
+  .cells { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; height: 22px; }
+  .cells.l { direction: rtl; }
+  .cell { background: #1f1f24; border-radius: 1px; } .cells.l .cell.on { background: var(--red); } .cells .cell.on { background: var(--amber); }
+  .krow .v { height: 30px; } .krow .v .sevenseg { height: 100%; width: auto; margin-left: auto; }
+  .note { margin-top: 1rem; font-size: 0.95rem; color: var(--dim); max-width: 70ch; }
+  .verdictline { margin-top: 1.2rem; font-size: 1.05rem; max-width: 70ch; } .verdictline b { color: var(--amber); font-family: var(--f-dm); text-transform: uppercase; }
+  .tape { width: 100%; max-width: 620px; border-collapse: collapse; margin-top: 1.2rem; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .tape th, .tape td { padding: 0.45rem 0.3rem; text-align: right; border-bottom: 1px solid var(--line); } .tape th:first-child, .tape td:first-child { text-align: left; }
+  .tape th { font: 700 0.9rem var(--f-dm); text-transform: uppercase; color: var(--dim); }
+
+  .rgrid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 0.8rem; }
+  .rgrid .big { display: grid; gap: 0.8rem; align-content: start; }
+  .rgrid .big .win.b { display: grid; align-items: center; }
+  .rgrid .big .win.b .sevenseg { width: min(100%, 440px); height: auto; margin: 0 auto; }
+  .facts .f { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.55rem 0; border-top: 1px solid var(--line); }
+  .facts .f .n { height: 26px; } .facts .f .n .sevenseg { height: 100%; width: auto; }
+  .pix { display: block; width: 100%; height: auto; }
+  .pix .g { fill: #1b1b20; } .pix .d { fill: #4a3410; } .pix .p { fill: var(--amber); } .pix .c { fill: var(--red); }
+  .bloom .pix .p { filter: drop-shadow(0 0 3px var(--amber)); }
+  .pixcap { margin-top: 0.7rem; font-size: 0.95rem; color: var(--dim); }
+
+  .lb { display: grid; gap: 0.5rem; }
+  .lrow { display: grid; grid-template-columns: 2rem 4rem minmax(0, 1fr) 6.2rem minmax(10rem, 15rem); gap: 0.9rem; align-items: center; padding: 0.55rem 0.9rem; background: var(--window); border: 1px solid #1c1c20; border-radius: 3px; }
+  .lrow .rk { font: 700 1rem/1 var(--f-dm); color: var(--dim); } .lrow .ab { font: 900 1.6rem/1 var(--f-dm); color: var(--amber); }
+  .lrow .cells { grid-template-columns: repeat(34, 1fr); height: 20px; }
+  .lrow .v { height: 28px; } .lrow .v .sevenseg { height: 100%; width: auto; margin-left: auto; }
+  .lrow .res { font: 700 0.95rem/1.15 var(--f-dm); text-transform: uppercase; color: var(--text); }
+  .lrow.champ { border-color: var(--green); } .lrow.champ .ab, .lrow.champ .res { color: var(--green); } .lrow.champ .cell.on { background: var(--green); }
+  .lrow.champ .v { --seg-on: var(--green); --seg-off: var(--green-off); }
+  .photo { margin-top: 1rem; aspect-ratio: 21 / 6; border-radius: 4px; border: 2px solid var(--bezel); background: linear-gradient(120deg, #141418, #0a0a0c); position: relative; overflow: hidden; }
+  .photo::after { content: ""; position: absolute; inset: 30% 6%; border-top: 3px solid #2a1b07; border-bottom: 3px solid #2a1b07; }
+
+  .duo { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.8rem; align-items: stretch; }
+  .duo .win.b { display: grid; gap: 0.6rem; align-content: center; }
+  .duo .win.b .num { display: flex; align-items: center; gap: 0.5rem; height: clamp(100px, 12vw, 160px); }
+  .duo .win.b .num .sign { font: 900 clamp(3rem, 6vw, 5.4rem)/1 var(--f-dm); }
+  .duo .win.b .num .sevenseg { height: 100%; width: auto; }
+  .duo .win.b p { font-size: 0.95rem; color: var(--dim); }
+  .duo .nm { font: 900 clamp(1.6rem, 3vw, 2.4rem)/1 var(--f-dm); text-transform: uppercase; }
+  .conf { display: grid; place-items: center; text-align: center; padding: 1rem 1.2rem; min-width: 150px; background: var(--window); border: 1px solid #1c1c20; border-radius: 3px; }
+  .conf .lp { width: 22px; height: 22px; border-radius: 50%; background: var(--red); margin: 0 auto 0.6rem; animation: blink 1.2s steps(2, end) infinite; }
+  .conf b { font: 900 1.2rem/1.05 var(--f-dm); color: var(--red); text-transform: uppercase; }
+  .caveat { margin-top: 1rem; max-width: 72ch; color: var(--dim); }
+
+  .signoff { padding-block: clamp(3.5rem, 8vw, 7rem) 2rem; }
+  .signoff h2 { font: 900 clamp(2.6rem, 8vw, 7rem)/0.98 var(--f-dm); color: var(--amber); text-transform: uppercase; }
+  .signoff .predict { margin-top: 2rem; display: inline-block; }
+  footer { padding: 1.4rem 0 3rem; font-size: 0.9rem; color: var(--dim); border-top: 1px solid var(--line); }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.8rem 2rem; align-items: center; }
+  .layer { min-height: 44px; padding: 0.3rem 0.9rem; background: transparent; border: 1px solid var(--bezel); border-radius: 3px; cursor: pointer; font: 700 0.9rem/1 var(--f-dm); text-transform: uppercase; color: var(--dim); }
+  .layer[aria-pressed="true"] { color: var(--amber); border-color: var(--amber); }
+  .damaged { display: none; } .no-data .damaged { display: grid; place-items: center; min-height: 100dvh; text-align: center; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .blink .seg-on, .conf .lp, .stale .predict { animation: none; }
+  }
+  @media (max-width: 900px) {
+    .ribbon nav { display: none; }
+    .hero { min-height: auto; }
+    .mask { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .mid { grid-column: 1 / -1; order: 3; grid-template-columns: 1fr 1fr; grid-template-rows: auto; } .mid .lamps { padding-top: 0; }
+    .side .win { aspect-ratio: auto; }
+    .panel { grid-template-columns: minmax(0, 1fr); } .predict { width: 100%; }
+    .ctrls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ctrls .swap { grid-column: 1 / -1; }
+    .hdr { display: none; }
+    .krow { grid-template-columns: minmax(0, 1fr) 2px minmax(0, 1fr) 4.4rem; } .krow .k { grid-column: 1 / -1; }
+    .rgrid, .duo { grid-template-columns: minmax(0, 1fr); }
+    .lrow { grid-template-columns: 1.6rem 3.2rem minmax(0, 1fr) 5.2rem; } .lrow .res { grid-column: 1 / -1; }
+    .lrow .cells { grid-template-columns: repeat(20, 1fr); }
+  }
+</style>
+</head>
+<body class="bloom">
+<div class="damaged" role="alert"><div><div class="dm" style="font-size:3.4rem;font-weight:900">--:--</div><p style="color:var(--dim);margin-top:0.6rem">Unset. The demo data did not load. Reload the page.</p></div></div>
+
+<header class="ribbon">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Backboard home"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="3" width="40" height="26" fill="none" stroke="#ffab1f" stroke-width="3"/><rect x="16" y="12" width="16" height="11" fill="none" stroke="#ffab1f" stroke-width="3"/><ellipse cx="24" cy="33.2" rx="10.2" ry="2.8" fill="none" stroke="#ffab1f" stroke-width="3.2"/><path d="M15 34 18.5 46M33 34 29.5 46M24 36v10" fill="none" stroke="#ffab1f" stroke-width="1.6" stroke-linecap="round"/></svg>Backboard</a>
+    <nav aria-label="Boards"><a href="#keys">Keys</a><a href="#receipts">Receipts</a><a href="#odds">Title odds</a><a href="#desk">Trade desk</a></nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="wrap">
+      <div class="head">
+        <h1 id="hero-h" aria-label="Know who wins."><span aria-hidden="true">Know who wins</span></h1>
+        <p>Win probabilities for any NBA matchup, from a model that shows its work.</p>
+      </div>
+      <div class="housing" id="board">
+        <span class="scr-b" style="left:9px"></span><span class="scr-b" style="right:9px"></span>
+        <div class="mask" id="mask" aria-live="polite"></div>
+        <div class="panel" id="panel">
+          <div>
+            <div class="ctrls">
+              <label><span class="lab">Home</span><select id="home"></select></label>
+              <label><span class="lab">Away</span><select id="away"></select></label>
+              <button class="pk swap" id="swap" type="button">Swap</button>
+            </div>
+            <div class="picks" id="quick" aria-label="Quick picks"></div>
+          </div>
+          <button class="predict" id="predict" type="button">Predict a matchup</button>
+        </div>
+      </div>
+      <p class="caption" id="caption"></p>
+    </div>
+  </section>
+
+  <section class="room" id="keys" aria-labelledby="k-h">
+    <div class="wrap"><div class="housing">
+      <span class="scr-b" style="left:9px"></span><span class="scr-b" style="right:9px"></span>
+      <div class="title"><h2 id="k-h">Keys to the game</h2><p class="lede">Each lit cell is half a point of win chance. Unlit cells show the room left on the board.</p></div>
+      <div class="hdr" aria-hidden="true"><span></span><span class="a lab" id="hdr-a"></span><span></span><span class="h lab" id="hdr-h"></span><span></span></div>
+      <div id="krows" aria-live="polite"></div>
+      <p class="verdictline" id="verdict"></p>
+      <table class="tape" id="tape"></table>
+      <p class="note" id="knote"></p>
+    </div></div>
+  </section>
+
+  <section class="room" id="receipts" aria-labelledby="r-h">
+    <div class="wrap"><div class="housing">
+      <span class="scr-b" style="left:9px"></span><span class="scr-b" style="right:9px"></span>
+      <div class="title"><h2 id="r-h">The receipts</h2><p class="lede">How the model did on games it never saw while learning.</p></div>
+      <div class="rgrid">
+        <div class="big"><div><span class="lab on">Picked right</span><div class="win b" id="accwin" style="margin-top:0.5rem"></div></div><div class="facts" id="facts"></div></div>
+        <div><span class="lab on">Said against got</span><div class="win" style="margin-top:0.5rem" id="pix"></div><p class="pixcap" id="pixcap"></p></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="room" id="odds" aria-labelledby="o-h">
+    <div class="wrap"><div class="housing">
+      <span class="scr-b" style="left:9px"></span><span class="scr-b" style="right:9px"></span>
+      <div class="title"><h2 id="o-h">Odds are not promises</h2><p class="lede">Title odds from the end of the 2025-26 regular season, next to what happened. The green row won it.</p></div>
+      <div class="lb" id="lb"></div>
+      <div class="photo hf-slot" data-hf="Wide photo of a lit arena ribbon board and center-hung scoreboard at night, amber LED text blurred out of focus, no readable words, no logos, no people" data-hf-size="2100x600"></div>
+      <p class="note">Odds use the real seeded bracket with team strength frozen at the end of the regular season. Results come from the games database.</p>
+    </div></div>
+  </section>
+
+  <section class="room" id="desk" aria-labelledby="w-h">
+    <div class="wrap"><div class="housing">
+      <span class="scr-b" style="left:9px"></span><span class="scr-b" style="right:9px"></span>
+      <div class="title"><h2 id="w-h">What if Curry played for the Spurs?</h2><p class="lede">The what-if tool re-runs the season with one player moved, and grades its own confidence.</p></div>
+      <div class="duo" id="duo"></div>
+      <p class="caveat" id="caveat"></p>
+    </div></div>
+  </section>
+
+  <section class="signoff" aria-labelledby="s-h">
+    <div class="wrap"><h2 id="s-h">Pick a game.<br>Then argue with it.</h2><button class="predict" id="predict2" type="button">Predict a matchup</button></div>
+  </section>
+</main>
+
+<footer><div class="wrap"><p id="fineprint"></p><button class="layer" id="bloom" type="button" aria-pressed="true">Bloom on</button></div></footer>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="../shared/sevenseg.js"></script>
+<script src="../shared/slots.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  if (!window.BB) { document.body.classList.add("no-data"); return; }
+  const { fmt } = BB;
+  const sv = (t, label, extra = {}) => SevenSeg.svg(t, { slant: 5, label, ...extra });
+  const reduce = () => BB.reduced.matches;
+
+  /* ---------- the mask: the same cells always, only what is lit changes ---------- */
+  let stale = false, busy = false;
+  const leds = (n, total = 24) => Array.from({ length: total }, (_, i) => `<i class="cell${i < n ? " on" : ""}"></i>`).join("");
+
+  function maskHTML(p, dashes) {
+    const pct = (v) => (dashes ? "--.-" : fmt.pct(v));
+    const score = dashes ? "---.---" : `${Math.round(p.pts.home)}-${Math.round(p.pts.away)}`;
+    const on = (k) => (!dashes && p.verdict.key === k ? " lit" : "");
+    const blink = dashes ? " blink" : "";
+    return `
+      <div class="side"><div class="who"><span class="nick dm">${p.home.nick}</span><span class="city">${p.home.city}, home</span></div><div class="win${blink}">${sv(pct(p.pHome), dashes ? "unset" : `${p.home.abbr} ${fmt.pct(p.pHome)} percent`)}</div></div>
+      <div class="mid"><div class="lab on" style="text-align:center">Model</div>
+        <div class="win${blink}"><div class="proj-l">Projected</div>${sv(score, dashes ? "unset" : `projected ${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}`)}</div>
+        <div class="lamps" role="img" aria-label="${dashes ? "no verdict yet" : p.verdict.label}"><div class="lamp${on("toss")}"><i></i>Toss-up</div><div class="lamp${on("lean")}"><i></i>Lean</div><div class="lamp${on("strong")}"><i></i>High confidence</div></div></div>
+      <div class="side red"><div class="who"><span class="nick dm" style="color:var(--red)">${p.away.nick}</span><span class="city">${p.away.city}, away</span></div><div class="win${blink}">${sv(pct(p.pAway), dashes ? "unset" : `${p.away.abbr} ${fmt.pct(p.pAway)} percent`)}</div></div>`;
+  }
+
+  function scramble(p, done) {
+    const el = $("#mask");
+    if (reduce()) { el.innerHTML = maskHTML(p, false); done(); return; }
+    const t0 = performance.now(); const dur = 700;
+    const step = (t) => {
+      const k = (t - t0) / dur;
+      if (k >= 1) { el.innerHTML = maskHTML(p, false); done(); return; }
+      const junk = { ...p, pHome: Math.random(), pAway: Math.random(), pts: { home: 90 + Math.random() * 40, away: 90 + Math.random() * 40 }, verdict: p.verdict };
+      el.innerHTML = maskHTML(junk, false);
+      setTimeout(() => requestAnimationFrame(step), 55);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function setStale(v) {
+    stale = v; $("#board").classList.toggle("stale", v);
+    $("#mask").innerHTML = maskHTML(BB.state.pred(), v);
+    if (v) $("#caption").innerHTML = `<b>Unset.</b> The blinking digits are stale. Press PREDICT A MATCHUP to light the new numbers.`;
+    else caption(BB.state.pred());
+  }
+
+  function ignite() {
+    if (busy) return; busy = true;
+    $("#predict").disabled = true; $("#predict2").disabled = true;
+    const p = BB.state.pred();
+    stale = false; $("#board").classList.remove("stale");
+    scramble(p, () => { busy = false; $("#predict").disabled = false; $("#predict2").disabled = false; caption(p); });
+  }
+
+  function caption(p) {
+    $("#caption").innerHTML = `<b>${p.favTeam.city} ${p.favTeam.nick} over ${p.dogTeam.nick}.</b> ${p.verdict.label}. The 80% range for the home margin runs ${Math.round(p.margin.lo)} to ${fmt.signed(p.margin.hi, 0)}, and the typical miss is ${BB.meta.marginMae} points, so read the projected score as a lean. Even teams at home start ${p.home.abbr} near ${fmt.pct0(p.homeCourtOnly)}%.`;
+  }
+
+  /* ---------- keys: LED cells, ghost cells drawn ---------- */
+  function paintKeys(p) {
+    const max = 0.12;
+    $("#hdr-a").textContent = `${p.away.abbr} away`; $("#hdr-h").textContent = `${p.home.abbr} home`;
+    $("#krows").innerHTML = p.sorted.map((g) => {
+      const n = Math.min(Math.round(Math.abs(g.value) * 100 / 0.5), 24); const home = g.value >= 0;
+      return `<div class="krow"><span class="k">${g.label}</span><div class="cells l" aria-hidden="true">${leds(home ? 0 : n)}</div><span class="ax" aria-hidden="true"></span><div class="cells" aria-hidden="true">${leds(home ? n : 0)}</div><span class="v ${home ? "" : "red"}">${sv(Math.abs(g.value * 100).toFixed(1), `${fmt.signed(Math.abs(g.value) * 100)} points for ${home ? p.home.abbr : p.away.abbr}`, { slant: 4 })}</span></div>`;
+    }).join("");
+    const tale = (t) => `<td>${fmt.wins10(t)}</td><td>${Math.round(t.elo)}</td><td>${fmt.signed(t.form.pm10)}</td>`;
+    $("#verdict").innerHTML = `<b>${p.favTeam.nick} over ${p.dogTeam.nick}.</b> Projected score ${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}.`;
+    $("#tape").innerHTML = `<thead><tr><th>Tale of the tape</th><th>Last 10</th><th>Elo</th><th>Margin</th></tr></thead><tbody><tr><td>${p.home.abbr}</td>${tale(p.home)}</tr><tr><td>${p.away.abbr}</td>${tale(p.away)}</tr></tbody>`;
+    $("#knote").textContent = `Each bar is the change in ${p.home.abbr}'s win chance, in percentage points, if the two teams were even on that input. Amber favors the home team, red favors the visitor. It shows what the model responds to, not what causes wins.`;
+  }
+
+  /* ---------- receipts: a pixel plot on the same LED grid ---------- */
+  function paintReceipts() {
+    const h = BB.meta.holdout;
+    $("#accwin").innerHTML = sv(fmt.pct(h.accuracy, 1), `${fmt.pct(h.accuracy, 1)} percent picked right`);
+    $("#facts").innerHTML = `<div class="f"><span class="lab">Games it never saw</span><span class="n">${sv(String(h.games), `${h.games} games`, { slant: 4 })}</span></div><div class="f"><span class="lab">Log loss</span><span class="n">${sv(h.logLoss.toFixed(4), `log loss ${h.logLoss.toFixed(4)}`, { slant: 4 })}</span></div><div class="f"><span class="lab">Calibration error</span><span class="n">${sv(h.ece.toFixed(3), `calibration error ${h.ece.toFixed(3)}`, { slant: 4 })}</span></div>`;
+    const cols = 44, rows = 32, c = 12, gap = 2;
+    const at = (v, n) => Math.round(v * (n - 1));
+    const lit = new Map();
+    const put = (cx, cy, cls) => lit.set(`${cx},${cy}`, cls);
+    for (let i = 0; i < cols; i++) put(i, rows - 1 - Math.round(i * (rows - 1) / (cols - 1)), "d");
+    BB.calibration.forEach((b) => {
+      const cx = at(b.pred, cols), cy = rows - 1 - at(b.obs, rows);
+      const lo = rows - 1 - at(b.ciLo, rows), hi = rows - 1 - at(b.ciHi, rows);
+      for (let y = Math.min(lo, hi); y <= Math.max(lo, hi); y++) put(cx, y, "c");
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) put(cx + dx, cy + dy, "p");
+    });
+    let cells = "";
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) cells += `<rect class="${lit.get(`${x},${y}`) || "g"}" x="${x * (c + gap)}" y="${y * (c + gap)}" width="${c}" height="${c}"/>`;
+    const hi = BB.calibration[6];
+    const table = BB.calibration.map((b) => `<tr><td>${fmt.pct0(b.lo)} to ${fmt.pct0(b.hi)}%</td><td>${b.games}</td><td>${fmt.pct(b.pred)}%</td><td>${fmt.pct(b.obs)}%</td></tr>`).join("");
+    $("#pix").innerHTML = `<svg class="pix" viewBox="0 0 ${cols * (c + gap)} ${rows * (c + gap)}" role="img" aria-labelledby="pt pd"><title id="pt">Calibration plot</title><desc id="pd">What the model said on the horizontal axis against how often it happened on the vertical axis, in nine groups. The lit blocks sit just under the dim diagonal at the high end, so the model runs a little confident.</desc>${cells}</svg><table class="sr-only"><caption>Calibration groups</caption><thead><tr><th>Group</th><th>Games</th><th>Model said</th><th>Home won</th></tr></thead><tbody>${table}</tbody></table>`;
+    $("#pixcap").textContent = `Left to right is what the model said, bottom to top is what happened. The dim diagonal is a perfect match. It runs a little confident: when it said about ${fmt.pct0(hi.pred)}%, the home team won ${fmt.pct0(hi.obs)}%. Red cells show the 90% range.`;
+  }
+
+  function paintOdds() {
+    const board = BB.titleBoard();
+    const champ = board.find((t) => t.po.actual === "won the title");
+    let rows = board.slice(0, 7); if (!rows.includes(champ)) rows = rows.slice(0, 6).concat(champ);
+    const max = rows[0].po.title;
+    $("#lb").innerHTML = rows.map((t, i) => {
+      const n = Math.max(Math.round(t.po.title / max * 34), 1);
+      return `<div class="lrow${t === champ ? " champ" : ""}"><span class="rk">${i + 1}</span><span class="ab">${t.abbr}</span><div class="cells" aria-hidden="true">${leds(n, 34)}</div><span class="v">${sv(fmt.pct(t.po.title), `${t.abbr} title odds ${fmt.pct(t.po.title)} percent`, { slant: 4 })}</span><span class="res">${BB.RESULT_LABEL[t.po.actual]}</span></div>`;
+    }).join("");
+  }
+
+  function paintDesk() {
+    const w = BB.whatIf(); const bt = w.backtest;
+    const a = w.effects.find((e) => e.id === w.fromId), b = w.effects.find((e) => e.id === w.toId);
+    const side = (e, cls) => { const neg = e.change < 0; return `<div class="win b ${cls}"><span class="nm dm" style="${neg ? "color:var(--red)" : ""}">${e.team.nick}</span><div class="num"><span class="sign dm" style="${neg ? "color:var(--red)" : ""}">${neg ? "-" : "+"}</span>${sv(Math.abs(e.change).toFixed(1), `${fmt.signed(e.change)} wins`)}</div><p>${e.team.city}: wins, ${e.winsBefore} to ${e.winsAfter}. Direct playoff odds ${fmt.pct0(e.playoffBefore)}% to ${fmt.pct0(e.playoffAfter)}%.</p></div>`; };
+    $("#duo").innerHTML = side(a, "red") + `<div class="conf" role="note"><div><div class="lp"></div><b>Confidence<br>${w.confidence}</b></div></div>` + side(b, "");
+    $("#caveat").textContent = `${w.sims.toLocaleString("en-US")} simulated seasons, ${w.player} moved before opening night. Tested on real moves from ${bt.seasons}, ${Math.round(bt.largeEffectsRight * bt.largeEffectsCount)} of ${bt.largeEffectsCount} big effects pointed the right way, but overall win error did not shrink (${bt.maeWithout} to ${bt.maeWith}). Fit, injuries and the cap are not modeled.`;
+  }
+
+  /* ---------- controls ---------- */
+  function paintQuick() {
+    $("#quick").innerHTML = BB.featured.map((pr, i) => `<button class="pk" type="button" data-i="${i}" aria-pressed="false">${i === 0 ? "The Finals" : BB.teams[pr[0]].abbr + " v " + BB.teams[pr[1]].abbr}</button>`).join("");
+    $("#quick").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; const pr = BB.featured[Number(b.dataset.i)]; quickFlag = true; BB.state.set(pr[0], pr[1]); repaint(); quickFlag = false; ignite(); });
+  }
+  const syncQuick = () => document.querySelectorAll("#quick button").forEach((b) => { const pr = BB.featured[Number(b.dataset.i)]; b.setAttribute("aria-pressed", String(pr[0] === BB.state.hi && pr[1] === BB.state.ai)); });
+  let repaint = () => {}, quickFlag = false, first = true;
+
+  paintQuick();
+  repaint = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
+  BB.state.subscribe((p) => {
+    paintKeys(p); syncQuick();
+    if (first) { first = false; $("#mask").innerHTML = maskHTML(p, false); caption(p); return; }
+    if (!quickFlag) setStale(true);
+  });
+  $("#predict").addEventListener("click", ignite); $("#predict2").addEventListener("click", () => { window.scrollTo({ top: 0, behavior: reduce() ? "auto" : "smooth" }); setTimeout(ignite, reduce() ? 0 : 500); });
+  paintReceipts(); paintOdds(); paintDesk();
+
+  $("#bloom").addEventListener("click", (e) => { const on = document.body.classList.toggle("bloom"); e.currentTarget.setAttribute("aria-pressed", String(on)); e.currentTarget.textContent = on ? "Bloom on" : "Bloom off"; });
+  $("#fineprint").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed. Probabilities are not guarantees.`;
+})();
+</script>
+</body>
+</html>

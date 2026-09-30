@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backboard | Hardwood, Taste</title>
+<meta name="description" content="Backboard landing page painted on a maple court: lane, arcs and a jump-ball circle that splits by win probability, with real model output.">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@100..150,700..900&family=Geist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../shared/slots.css">
+<style>
+  :root {
+    --floor: #d9a25b;         /* maple */
+    --seam: #b98040;
+    --sheen: #f3d29d;
+    --ink: #101827;           /* navy floor lettering and text */
+    --ink-2: #2a3145;
+    --line: #fbf7ee;          /* regulation paint lines */
+    --blue: #1f4aa8;          /* the one accent: the painted key */
+    --f-disp: "Anybody", "Arial Black", Impact, sans-serif;
+    --f-body: "Geist", system-ui, "Segoe UI", sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --nav-h: 64px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; scrollbar-color: var(--ink) var(--seam); }
+  body {
+    color: var(--ink); font: 400 1.0625rem/1.55 var(--f-body); -webkit-font-smoothing: antialiased; overflow-x: hidden;
+    background-color: var(--floor);
+    background-image:
+      linear-gradient(115deg, transparent 22%, rgb(255 244 220 / 0.22) 38%, transparent 52%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='640'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .32' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .18 0 0 0 0 .05 0 0 0 .9 -.28'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+      repeating-linear-gradient(90deg, transparent 0 78px, rgb(90 52 14 / 0.22) 78px 80px);
+    background-size: 100% 100%, 320px 640px, 80px 100%;
+  }
+  ::selection { background: var(--blue); color: var(--line); }
+  a { color: inherit; }
+  button, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
+  .floor-type { font-family: var(--f-disp); font-stretch: 150%; font-variation-settings: "wdth" 150; font-weight: 900; text-transform: uppercase; line-height: 0.98; letter-spacing: 0.01em; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* nav: the sideline */
+  .nav { position: sticky; top: 0; z-index: 30; height: var(--nav-h); background: var(--line); border-bottom: 4px solid var(--ink); }
+  .nav .wrap { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; font: 900 1.05rem/1 var(--f-disp); font-stretch: 150%; font-variation-settings: "wdth" 150; text-transform: uppercase; }
+  .brand svg { width: 34px; height: 34px; }
+  .nav ul { display: flex; gap: clamp(0.8rem, 2vw, 2rem); list-style: none; padding: 0; }
+  .nav ul a { text-decoration: none; font-weight: 600; font-size: 0.95rem; padding: 0.4rem 0; border-bottom: 3px solid transparent; }
+  .nav ul a:hover { border-color: var(--blue); }
+  .btn { display: inline-flex; align-items: center; gap: 0.7rem; min-height: 50px; padding: 0.75rem 1.5rem; background: var(--blue); color: var(--line); border: 0; cursor: pointer; text-decoration: none; white-space: nowrap; font: 800 0.98rem/1 var(--f-disp); font-stretch: 130%; font-variation-settings: "wdth" 130; text-transform: uppercase; letter-spacing: 0.03em; transition: transform 0.2s var(--ease), background 0.2s; }
+  .btn:hover { transform: translateY(-3px); background: #17398a; }
+  .btn:active { transform: translateY(1px) scale(0.98); }
+  .btn svg { width: 20px; height: 20px; }
+  .link { font-weight: 700; text-underline-offset: 0.25em; text-decoration-thickness: 3px; }
+
+  /* court linework, drawn behind sections */
+  .court-svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+  .court-svg * { fill: none; stroke: var(--line); stroke-width: 5; vector-effect: non-scaling-stroke; }
+  .court-svg .paint { fill: var(--blue); }
+  .court-svg .dash { stroke-dasharray: 14 12; }
+  section { position: relative; isolation: isolate; }
+
+  /* ---------- hero: the baseline and the key ---------- */
+  .hero { min-height: min(calc(100dvh - var(--nav-h)), 860px); display: grid; align-items: center; overflow: hidden; }
+  .hero > .wrap { width: 100%; display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; }
+  .hero h1 { font-size: clamp(2.7rem, 6.6vw, 6.1rem); }
+  .hero h1 span { display: block; }
+  .hero h1 .l2 { color: var(--line); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; margin-top: 0.1em; }
+  .hero p.sub { margin-top: 1.4rem; max-width: 32ch; font-size: clamp(1.1rem, 1.5vw, 1.3rem); font-weight: 500; }
+  .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1.4rem; margin-top: 1.8rem; }
+  .keybox { position: relative; justify-self: center; width: min(100%, 340px); aspect-ratio: 300 / 560; }
+  .keybox .lane { position: absolute; inset: 0 0 auto 0; height: 84%; background: var(--blue); border: 5px solid var(--line); border-top: 0; }
+  .keybox .ft { position: absolute; left: 50%; top: 84%; width: 74%; aspect-ratio: 1; transform: translate(-50%, -50%); border: 5px solid var(--line); border-radius: 50%; clip-path: inset(50% 0 0 0); }
+  .keybox .ft.top { clip-path: inset(0 0 50% 0); background: var(--blue); }
+  .keybox .hoop { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 46%; height: 12%; }
+  .keybox .readout { position: absolute; inset: 14% 8% 22% 8%; display: grid; align-content: center; gap: 1.6rem; color: var(--line); text-align: center; }
+  .readout .t { display: block; font: 800 0.95rem/1 var(--f-disp); font-stretch: 130%; font-variation-settings: "wdth" 130; letter-spacing: 0.1em; }
+  .readout .p { display: block; font: 900 clamp(2.6rem, 4.6vw, 3.9rem)/1 var(--f-disp); font-stretch: 125%; font-variation-settings: "wdth" 125; font-variant-numeric: tabular-nums; }
+  .readout small { display: block; margin-top: 0.4rem; font-size: 0.86rem; opacity: 0.95; }
+
+  /* ---------- sections ---------- */
+  .blk { padding-block: clamp(4.5rem, 9vw, 8rem); }
+  .h2 { font-size: clamp(1.9rem, 4.2vw, 3.7rem); }
+  .lede { margin-top: 1rem; max-width: 46ch; color: var(--ink-2); font-size: 1.15rem; font-weight: 500; }
+
+  /* jump ball */
+  .jump { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) minmax(0, 3fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; margin-top: 2.6rem; }
+  .bench { position: relative; padding: 1.2rem 1.2rem 1.3rem; border: 5px solid var(--line); background: rgb(16 24 39 / 0.06); }
+  .bench label { display: block; font: 800 0.8rem/1 var(--f-disp); font-stretch: 130%; font-variation-settings: "wdth" 130; letter-spacing: 0.12em; text-transform: uppercase; }
+  .bench select { appearance: none; width: 100%; min-height: 48px; margin-top: 0.5rem; padding: 0.4rem 2rem 0.4rem 0.7rem; background: var(--line); border: 3px solid var(--ink); border-radius: 0; cursor: pointer; font-weight: 700; font-size: 1rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23101827' stroke-width='2.6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.7rem center; }
+  .bench select:hover { background-color: #fff9ea; }
+  .bench .stats { margin-top: 0.9rem; font-size: 0.92rem; line-height: 1.6; font-variant-numeric: tabular-nums; }
+  .bench .swatch { display: block; height: 10px; margin-top: 0.9rem; background: var(--c); box-shadow: 0 0 0 2px var(--ink); }
+  .ball { text-align: center; }
+  .ball svg { width: min(100%, 440px); height: auto; overflow: visible; }
+  .ball .mid { font: 900 44px/1 var(--f-disp); font-stretch: 125%; fill: var(--ink); stroke: none; }
+  .ball .sm { font: 800 15px/1 var(--f-disp); font-stretch: 130%; fill: var(--ink); stroke: none; letter-spacing: 0.1em; }
+  .ball .arc { stroke-width: 34; fill: none; transition: stroke-dasharray 0.8s var(--ease); }
+  .ball .verdict { display: inline-block; margin-top: 0.4rem; padding: 0.35rem 0.9rem; background: var(--ink); color: var(--line); font: 800 0.86rem/1 var(--f-disp); font-stretch: 130%; letter-spacing: 0.1em; text-transform: uppercase; }
+  .ball .proj { margin-top: 0.9rem; font-size: 1rem; font-weight: 600; }
+  .quick { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 1.6rem; }
+  .quick button { min-height: 44px; padding: 0.3rem 0.9rem; background: transparent; border: 3px solid var(--ink); cursor: pointer; font-weight: 700; font-size: 0.9rem; }
+  .quick button:hover { background: rgb(251 247 238 / 0.55); }
+  .quick button[aria-pressed="true"] { background: var(--ink); color: var(--line); }
+  .swapb { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0.3rem 0.9rem; margin-top: 0.9rem; background: transparent; border: 3px solid var(--ink); cursor: pointer; font-weight: 700; font-size: 0.9rem; }
+  .swapb:hover { background: rgb(251 247 238 / 0.55); } .swapb svg { width: 18px; height: 18px; }
+
+  .plays { margin-top: 3rem; }
+  .plays h3 { font-size: clamp(1.3rem, 2.2vw, 1.8rem); }
+  .play { display: grid; grid-template-columns: minmax(11rem, 30%) minmax(0, 1fr) 4.4rem; align-items: center; gap: 1rem; padding: 0.85rem 0; border-bottom: 3px solid rgb(16 24 39 / 0.25); }
+  .play .k { font-weight: 700; }
+  .play .dv { position: relative; height: 22px; }
+  .play .dv::before { content: ""; position: absolute; left: 50%; top: -4px; bottom: -4px; width: 4px; background: var(--ink); }
+  .play .dv i { position: absolute; top: 2px; bottom: 2px; background: var(--c); box-shadow: 0 0 0 2px var(--ink); }
+  .play .v { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .play .v small { display: block; font-size: 0.72rem; font-weight: 600; color: var(--ink-2); }
+  .fine { margin-top: 1rem; max-width: 62ch; font-size: 0.92rem; color: var(--ink-2); }
+  .tape { width: 100%; max-width: 640px; border-collapse: collapse; margin-top: 1.4rem; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .tape th, .tape td { padding: 0.5rem 0.4rem; text-align: right; border-bottom: 2px solid rgb(16 24 39 / 0.3); }
+  .tape th:first-child, .tape td:first-child { text-align: left; }
+  .tape th { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* receipts: the free-throw line */
+  .rc { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: clamp(1.5rem, 4vw, 4rem); margin-top: 2.6rem; align-items: center; }
+  .bigp { font: 900 clamp(2.8rem, 5vw, 4.7rem)/0.9 var(--f-disp); font-stretch: 140%; font-variation-settings: "wdth" 140; font-variant-numeric: tabular-nums; }
+  .facts { display: grid; gap: 0.5rem; margin-top: 1.4rem; }
+  .facts div { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.4rem; border-bottom: 3px solid rgb(16 24 39 / 0.25); font-variant-numeric: tabular-nums; }
+  .facts b { font-weight: 800; }
+  .chart { background: rgb(251 247 238 / 0.94); border: 5px solid var(--ink); padding: 1rem; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .chart text { font-family: var(--f-body); fill: var(--ink); }
+  .chart .cap { margin: 0.5rem 0.3rem 0; font-size: 0.95rem; color: var(--ink-2); }
+
+  /* title odds: painted stripes off the baseline */
+  .ladder { margin-top: 2.6rem; display: grid; gap: 0.6rem; }
+  .step { display: grid; grid-template-columns: 4rem minmax(0, 1fr) minmax(9rem, 13rem); align-items: center; gap: 1rem; }
+  .step .ab { font: 900 1.15rem/1 var(--f-disp); font-stretch: 125%; }
+  .step .st { position: relative; height: 38px; }
+  .step .st i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); box-shadow: 0 0 0 3px var(--ink); transform-origin: left; }
+  .step .st b { position: absolute; top: 50%; transform: translateY(-50%); margin-left: 0.8rem; font: 800 1.2rem/1 var(--f-disp); font-stretch: 125%; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .step .res { font-size: 0.95rem; font-weight: 500; }
+  .step.champ .res { font-weight: 800; }
+  .step.champ .ab { text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 5px; }
+  .decal { margin-top: 2.6rem; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(1rem, 3vw, 3rem); align-items: end; }
+  .decal .photo { aspect-ratio: 16 / 10; border: 5px solid var(--line); background: var(--ink); position: relative; overflow: hidden; }
+  .decal .photo::before { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, #22304f, #101827); }
+  .decal .photo::after { content: ""; position: absolute; left: 50%; top: 50%; width: 42%; aspect-ratio: 1; transform: translate(-50%, -50%); border: 5px solid var(--line); border-radius: 50%; opacity: 0.85; }
+
+  /* what-if: two half courts */
+  .halves { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(1rem, 3vw, 3rem); margin-top: 2.6rem; position: relative; }
+  .half { position: relative; padding: clamp(1.4rem, 3vw, 2.4rem); border: 5px solid var(--line); background: var(--c); color: var(--k); min-height: 320px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+  .half::before { content: ""; position: absolute; left: 50%; top: -5px; width: 46%; height: 62%; transform: translateX(-50%); border: 5px solid var(--line); border-top: 0; opacity: 0.55; }
+  .half .t { position: relative; font: 800 0.86rem var(--f-disp); font-stretch: 130%; letter-spacing: 0.1em; text-transform: uppercase; }
+  .half .chg { position: relative; font: 900 clamp(3.6rem, 8vw, 6.6rem)/0.95 var(--f-disp); font-stretch: 130%; font-variation-settings: "wdth" 130; font-variant-numeric: tabular-nums; }
+  .half p { position: relative; font-size: 0.98rem; }
+  .medal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 132px; aspect-ratio: 1; display: grid; place-items: center; text-align: center; border-radius: 50%; background: var(--line); border: 5px solid var(--ink); font: 900 0.98rem/1.1 var(--f-disp); font-stretch: 125%; text-transform: uppercase; z-index: 2; padding: 0.6rem; }
+  .medal small { display: block; font: 700 0.6rem/1.2 var(--f-body); letter-spacing: 0.04em; text-transform: none; }
+  .caveat { margin-top: 1.6rem; max-width: 70ch; color: var(--ink-2); font-weight: 500; }
+
+  .closer { min-height: 60vh; display: grid; align-items: end; overflow: hidden; }
+  .closer .h2 { font-size: clamp(2.4rem, 6.6vw, 5.8rem); }
+  footer { padding: 2rem 0 3.5rem; font-size: 0.9rem; color: var(--ink-2); }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.8rem; }
+
+  /* lines draw themselves as their section enters (browsers with scroll-driven animation) */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .court-svg .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw linear both; animation-timeline: view(); animation-range: entry 0% cover 45%; }
+      @keyframes draw { to { stroke-dashoffset: 0; } }
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.9s var(--ease) both; } .rise.d2 { animation-delay: 0.14s; } .rise.d3 { animation-delay: 0.28s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+    .grow i { transform: scaleX(0); transition: transform 0.9s var(--ease) 0.1s; } .grow.in i { transform: scaleX(1); }
+  }
+
+  @media (max-width: 900px) {
+    .nav ul { display: none; }
+    .nav .btn { min-height: 44px; padding: 0.5rem 0.8rem; font-size: 0.72rem; }
+    .brand { font-size: 0.8rem; gap: 0.4rem; } .brand svg { width: 28px; height: 28px; }
+    .hero { min-height: auto; padding-block: 2rem 3rem; }
+    .hero > .wrap, .jump, .rc, .decal, .halves { grid-template-columns: minmax(0, 1fr); }
+    .keybox { width: min(80%, 300px); }
+    .play { grid-template-columns: minmax(0, 1fr) 4.2rem; } .play .dv { grid-column: 1 / -1; grid-row: 2; }
+    .step { grid-template-columns: 3.4rem minmax(0, 1fr); } .step .res { grid-column: 2; margin-top: -0.3rem; }
+    .medal { position: relative; left: auto; top: auto; transform: none; margin: -1rem auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Backboard home">
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="3" width="40" height="26" fill="none" stroke="#101827" stroke-width="3"/><rect x="16" y="12" width="16" height="11" fill="none" stroke="#1f4aa8" stroke-width="3"/><ellipse cx="24" cy="33.2" rx="10.2" ry="2.9" fill="none" stroke="#1f4aa8" stroke-width="3.2"/><path d="M15 34 18.5 46M33 34 29.5 46M24 36v10M20 35 21.8 46M28 35 26.2 46" fill="none" stroke="#101827" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Backboard
+    </a>
+    <ul><li><a href="#predict">Predictor</a></li><li><a href="#receipts">Receipts</a></li><li><a href="#odds">Title odds</a></li><li><a href="#whatif">What if</a></li></ul>
+    <a class="btn" href="#predict">Predict a matchup</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="hero-h">
+    <svg class="court-svg" viewBox="0 0 1440 860" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <path d="M-20 24 H1460"/>
+      <path class="draw" pathLength="1" d="M840 24 V170 A300 300 0 0 0 1440 170 V24"/>
+      <path class="draw" pathLength="1" d="M1140 24 V60"/>
+    </svg>
+    <div class="wrap">
+      <div>
+        <h1 class="floor-type"><span class="l1 rise">Know who</span><span class="l2 rise d2">wins.</span></h1>
+        <p class="sub rise d3">Win probabilities for any NBA matchup, from a model that shows its work.</p>
+        <div class="cta-row rise d3"><a class="btn" href="#predict">Predict a matchup</a><a class="link" href="#receipts">See the receipts</a></div>
+      </div>
+      <div class="keybox" aria-live="polite">
+        <div class="lane"></div>
+        <div class="ft top"></div><div class="ft"></div>
+        <svg class="hoop" viewBox="0 0 120 48" aria-hidden="true" focusable="false"><path d="M6 6H114" stroke="#fbf7ee" stroke-width="6" fill="none"/><path d="M60 6V18" stroke="#fbf7ee" stroke-width="5"/><circle cx="60" cy="30" r="12" fill="none" stroke="#fbf7ee" stroke-width="5"/></svg>
+        <div class="readout" id="readout"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" id="predict" aria-labelledby="pr-h">
+    <svg class="court-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <path class="draw" pathLength="1" d="M-20 24 H1460"/>
+    </svg>
+    <div class="wrap">
+      <h2 class="h2 floor-type" id="pr-h">Jump ball</h2>
+      <p class="lede">Pick two teams. The circle splits by their chance to win.</p>
+      <div class="jump">
+        <div class="bench" id="bench-h"><label for="home">Home bench</label><select id="home"></select><div class="stats" id="stats-h"></div><i class="swatch"></i></div>
+        <div class="ball" id="ball" aria-live="polite"></div>
+        <div class="bench" id="bench-a"><label for="away">Away bench</label><select id="away"></select><div class="stats" id="stats-a"></div><i class="swatch"></i></div>
+      </div>
+      <div style="text-align:center"><button class="swapb" id="swap" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg>Swap sides</button></div>
+      <div class="quick" id="quick" aria-label="Quick picks"></div>
+      <div class="plays" id="plays"></div>
+    </div>
+  </section>
+
+  <section class="blk" id="receipts" aria-labelledby="rc-h">
+    <svg class="court-svg" viewBox="0 0 1440 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <path class="draw" pathLength="1" d="M-20 90 H1460"/><path class="draw" pathLength="1" d="M420 90 A160 160 0 0 1 740 90"/>
+    </svg>
+    <div class="wrap">
+      <h2 class="h2 floor-type" id="rc-h">At the line</h2>
+      <p class="lede">How the model did on games it never saw while learning.</p>
+      <div class="rc">
+        <div><div class="bigp" id="acc"></div><p style="margin-top:0.5rem;font-weight:600">of held-out games picked right.</p><div class="facts" id="facts"></div></div>
+        <div class="chart" id="chart"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" id="odds" aria-labelledby="od-h">
+    <div class="wrap">
+      <h2 class="h2 floor-type" id="od-h">Odds are not promises</h2>
+      <p class="lede">Title odds from the end of the 2025-26 regular season, next to what happened.</p>
+      <div class="ladder" id="ladder"></div>
+      <div class="decal">
+        <div class="photo hf-slot" data-hf="Overhead wide photo of a maple basketball court at night, painted key in team color, dramatic arena light sweeping across the varnish, no players, no logos, no readable text" data-hf-size="1600x1000"></div>
+        <p class="fine" style="margin:0">Odds use the real seeded bracket with team strength frozen at the end of the regular season. Results come from the games database.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" id="whatif" aria-labelledby="wi-h">
+    <div class="wrap">
+      <h2 class="h2 floor-type" id="wi-h">What if Curry played for the Spurs?</h2>
+      <p class="lede">The what-if tool re-runs the season with one player moved, and grades its own confidence.</p>
+      <div class="halves" id="halves"></div>
+      <p class="caveat" id="caveat"></p>
+    </div>
+  </section>
+
+  <section class="closer" aria-labelledby="cl-h">
+    <svg class="court-svg" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <path class="draw" pathLength="1" d="M300 620 V420 A420 420 0 0 1 1140 420 V620"/>
+    </svg>
+    <div class="wrap" style="padding-block: 5rem 4rem">
+      <h2 class="h2 floor-type" id="cl-h">Pick a game.<br>Then argue with it.</h2>
+      <div class="cta-row"><a class="btn" href="#predict">Predict a matchup</a></div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap"><p id="fineprint"></p><p>Probabilities are not guarantees.</p></div></footer>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="../shared/slots.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { fmt } = BB;
+  const $ = (s, r = document) => r.querySelector(s);
+  const FLOOR = "#d9a25b", INK = "#101827", LINE = "#fbf7ee";
+
+  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const inkOn = (hex) => (ratio(hex, INK) >= ratio(hex, LINE) ? INK : LINE);
+  /* a team's paint color on maple: primary unless it disappears into the wood */
+  const vis = (t) => (ratio(t.c1, FLOOR) >= 1.9 ? t.c1 : (ratio(t.c2, FLOOR) >= 1.9 ? t.c2 : INK));
+  const pair = (p) => { const a = vis(p.home); let b = vis(p.away); if (ratio(a, b) < 1.4) b = (b === p.away.c1 ? p.away.c2 : p.away.c1); if (ratio(b, FLOOR) < 1.5) b = INK; return [a, b]; };
+
+  function paint(p) {
+    const [c1, c2] = pair(p);
+    $("#readout").innerHTML = `<div><span class="t">${p.home.abbr} HOME</span><span class="p">${fmt.pct(p.pHome)}%</span></div><div><span class="t">${p.away.abbr} AWAY</span><span class="p">${fmt.pct(p.pAway)}%</span><small>One game, model view</small></div>`;
+
+    const R = 112, C = 2 * Math.PI * R;
+    $("#ball").innerHTML = `
+      <svg viewBox="0 0 440 440" role="img" aria-label="${p.home.abbr} ${fmt.pct(p.pHome)} percent, ${p.away.abbr} ${fmt.pct(p.pAway)} percent">
+        <circle cx="220" cy="220" r="200" fill="none" stroke="#fbf7ee" stroke-width="5"/>
+        <circle cx="220" cy="220" r="${R}" fill="none" stroke="#101827" stroke-width="3" opacity="0.25"/>
+        <circle class="arc" cx="220" cy="220" r="${R}" stroke="${c1}" stroke-dasharray="${(p.pHome * C - 3).toFixed(1)} ${C}" transform="rotate(-90 220 220)"/>
+        <circle class="arc" cx="220" cy="220" r="${R}" stroke="${c2}" stroke-dasharray="${(p.pAway * C - 3).toFixed(1)} ${C}" stroke-dashoffset="${(-p.pHome * C).toFixed(1)}" transform="rotate(-90 220 220)"/>
+        <text class="mid" x="220" y="226" text-anchor="middle">${fmt.pct(p.favP)}%</text>
+        <text class="sm" x="220" y="252" text-anchor="middle">${p.favTeam.abbr} WINS</text>
+      </svg>
+      <div><span class="verdict">${p.verdict.label}</span></div>
+      <p class="proj num">${p.favTeam.city} ${p.favTeam.nick} over ${p.dogTeam.nick}. Projected ${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}.</p>
+      <p class="fine" style="margin-inline:auto">80% range for the home margin: ${Math.round(p.margin.lo)} to ${fmt.signed(p.margin.hi, 0)}. Typical miss ${BB.meta.marginMae} points, so read it as a lean. Even teams at home start ${p.home.abbr} near ${fmt.pct0(p.homeCourtOnly)}%.</p>`;
+
+    const stat = (t) => `${fmt.wins10(t)} last 10<br>Elo ${Math.round(t.elo)}<br>Margin ${fmt.signed(t.form.pm10)}`;
+    $("#stats-h").innerHTML = stat(p.home); $("#stats-a").innerHTML = stat(p.away);
+    $("#bench-h .swatch").style.setProperty("--c", c1); $("#bench-a .swatch").style.setProperty("--c", c2);
+
+    const max = 0.12;
+    $("#plays").innerHTML = `<h3 class="floor-type">Why it leans this way</h3>` + p.sorted.map((g) => {
+      const w = Math.min(Math.abs(g.value) / max, 1) * 50;
+      const home = g.value >= 0;
+      return `<div class="play"><span class="k">${g.label}</span><span class="dv" aria-hidden="true"><i style="${home ? `left:50%;width:${w}%` : `right:50%;width:${w}%`};--c:${home ? c1 : c2}"></i></span><span class="v">${fmt.signed(Math.abs(g.value) * 100)}<small>${home ? p.home.abbr : p.away.abbr}</small></span></div>`;
+    }).join("") + `<p class="fine">Each bar is the change in ${p.home.abbr}'s win chance, in percentage points, if the two teams were even on that input. It shows what the model responds to, not what causes wins.</p>`;
+    syncQuick();
+  }
+
+  function paintQuick() {
+    $("#quick").innerHTML = BB.featured.map((pr, i) => `<button type="button" data-i="${i}" aria-pressed="false">${i === 0 ? "The Finals" : BB.teams[pr[0]].abbr + " v " + BB.teams[pr[1]].abbr}</button>`).join("");
+    $("#quick").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; const pr = BB.featured[Number(b.dataset.i)]; BB.state.set(pr[0], pr[1]); repaint(); });
+  }
+  const syncQuick = () => document.querySelectorAll("#quick button").forEach((b) => { const pr = BB.featured[Number(b.dataset.i)]; b.setAttribute("aria-pressed", String(pr[0] === BB.state.hi && pr[1] === BB.state.ai)); });
+  let repaint = () => {};
+
+  function paintReceipts() {
+    const h = BB.meta.holdout;
+    $("#acc").textContent = fmt.pct(h.accuracy, 1) + "%";
+    $("#facts").innerHTML = `<div><span>Games it never saw</span><b>${h.games.toLocaleString("en-US")}</b></div><div><span>Log loss</span><b>${h.logLoss.toFixed(4)}</b></div><div><span>Calibration error</span><b>${h.ece.toFixed(3)}</b></div>`;
+    const bins = BB.calibration;
+    const W = 600, H = 440, m = { l: 58, r: 22, t: 20, b: 58 };
+    const x = (v) => m.l + v * (W - m.l - m.r), y = (v) => H - m.b - v * (H - m.t - m.b);
+    const hi = bins[6];
+    const table = bins.map((b) => `<tr><td>${fmt.pct0(b.lo)} to ${fmt.pct0(b.hi)}%</td><td>${b.games}</td><td>${fmt.pct(b.pred)}%</td><td>${fmt.pct(b.obs)}%</td></tr>`).join("");
+    $("#chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="ct cd"><title id="ct">Calibration chart</title>
+      <desc id="cd">The home win chance the model gave, against how often the home team won, in nine groups. Points sit just under the diagonal at the high end: the model runs a little confident.</desc>
+      ${[0, 0.25, 0.5, 0.75, 1].map((t) => `<path d="M${x(t)} ${y(0)} V ${y(1)}" stroke="#101827" stroke-opacity="0.12"/><path d="M${x(0)} ${y(t)} H ${x(1)}" stroke="#101827" stroke-opacity="0.12"/><text x="${x(t)}" y="${H - m.b + 24}" text-anchor="middle" font-size="13">${t * 100}%</text><text x="${m.l - 10}" y="${y(t) + 5}" text-anchor="end" font-size="13">${t * 100}%</text>`).join("")}
+      <path d="M${x(0)} ${y(0)} L ${x(1)} ${y(1)}" stroke="#101827" stroke-width="2" stroke-dasharray="7 7" fill="none"/>
+      ${bins.map((b) => `<path d="M${x(b.pred)} ${y(b.ciLo)} V ${y(b.ciHi)}" stroke="#1f4aa8" stroke-width="3"/>`).join("")}
+      <path d="M${bins.map((b) => `${x(b.pred)} ${y(b.obs)}`).join(" L")}" fill="none" stroke="#1f4aa8" stroke-width="3.4" stroke-linejoin="round"/>
+      ${bins.map((b) => `<circle cx="${x(b.pred)}" cy="${y(b.obs)}" r="7" fill="#1f4aa8" stroke="#fbf7ee" stroke-width="3"/>`).join("")}
+      <text x="${(m.l + W - m.r) / 2}" y="${H - 8}" text-anchor="middle" font-size="14" font-weight="600">what the model said (home team wins)</text>
+      <text transform="translate(15 ${(m.t + H - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="14" font-weight="600">how often it happened</text></svg>
+      <p class="cap">It runs a little confident. When it said about ${fmt.pct0(hi.pred)}%, the home team won ${fmt.pct0(hi.obs)}%. Bars show the 90% range.</p>
+      <table class="sr-only"><caption>Calibration groups</caption><thead><tr><th>Group</th><th>Games</th><th>Model said</th><th>Home won</th></tr></thead><tbody>${table}</tbody></table>`;
+  }
+
+  function paintOdds() {
+    const board = BB.titleBoard();
+    const champ = board.find((t) => t.po.actual === "won the title");
+    let rows = board.slice(0, 7); if (!rows.includes(champ)) rows = rows.slice(0, 6).concat(champ);
+    const max = rows[0].po.title;
+    $("#ladder").innerHTML = rows.map((t) => {
+      const w = Math.max(t.po.title / max * 64, 3);
+      const c = ratio(t.c1, FLOOR) >= 1.9 ? t.c1 : (ratio(t.c2, FLOOR) >= 1.9 ? t.c2 : INK);
+      return `<div class="step grow${t === champ ? " champ" : ""}"><span class="ab">${t.abbr}</span><span class="st"><i style="width:${w}%;--c:${c}"></i><b style="left:${w}%">${fmt.pct(t.po.title)}%</b></span><span class="res">${BB.RESULT_LABEL[t.po.actual]}</span></div>`;
+    }).join("");
+    document.querySelectorAll("#ladder .grow").forEach((el) => io.observe(el));
+  }
+
+  function paintWhatIf() {
+    const w = BB.whatIf(); const bt = w.backtest;
+    const a = w.effects.find((e) => e.id === w.fromId), b = w.effects.find((e) => e.id === w.toId);
+    const half = (e) => { const c = vis(e.team); return `<div class="half" style="--c:${c};--k:${inkOn(c)}"><span class="t">${e.team.city} ${e.team.nick}</span><span class="chg">${fmt.signed(e.change)}</span><p>wins, ${e.winsBefore} to ${e.winsAfter}. Direct playoff odds ${fmt.pct0(e.playoffBefore)}% to ${fmt.pct0(e.playoffAfter)}%.</p></div>`; };
+    $("#halves").innerHTML = half(a) + half(b) + `<div class="medal" role="note">Confidence<br>${w.confidence}<small>read the fine print</small></div>`;
+    $("#caveat").textContent = `${w.sims.toLocaleString("en-US")} simulated seasons, ${w.player} moved before opening night. Tested on real moves from ${bt.seasons}, ${Math.round(bt.largeEffectsRight * bt.largeEffectsCount)} of ${bt.largeEffectsCount} big effects pointed the right way, but overall win error did not shrink (${bt.maeWithout} to ${bt.maeWith}). Fit, injuries and the cap are not modeled.`;
+  }
+
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.3 });
+  paintQuick();
+  repaint = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
+  BB.state.subscribe(paint);
+  paintReceipts(); paintOdds(); paintWhatIf();
+  $("#fineprint").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed.`;
+})();
+</script>
+</body>
+</html>
