@@ -64,6 +64,9 @@ The engine is genuinely usable **today as a command-line analytical toolset**. W
 | **Single-player scenario readout** | Production prediction + appended player diagnostic, with an explicit "feature translation unsupported" notice; **never modifies the model probability** | Descriptive | `src/player_scenario.py: analyze_single_player_scenario` |
 | **Full player-impact benchmark** | Leave-one-player-out target, independent pregame target, 10/20/30% holdouts, usage strata, later-season cutoffs, roster-change evaluation — all association diagnostics with game-cluster bootstrap CIs | Diagnostic (research-grade) | `src/player_impact.py: validate_player_impact` |
 | **Confidence gating (tool layer)** | Marks player-impact results `low` if <5 prior games, `moderate` otherwise; `unavailable` if no history | Diagnostic | `src/tools.py: _execute_player_impact` |
+| **Player pages** | Bio, every regular-season and playoff season per team stint and combined, career totals/highs/milestones, game logs with splits, Basketball-Reference-formula rates (TS%, usage, AST/REB/STL/BLK/TOV%) | Factual + standard formulas | `src/player_profile.py: player_profile`, `player_game_log` |
+| **Player outlook** | League percentiles, role tags, box impact and wins added (the era-swap box-score model, calibrated), most similar player-seasons at the same age and what they did next, an aging curve, a next-season projection with a 20th-80th range, team record with/without the player | **Model estimate / extrapolation** (labeled as such) | `src/player_profile.py: player_outlook` |
+| **Sandbox scenarios** | Any number of trades (2-3 teams), signings of any 1985-86+ player-season (era-translated), releases, injuries and minutes changes; minutes re-balanced per team; paired baseline-vs-scenario simulation of the whole league's season and playoffs, for the next season or a replay of any season from 1985-86 | **What-if simulation, low confidence** | `src/sandbox.py: preview`, `simulate_scenario` |
 
 **Roster-change data tooling (separate from causal claims):** CSV contract validation (`roster_change_data.py --validate`), deterministic normalization of `nba_player_movement_raw.csv` into high-confidence `add`/`remove` events + audit CSV (`--normalize-player-movement`), and Basketball-Reference transaction-page fetching (network; writes events + unresolved rows). These feed the **descriptive** roster-change benchmark only.
 
@@ -223,6 +226,33 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
   hasn't been built yet, and (per `PROJECT_CONTEXT.md`) a player-name
   resolution gap needs to close first for a good UX. See
   `PROJECT_CONTEXT.md` for the prioritized roadmap.
+- **Players** (added 2026-10-02, `#/players?id=<personId>`): search any player
+  (1946-47 on). The header is the player's NBA headshot torn out of newsprint
+  on their team's color slab (players without a headshot get their initials
+  on the same torn card). Tabs: **Overview** (scouting read, league
+  percentiles, career arc of box impact, career highs, milestones),
+  **Season stats** (per game / totals / per 36 / per 100 possessions /
+  advanced, regular season or playoffs, TOT plus each team stint),
+  **Game log** (every game with a game-score trend and 10-game average),
+  **Splits** (home/road, wins/losses, rest, starter/bench where recorded,
+  team, month), **Outlook** (next-season projection, most similar seasons
+  in history, aging curve, with/without record) and **Trade & simulate**
+  (send the player anywhere, optionally take players back, or sign a
+  retired player's season; instant estimate, then the next season simulated
+  with and without the move, with a link to continue in the Sandbox).
+- **Sandbox** (added 2026-10-02, `#/sandbox`): pick the next season
+  (rosters as last season ended, strength frozen there, last season's
+  matchups reused as the schedule) or replay any season from 1985-86; build
+  moves (trade, sign anyone from any era, release, injury, minutes and games);
+  each changed team's net-rating change appears instantly
+  (`sandbox_preview`), then **Simulate the season** runs 500-2,000 paired
+  seasons with and without the moves (`sandbox_simulate`): changed teams'
+  win ranges, playoff/conference/title odds, who won each trade, full league
+  table, and sample seasons with play-in and bracket. Scenarios are saved in
+  the browser and can be shared as a link.
+- On start the server warms the slow caches in a background thread (player
+  tables, Sandbox engine, model inputs, next-season schedule, then every
+  game's pregame probability, about a minute); pass `--no-warm` to skip it.
 - **Writes nothing** beyond what the underlying tools already write (e.g. `/ingest` with `dry_run: false`).
 
 ### Player-impact diagnostics
@@ -305,6 +335,9 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 - **`player_impact --person-id N`** — Answers: "What is player N's descriptive prior-production impact estimate?" Inputs: numeric `person_id`, optional `before`, `window` (default 10). Output: `prior_games`, `player_net_rating`, `expected_minutes`, `estimated_net_rating_change` (minutes-weighted net-rating delta vs reference 0.0, scaled to 48 min), `direction`, explicit non-causal note. Data: `player_statistics_extended` netRating/minutes, regular season only. **Descriptive/associative — NOT causal.** Verified.
 - **`player_scenario.py`** — Answers: "Given a matchup, what does the production model say, and what is player N's diagnostic contribution?" The model probability is **never modified**; the diagnostic is appended with a hard "feature translation unsupported" notice. Verified.
 - **`tools.py player_impact`** — adds confidence labeling (`low` < 5 prior games) and `unavailable` when no history exists.
+- **`player_profile` / `player_game_log`** — recorded box scores and standard rates for any player. Team-based rates need complete team box scores (1985-86 on); stats the league did not record yet (steals and blocks before 1973-74, turnovers before 1977-78, threes before 1979-80, plus-minus before 1996-97) are null, not zero; games started appear only for seasons where the source marks starters reliably. Box-score rows missing a team id (most of 2021-22) get the team from the game itself (`src/season_tables.py`). CLI: `.\.venv\Scripts\python src\player_profile.py 201939 --section outlook`.
+- **`player_outlook`** — box impact = realization factor (0.217) x the box-score team model's value of the player's league-relative per-100 line / 5 (per 100 on-court possessions vs a league-average player); wins added = that over the player's minutes at 2.52 wins per net-rating point. Comparables and the projection describe what similar player-seasons did next; they know nothing about health, contracts or role.
+- **`sandbox_simulate`** — each changed team's composite (minutes-weighted mean of player vectors) is recomputed after the moves; the coefficient-weighted change times the realization factor is the calibrated net-rating change (the "full" setting is the unvalidated upper scenario). It shifts every game the team plays on the probit scale (sigma 12.6 points, as in the What-if Lab). Baseline and scenario share their random draws. **What-if estimates with low confidence, not forecasts.**
 - **The full `player_impact.py` benchmark** — research diagnostics only: the roster-change evaluation **does not** improve its pregame control (control MAE 12.8427 vs candidate 12.8628, CI includes 0); later-season team-game cutoffs improve slightly in aggregate (e.g., 2024: 11.5468 vs 11.5806); leave-one-out target improves on fixed-zero in every holdout season. **All are association diagnostics; the project explicitly does not claim "if player X joined team Y, the team would improve by Z."**
 
 ---

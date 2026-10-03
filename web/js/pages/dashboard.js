@@ -25,6 +25,18 @@ const QUICK_LINKS = [
     available: true,
   },
   {
+    path: "/players",
+    title: "Players",
+    description: "Every season and game for any player, plus percentiles, comparables and a projection.",
+    available: true,
+  },
+  {
+    path: "/sandbox",
+    title: "Sandbox",
+    description: "Make any trade or signing, from any era, then simulate the season and playoffs.",
+    available: true,
+  },
+  {
     path: "/simulator",
     title: "Season Simulator",
     description: "Monte Carlo season projection: standings, seeds, playoff odds.",
