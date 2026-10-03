@@ -4,80 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Backboard | Street Zine</title>
-<meta name="description" content="Backboard as a photocopied street zine: torn paper with real white fiber edges, tape stat tags, flip cards, stop-motion, and the 90s dunk montage on a taped-down TV. Real model output.">
+<meta name="description" content="Backboard as a photocopied street zine: torn paper, tape stat tags, flip cards and the 90s dunk montage. Win probabilities for any NBA matchup, team explorer, season and playoff odds, player impact, what-ifs and an assistant. Real model output.">
 <meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo:wght@400;600;800&family=Courier+Prime:wght@400;700&family=Reenie+Beanie&display=swap">
+<link rel="stylesheet" href="zine.css">
 <link rel="stylesheet" href="../shared/slots.css">
 <style>
-  :root {
-    --ground: #141414;
-    --paper: #f3f1ea;        /* the white you see at a torn edge */
-    --paper-2: #e4e1d8;
-    --ink: #101010;
-    --red: #ee3a1f;
-    --yellow: #f3e32a;
-    --fg: #ecebe5;
-    --dim: #a5a49d;
-    --f-head: "Anton", Impact, "Arial Narrow", sans-serif;
-    --f-body: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
-    --f-type: "Courier Prime", "Courier New", monospace;
-    --f-pen: "Reenie Beanie", "Segoe Print", cursive;
-    --f-rans: "Abril Fatface", Georgia, serif;
-    --ease: cubic-bezier(0.16, 1, 0.3, 1);
-    --fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .32 0 0 0 0 .28 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-  }
-  * { box-sizing: border-box; margin: 0; }
-  html { scroll-behavior: smooth; scrollbar-color: var(--red) var(--ground); background: var(--ground); }
-  body { background: var(--ground); color: var(--fg); font: 400 1.0625rem/1.5 var(--f-body); -webkit-font-smoothing: antialiased; overflow-x: hidden; caret-color: var(--red); }
-  ::selection { background: var(--red); color: var(--ink); }
-  a { color: inherit; }
-  button, select { font: inherit; color: inherit; }
-  :focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .wrap { position: relative; max-width: 1320px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 52px); }
-  .num { font-family: var(--f-head); font-variant-numeric: tabular-nums; line-height: 0.9; }
-
-
-  /* ---------- torn paper: a white fibrous rim under a colored face, both with rough edges ---------- */
-  .scrap { position: relative; isolation: isolate; padding: var(--pad, 1.5rem); color: var(--k, var(--ink)); }
-  .scrap::before, .scrap::after { content: ""; position: absolute; pointer-events: none; }
-  .scrap::before { inset: -7px; z-index: -2; background-color: var(--paper); background-image: var(--fiber); filter: url(#tear-a); }
-  .scrap::after { inset: var(--rim, 8px); z-index: -1; background-color: var(--face, var(--paper-2)); background-image: var(--fiber); background-blend-mode: multiply; filter: url(#tear-b); }
-  .scrap.t2::before { filter: url(#tear-c); } .scrap.t2::after { filter: url(#tear-a); }
-  .scrap.t3::before { filter: url(#tear-b); } .scrap.t3::after { filter: url(#tear-c); }
-
-  .tape { position: absolute; z-index: 4; width: 116px; height: 32px; background: rgb(243 241 234 / 0.62); background-image: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.06) 0 2px, transparent 2px 7px); transform: rotate(var(--tr, -4deg));
-    clip-path: polygon(1% 0, 99% 0, 100% 14%, 97% 28%, 100% 42%, 97% 56%, 100% 70%, 97% 84%, 99% 100%, 1% 100%, 0 84%, 3% 70%, 0 56%, 3% 42%, 0 28%, 3% 14%); }
-  .tape.y { background-color: rgb(243 227 42 / 0.86); }
-
-
-  /* ---------- pages: black, white, red and yellow sheets, each torn onto the last ---------- */
-  .page { position: relative; padding-block: clamp(4.5rem, 9vw, 8rem); }
-  .page + .page::before { content: ""; position: absolute; z-index: 5; left: -3%; right: -3%; top: -20px; height: 40px; background-color: var(--paper); background-image: var(--fiber); filter: url(#tear-edge); pointer-events: none; }
-  .page.dark { background: var(--ground); color: var(--fg); }
-  .page.white { background: var(--paper); color: var(--ink); }
-  .page.red { background: var(--red); color: var(--ink); }
-  .page.yellow { background: var(--yellow); color: var(--ink); }
-  .page > .wrap { z-index: 2; }
-
-  .h2 { font: 400 clamp(3.2rem, 8.2vw, 7.6rem)/0.9 var(--f-head); text-transform: uppercase; letter-spacing: 0.005em; text-wrap: balance; }
-  .h2 .hl { position: relative; isolation: isolate; display: inline-block; padding: 0 0.14em; color: var(--paper); }
-  .h2 .hl::before { content: ""; position: absolute; inset: 0.04em -0.06em -0.02em; z-index: -1; background-color: var(--red); background-image: var(--fiber); background-blend-mode: multiply; filter: url(#tear-b); }
-  .page.red .h2 .hl::before { background-color: var(--ink); }
-  .lede { margin-top: 1.1rem; max-width: 44ch; font-size: clamp(1.05rem, 1.5vw, 1.25rem); font-weight: 600; }
-  .pen { font: 400 1.9rem/1 var(--f-pen); }
-
-  .btn { position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: 0.7rem; min-height: 56px; padding: 0.8rem 1.7rem; border: 0; background: none; cursor: pointer; text-decoration: none; white-space: nowrap; color: var(--ink); font: 400 1.5rem/1 var(--f-head); letter-spacing: 0.06em; text-transform: uppercase; transition: transform 0.2s var(--ease); }
-  .btn::before { content: ""; position: absolute; inset: -4px; z-index: -2; background-color: var(--paper); background-image: var(--fiber); filter: url(#tear-a); }
-  .btn::after { content: ""; position: absolute; inset: 3px; z-index: -1; background: var(--red); filter: url(#tear-b); }
-  .btn:hover { transform: translateY(-3px) rotate(-1deg); } .btn:active { transform: translateY(1px) scale(0.98); }
-  .btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 3.4; stroke-linecap: square; }
-  .link { font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.95rem; text-underline-offset: 0.3em; text-decoration-thickness: 3px; }
-
   /* ---------- cover ---------- */
-  .cover { min-height: 100vh; min-height: 100svh; display: grid; align-items: center; padding-block: 5.5rem 5.5rem; overflow: hidden; }
+  .cover { min-height: 100vh; min-height: 100svh; display: grid; align-items: center; padding-block: 6.5rem 5.5rem; overflow: hidden; }
   .herobg { position: absolute; inset: 0; z-index: 0; background: #0a0a0a; }
   .herobg img, .herobg video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: grayscale(0.25) contrast(1.12) brightness(0.82); }
   .herobg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(10 10 10 / 0.86), rgb(10 10 10 / 0.6) 55%, rgb(10 10 10 / 0.3)), repeating-linear-gradient(0deg, rgb(0 0 0 / 0.2) 0 1px, transparent 1px 3px); }
@@ -87,13 +23,6 @@
   .bgpp .ic-play, .bgpp .t-play { display: none; } .bgpp[data-state="paused"] .ic-play, .bgpp[data-state="paused"] .t-play { display: inline; } .bgpp[data-state="paused"] .ic-pause, .bgpp[data-state="paused"] .t-pause { display: none; }
   .bgpp[data-state="paused"] svg.ic-play { display: block; }
   .cover > .wrap { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; }
-  .nav { position: absolute; z-index: 20; top: 0; left: 0; right: 0; }
-  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 72px; }
-  .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; font: 400 1.5rem/1 var(--f-head); letter-spacing: 0.06em; text-transform: uppercase; }
-  .brand svg { width: 32px; height: 32px; }
-  .nav nav { display: flex; gap: clamp(0.8rem, 2vw, 2rem); }
-  .nav nav a { text-decoration: none; font: 800 0.85rem var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; padding: 0.6rem 0; border-bottom: 3px solid transparent; }
-  .nav nav a:hover { border-color: var(--red); }
   .mastcol { container-type: inline-size; min-width: 0; }
   .mast { display: flex; flex-direction: column; gap: 0.06em; font-size: clamp(4rem, min(19cqw, 22svh), 15rem); font-weight: 400; }
   .row { display: flex; flex-wrap: nowrap; gap: 0.05em; }
@@ -105,135 +34,42 @@
   .say { margin-top: clamp(1rem, 3vh, 2rem); font: 400 clamp(2.4rem, 5.4vw, 5rem)/0.95 var(--f-head); text-transform: uppercase; }
   .say em { font-style: normal; color: var(--red); }
   .sub { margin-top: 1rem; max-width: 34ch; font-size: clamp(1.05rem, 1.5vw, 1.3rem); font-weight: 600; }
-  .go { display: flex; flex-wrap: wrap; align-items: center; gap: 1.6rem; margin-top: 1.8rem; }
 
-  /* ---------- matchup ---------- */
-  .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; margin-top: 3rem; }
-  .side { display: grid; justify-items: center; gap: 1.2rem; }
-  .flipper { --w: clamp(190px, 21vw, 290px); position: relative; width: var(--w); aspect-ratio: 5 / 7; perspective: 1100px; }
-  .flip-in { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.7s steps(7, end); }
-  .flipper.flipped .flip-in { transform: rotateY(180deg); }
-  .face { position: absolute; inset: 7px; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; flex-direction: column; justify-content: space-between; --pad: 1.3rem; }
-  .face.back { transform: rotateY(180deg); --face: #0e0e0e; --k: var(--paper); justify-content: flex-start; gap: 0.7rem; }
-  .face .ab { font: 400 calc(var(--w) * 0.36)/0.82 var(--f-head); letter-spacing: 0.01em; }
-  .face .nk { font: 400 calc(var(--w) * 0.13)/0.95 var(--f-head); text-transform: uppercase; }
-  .face .ct { font: 700 calc(var(--w) * 0.05)/1.2 var(--f-type); text-transform: uppercase; }
-  .face.back h4 { font: 400 calc(var(--w) * 0.14)/1 var(--f-head); text-transform: uppercase; }
-  .face.back table { width: 100%; border-collapse: collapse; font: 700 calc(var(--w) * 0.058)/1.2 var(--f-type); font-variant-numeric: tabular-nums; text-transform: uppercase; }
-  .face.back td { padding: 0.34em 0; border-bottom: 1px dashed rgb(255 255 255 / 0.4); } .face.back td:last-child { text-align: right; color: var(--yellow); }
-  .tagbit { align-self: flex-start; position: relative; padding: 0.4rem 0.8rem 0.35rem; background: var(--yellow); color: var(--ink); transform: rotate(-3deg); clip-path: polygon(0 5%, 100% 0, 97% 100%, 3% 95%); }
-  .tagbit span { display: block; font: 700 calc(var(--w) * 0.045)/1.2 var(--f-type); text-transform: uppercase; } .tagbit em { font-style: normal; }
-  .tagbit b { font: 400 calc(var(--w) * 0.15)/1 var(--f-head); font-variant-numeric: tabular-nums; }
-  .flipbtn { position: absolute; inset: 0; z-index: 6; background: none; border: 0; cursor: pointer; }
-  .hintflip { position: absolute; z-index: 7; right: -8%; bottom: 8%; transform: rotate(5deg); pointer-events: none; }
-  .hintflip span { display: block; padding: 0.35rem 0.7rem; background: var(--yellow); color: var(--ink); font: 700 0.8rem/1.2 var(--f-type); text-transform: uppercase; clip-path: polygon(0 4%, 100% 0, 97% 100%, 3% 96%); }
-  .pick select { appearance: none; width: min(100%, 290px); min-height: 50px; padding: 0.4rem 2.2rem 0.4rem 0.9rem; background: #0e0e0e; border: 2px solid var(--fg); border-radius: 0; cursor: pointer; font: 700 1rem var(--f-body);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23ecebe5' stroke-width='2.6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.8rem center; }
-  .pick select:hover { border-color: var(--yellow); }
-  .pick label { display: block; margin-bottom: 0.3rem; font: 800 0.8rem var(--f-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
-  .center { text-align: center; }
-  .pcts { display: flex; justify-content: center; align-items: flex-end; gap: clamp(0.6rem, 2vw, 1.6rem); }
-  .pcts .p { display: flex; flex-direction: column; align-items: center; }
-  .pcts .p b { font: 400 clamp(3.4rem, 6.2vw, 6.4rem)/0.86 var(--f-head); font-variant-numeric: tabular-nums; }
-  .pcts .p b small { font-size: 0.42em; }
-  .pcts .p .lb { margin-top: 0.4rem; font: 800 0.9rem var(--f-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
-  .pcts .p.win b { color: var(--paper); } .pcts .p.lose b { color: var(--red); }
-  .pcts .vs { font: 400 2rem var(--f-head); color: var(--dim); padding-bottom: 2rem; }
-  .verdict { display: inline-block; margin-top: 1.2rem; padding: 0.4rem 1rem; background: var(--red); color: var(--ink); font: 400 1.4rem/1 var(--f-head); letter-spacing: 0.08em; text-transform: uppercase; transform: rotate(-2deg); clip-path: polygon(0 6%, 100% 0, 98% 100%, 2% 94%); }
-  .proj { margin-top: 1rem; font: 700 1rem/1.4 var(--f-type); text-transform: uppercase; }
-  .proj b { font: 400 2rem/1 var(--f-head); color: var(--yellow); }
-  .proj small { display: block; margin-top: 0.4rem; font: 400 0.8rem/1.4 var(--f-body); text-transform: none; color: var(--dim); max-width: 46ch; margin-inline: auto; }
-  .quick { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; margin-top: 1.6rem; }
-  .quick button { position: relative; min-height: 44px; padding: 0.3rem 0.9rem; border: 0; cursor: pointer; background: rgb(243 241 234 / 0.9); color: var(--ink); font: 700 0.85rem var(--f-type); text-transform: uppercase; transform: rotate(var(--r, 0deg)); clip-path: polygon(0 8%, 3% 0, 97% 6%, 100% 0, 100% 92%, 97% 100%, 3% 94%, 0 100%); }
-  .quick button:hover { background: var(--yellow); } .quick button[aria-pressed="true"] { background: var(--red); }
-  .swapb { min-height: 44px; padding: 0.3rem 1rem; background: transparent; border: 2px solid var(--fg); cursor: pointer; font: 800 0.8rem var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; }
-  .swapb:hover { border-color: var(--ink); color: var(--ink); }
+  /* ---------- the toolbox: one torn card per page of the site ---------- */
+  .toolbox { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(1.4rem, 3vw, 2.6rem); margin-top: 3.4rem; }
+  .tool { grid-column: span 2; position: relative; display: flex; flex-direction: column; gap: 0.6rem; min-height: 270px; text-decoration: none; --pad: 1.6rem 1.6rem 1.8rem; --face: #fbfaf6; transform: rotate(var(--r, 0deg)); transition: transform 0.25s var(--ease); }
+  .tool:nth-child(4) { grid-column: 2 / span 2; } .tool:nth-child(5) { grid-column: 4 / span 2; }
+  .tool:hover { transform: translateY(-6px) rotate(calc(var(--r, 0deg) * -1)); }
+  .tool .kick { font: 700 0.85rem var(--f-type); text-transform: uppercase; letter-spacing: 0.06em; }
+  .tool .big { font: 400 clamp(3.6rem, 6vw, 5.4rem)/0.86 var(--f-head); font-variant-numeric: tabular-nums; }
+  .tool .big small { font-size: 0.4em; }
+  .tool h3 { font: 400 clamp(1.7rem, 2.6vw, 2.3rem)/1 var(--f-head); text-transform: uppercase; }
+  .tool p { font: 700 0.88rem/1.4 var(--f-type); text-transform: uppercase; }
+  .tool .more { margin-top: auto; font: 800 0.85rem var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 0.3em; }
+  .tool.y { --face: var(--yellow); } .tool.r2 { --face: var(--red); }
 
-  .moving { margin-top: 4rem; }
-  .moving h3 { font: 400 clamp(1.8rem, 3.4vw, 3rem)/1 var(--f-head); text-transform: uppercase; }
-  .tags { list-style: none; padding: 0; margin-top: 1.4rem; display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.4rem; }
-  .tags li { --m: 0.3; position: relative; padding: 0.55rem 1.1rem 0.5rem; color: var(--ink); transform: rotate(var(--r, 0deg)); clip-path: polygon(1% 0, 99% 4%, 100% 100%, 0 96%, 2% 50%); background: var(--yellow); }
-  .tags li.away { background: var(--red); }
-  .tags li span { display: block; font: 700 0.78rem/1.2 var(--f-type); text-transform: uppercase; }
-  .tags li b { font: 400 calc(1.5rem + var(--m) * 2.6rem)/1 var(--f-head); font-variant-numeric: tabular-nums; }
-  .tags li i { font: 700 0.8rem var(--f-type); font-style: normal; margin-left: 0.3rem; }
-  .note { margin-top: 1.4rem; max-width: 64ch; font-size: 0.95rem; color: var(--dim); }
-  .legend { display: inline-flex; gap: 1rem; margin-left: 0.6rem; }
+  /* ---------- the miss: the real Finals, kept on screen ---------- */
+  .miss { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: center; margin-top: 3rem; }
+  .missbig { display: flex; align-items: flex-end; gap: clamp(0.8rem, 2.4vw, 2rem); }
+  .missbig .p { display: flex; flex-direction: column; }
+  .missbig b { font: 400 clamp(3.2rem, 9vw, 8rem)/0.86 var(--f-head); font-variant-numeric: tabular-nums; }
+  .missbig b small { font-size: 0.42em; }
+  .missbig .lb { margin-top: 0.4rem; font: 800 0.9rem var(--f-body); letter-spacing: 0.12em; text-transform: uppercase; }
+  .missbig .p.lose b { color: var(--red); } .missbig .vs { font: 400 2rem var(--f-head); color: var(--dim); padding-bottom: 2.2rem; }
+  .misscard { --face: #fbfaf6; --pad: 2rem 1.8rem 1.8rem; font: 700 0.98rem/1.7 var(--f-type); text-transform: uppercase; transform: rotate(1.4deg); }
 
-  /* ---------- receipts (white page) ---------- */
-  .rc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(1.5rem, 4vw, 4rem); margin-top: 3rem; align-items: start; }
-  .receipt { --pad: 1.8rem 1.6rem 2.4rem; --face: #fbfaf6; font: 700 0.95rem/1.7 var(--f-type); text-transform: uppercase; }
-  .receipt .big { display: block; font: 400 clamp(6rem, 12vw, 10rem)/0.82 var(--f-head); font-variant-numeric: tabular-nums; margin: 0.4rem 0; }
-  .receipt .big small { font-size: 0.4em; }
-  .receipt dl { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 1rem; margin: 0.8rem 0 0; border-top: 2px dashed var(--ink); padding-top: 0.6rem; }
-  .receipt dt { font-weight: 400; } .receipt dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .graph { --face: #fbfaf6; --pad: 1.6rem; background-image: none; }
-  .graphin { background-image: linear-gradient(rgb(16 16 16 / 0.12) 1px, transparent 1px), linear-gradient(90deg, rgb(16 16 16 / 0.12) 1px, transparent 1px); background-size: 26px 26px; padding: 0.6rem; }
-  .graphin svg { display: block; width: 100%; height: auto; overflow: visible; } .graphin text { font-family: var(--f-type); fill: var(--ink); }
-  .graph .pen { position: absolute; right: 9%; bottom: 20%; max-width: 12ch; transform: rotate(-5deg); z-index: 3; }
-  .photo { position: relative; --face: #0e0e0e; --pad: 0.9rem; }
-  .pic { position: relative; overflow: hidden; background: var(--red); aspect-ratio: 348 / 360; }
-  .pic img { display: block; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; filter: grayscale(1) contrast(1.5) brightness(1.15); }
-  .pic.bw { background: #fff; } .pic.yel { background: var(--yellow); }
-  .pic::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgb(0 0 0 / 0.5) 1.1px, transparent 1.7px) 0 0 / 5px 5px; mix-blend-mode: multiply; opacity: 0.5; }
-
-  /* ---------- odds (red page) ---------- */
-  .odds { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: clamp(1.5rem, 4vw, 4rem); margin-top: 3rem; align-items: start; }
-  .facts { position: relative; min-height: 520px; }
-  .facts .scrap { position: absolute; }
-  .fa { left: 0; top: 0; width: min(64%, 320px); --face: #0e0e0e; --k: var(--paper); transform: rotate(-2deg); }
-  .fb { right: 0; top: 150px; width: min(62%, 310px); --face: var(--paper-2); transform: rotate(2.4deg); z-index: 3; }
-  .fc { left: 6%; bottom: 0; width: min(46%, 230px); transform: rotate(-3deg); z-index: 2; }
-  .facts .n { display: block; font: 400 clamp(4.6rem, 8vw, 7rem)/0.86 var(--f-head); font-variant-numeric: tabular-nums; }
-  .facts .n small { font-size: 0.42em; }
-  .facts .scrap { --pad: 1.6rem 2rem 1.6rem 1.6rem; }
-  .facts p { font: 700 0.9rem/1.3 var(--f-type); text-transform: uppercase; margin-top: 0.4rem; }
-  .ledger { --face: #fbfaf6; --pad: 1.6rem 1.6rem 1.8rem; position: relative; }
-  .ledger table { width: 100%; border-collapse: collapse; font: 700 0.95rem/1.3 var(--f-type); text-transform: uppercase; font-variant-numeric: tabular-nums; }
-  .ledger th { text-align: left; padding: 0.3rem 0.6rem 0.3rem 0.3rem; border-bottom: 3px solid var(--ink); font-size: 0.8rem; }
-  .ledger td { padding: 0.55rem 0.6rem 0.55rem 0.3rem; border-bottom: 1px dashed rgb(16 16 16 / 0.5); } .ledger td.n2 { text-align: right; font-size: 1.1rem; }
-  .ledger tr.champ td { background: var(--yellow); }
-  .ledger .fine { margin-top: 0.9rem; font: 400 0.82rem/1.4 var(--f-body); text-transform: none; }
-
-  /* ---------- what if (yellow page) ---------- */
-  .move { display: grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr); gap: 1rem; align-items: center; margin-top: 3rem; }
-  .team { --pad: 1.6rem 1.6rem 1.8rem; min-height: 340px; display: flex; flex-direction: column; justify-content: flex-end; }
-  .team .t { font: 700 0.9rem var(--f-type); text-transform: uppercase; margin-bottom: 0.8rem; }
-  .team .chg { display: block; margin-bottom: 0.8rem; font: 400 clamp(5rem, 10vw, 9rem)/1 var(--f-head); font-variant-numeric: tabular-nums; }
-  .team p { font: 700 0.9rem/1.35 var(--f-type); text-transform: uppercase; max-width: 30ch; }
-  .arrow { width: 90px; height: 60px; overflow: visible; } .arrow path { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
-  .stamp { display: inline-block; padding: 0.5rem 1rem; border: 5px solid var(--red); color: var(--red); font: 400 clamp(1.6rem, 3.4vw, 2.6rem)/1 var(--f-head); letter-spacing: 0.06em; text-transform: uppercase; transform: rotate(-5deg); mix-blend-mode: multiply; background: rgb(255 255 255 / 0.25); }
-  .cardnote { --face: #fbfaf6; --pad: 2.4rem 1.8rem 1.8rem; margin-top: 2.4rem; max-width: 620px; background: none; font: 700 0.98rem/1.7 var(--f-type); text-transform: uppercase;
-    --lines: repeating-linear-gradient(transparent 0 1.85rem, rgb(16 16 16 / 0.16) 1.85rem calc(1.85rem + 1px)); }
-  .cardnote > * { position: relative; }
-
-  .closer { text-align: left; }
   .closer .h2 { font-size: clamp(3.6rem, 11vw, 10.4rem); }
-  footer { position: relative; z-index: 3; padding: 2rem 0 3.5rem; color: var(--dim); font-size: 0.9rem; background: var(--ground); }
-  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.8rem; }
 
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .flip-in { transition: none; } }
   @media (max-width: 900px) {
-    .nav nav { display: none; }
     .mast { font-size: clamp(4rem, min(26.5cqw, 24svh), 9rem); }
-    .cover > .wrap, .duo, .rc, .odds { grid-template-columns: minmax(0, 1fr); }
     .bgpp { bottom: 0.9rem; }
-    .duo .side.away { order: 3; } .duo .center { order: 2; }
-    .flipper { --w: min(58vw, 250px); }
-    .move { grid-template-columns: minmax(0, 1fr); } .arrow { transform: rotate(90deg); justify-self: center; margin-block: 0.4rem; }
-    .facts { min-height: 700px; } .fa, .fb { width: min(84%, 320px); } .fb { top: 250px; } .fc { width: min(60%, 230px); left: 0; }
-    
+    .toolbox { grid-template-columns: minmax(0, 1fr); }
+    .tool, .tool:nth-child(4), .tool:nth-child(5) { grid-column: auto; min-height: 0; }
+    .miss { grid-template-columns: minmax(0, 1fr); }
   }
 </style>
 </head>
-<body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
-  <!-- torn edges: a soft warp plus a fine fiber chew, each with its own seed -->
-  <filter id="tear-a" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.018 0.026" numOctaves="3" seed="4" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="17" xChannelSelector="R" yChannelSelector="G" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.4" numOctaves="2" seed="9" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="6" xChannelSelector="G" yChannelSelector="B"/></filter>
-  <filter id="tear-b" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.024 0.016" numOctaves="3" seed="21" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="14" xChannelSelector="G" yChannelSelector="R" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="2" seed="2" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="5" xChannelSelector="R" yChannelSelector="B"/></filter>
-  <filter id="tear-c" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.03 0.02" numOctaves="4" seed="33" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="20" xChannelSelector="R" yChannelSelector="B" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.45" numOctaves="2" seed="14" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="7" xChannelSelector="B" yChannelSelector="G"/></filter>
-  <filter id="tear-edge" x="0" y="-60%" width="100%" height="220%"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.06" numOctaves="4" seed="6" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="26" xChannelSelector="R" yChannelSelector="G" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="2" seed="11" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="7" xChannelSelector="G" yChannelSelector="B"/></filter>
-</defs></svg>
+<body data-page="home">
 
 <!-- COVER -->
 <header class="page dark cover" id="top">
@@ -242,77 +78,37 @@
     <video id="herovid" muted loop playsinline preload="metadata" poster="media/still-166.jpg" tabindex="-1"><source src="media/montage.mp4" type="video/mp4"></video>
   </div>
   <button class="bgpp" id="herobtn" type="button" data-state="paused" aria-label="Play background footage"><svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg><svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg><span class="t-pause">Pause footage</span><span class="t-play">Play footage</span></button>
-  <div class="nav"><div class="wrap">
-    <a class="brand" href="#top" aria-label="Backboard home"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="3" width="40" height="26" fill="none" stroke="#ecebe5" stroke-width="3"/><rect x="16" y="12" width="16" height="11" fill="none" stroke="#ee3a1f" stroke-width="3"/><ellipse cx="24" cy="33.2" rx="10.2" ry="2.8" fill="none" stroke="#ee3a1f" stroke-width="3.2"/><path d="M15 34 18.5 46M33 34 29.5 46M24 36v10" fill="none" stroke="#ecebe5" stroke-width="1.6" stroke-linecap="round"/></svg>Backboard</a>
-    <nav aria-label="Sections"><a href="#matchup">Matchup</a><a href="#receipts">Receipts</a><a href="#odds">Odds</a><a href="#whatif">What if</a></nav>
-  </div></div>
   <div class="wrap">
     <div class="mastcol">
       <h1 class="mast" aria-label="Backboard. Know who wins."><span class="row" data-tiles="BACK" data-seed="4" aria-hidden="true"></span><span class="row" data-tiles="BOARD" data-seed="9" aria-hidden="true"></span></h1>
       <p class="say" aria-hidden="true">Know who <em>wins.</em></p>
       <p class="sub">Win probabilities for any NBA matchup, from a model that shows its work.</p>
-      <div class="go"><a class="btn" href="#matchup">Predict a matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></a><a class="link" href="#receipts">See the receipts</a></div>
+      <div class="go"><a class="btn" href="matchups.html">Predict a matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></a><a class="link" href="#toolbox">See what is inside</a></div>
     </div>
   </div>
 </header>
 
-<!-- MATCHUP -->
-<section class="page dark" id="matchup" aria-labelledby="m-h">
+<!-- TOOLBOX -->
+<section class="page white" id="toolbox" aria-labelledby="t-h">
   <div class="wrap">
-    <h2 class="h2" id="m-h">Run the <span class="hl">matchup</span></h2>
-    <p class="lede">Pick a home team and a visitor. Tap a card to flip it and see the stats behind it.</p>
-    <div class="duo">
-      <div class="side">
-        <div class="flipper" id="fl-h"><div class="flip-in" id="fi-h"></div><button class="flipbtn" type="button" id="fb-h" aria-pressed="false"></button><div class="hintflip"><span>Tap to flip</span></div></div>
-        <div class="pick"><label for="home">Home team</label><select id="home"></select></div>
+    <h2 class="h2" id="t-h">What's <span class="hl">inside</span></h2>
+    <p class="lede">Six pages, one model. Use the bar at the top to jump between them.</p>
+    <div class="toolbox" id="toolbox-grid"></div>
+  </div>
+</section>
+
+<!-- THE MISS -->
+<section class="page dark" id="miss" aria-labelledby="x-h">
+  <div class="wrap">
+    <h2 class="h2" id="x-h">It called it. <span class="hl">Then it lost.</span></h2>
+    <p class="lede" id="xlede"></p>
+    <div class="miss">
+      <div>
+        <div class="missbig" id="missbig"></div>
+        <div class="go"><a class="btn" href="matchups.html">Re-run the Finals <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></a><a class="link" href="assistant.html#receipts">See the receipts</a></div>
       </div>
-      <div class="center" id="center" aria-live="polite"></div>
-      <div class="side away">
-        <div class="flipper" id="fl-a"><div class="flip-in" id="fi-a"></div><button class="flipbtn" type="button" id="fb-a" aria-pressed="false"></button></div>
-        <div class="pick"><label for="away">Away team</label><select id="away"></select></div>
-      </div>
+      <div class="scrap t2 misscard" id="misscard"><i class="tape y" style="left: 38%; top: -22px; --tr: -3deg"></i></div>
     </div>
-    <div class="quick" id="quick" aria-label="Quick picks"><button class="swapb" id="swap" type="button">Swap sides</button></div>
-    <div class="moving">
-      <h3>What's moving the odds</h3>
-      <ul class="tags" id="tags"></ul>
-      <p class="note" id="tagnote"></p>
-    </div>
-  </div>
-</section>
-
-<!-- RECEIPTS -->
-<section class="page white" id="receipts" aria-labelledby="r-h">
-  <div class="wrap">
-    <h2 class="h2" id="r-h">The <span class="hl">receipts</span></h2>
-    <p class="lede">How it did on games it never saw while learning.</p>
-    <div class="rc">
-      <div class="scrap t2 receipt" id="receipt" data-uncrumple></div>
-      <div class="scrap graph" id="graphbox" data-uncrumple><i class="tape y" style="left: 30%; top: -22px; --tr: 3deg"></i><div class="graphin" id="graph"></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- ODDS -->
-<section class="page red" id="odds" aria-labelledby="o-h">
-  <div class="wrap">
-    <h2 class="h2" id="o-h"></h2>
-    <p class="lede">Title odds going into the 2025-26 playoffs, next to what happened.</p>
-    <div class="odds">
-      <div class="facts" id="facts"></div>
-      <div class="scrap t3 ledger" id="ledger"><i class="tape" style="right: 14%; top: -22px; --tr: 4deg"></i></div>
-    </div>
-  </div>
-</section>
-
-<!-- WHAT IF -->
-<section class="page yellow" id="whatif" aria-labelledby="w-h">
-  <div class="wrap">
-    <h2 class="h2" id="w-h">Curry to <span class="hl">San Antonio?</span></h2>
-    <p class="lede" id="wlede"></p>
-    <div class="move" id="move"></div>
-    <div style="margin-top:2rem"><span class="stamp" id="stamp"></span></div>
-    <div class="scrap t2 cardnote" id="cardnote" data-uncrumple></div>
   </div>
 </section>
 
@@ -320,208 +116,57 @@
 <section class="page dark closer" aria-labelledby="c-h">
   <div class="wrap">
     <h2 class="h2" id="c-h">Pick a game.<br>Argue with <span class="hl">it.</span></h2>
-    <div class="go" style="margin-top:2.4rem"><a class="btn" href="#matchup">Predict a matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></a></div>
+    <div class="go" style="margin-top:2.4rem"><a class="btn" href="matchups.html">Predict a matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></a></div>
   </div>
 </section>
 
-<footer><div class="wrap"><p id="fine"></p><p>Probabilities are not guarantees.</p></div></footer>
-
 <script src="../shared/demo-data.js"></script>
+<script src="../shared/zine-data.js"></script>
 <script src="../shared/bb.js"></script>
 <script src="../shared/slots.js"></script>
+<script src="zine.js"></script>
 <script>
 (function () {
   "use strict";
-  const $ = (s, r = document) => r.querySelector(s);
-  if (!window.BB) { document.body.innerHTML = '<p style="padding:2rem">The demo data did not load. Reload the page.</p>'; return; }
+  const { $, $$, countTo, onFirstView, tiles, uncrumple, reduce, esc } = Z;
   const { fmt } = BB;
-  const reduce = () => BB.reduced.matches;
-  const INK = "#101010", PAPER = "#f3f1ea";
-
-  /* ---------- color helpers ---------- */
-  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
-  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-  const inkOn = (hex) => (ratio(hex, INK) >= ratio(hex, PAPER) ? INK : PAPER);
-  const pair = (p) => { const a = p.home.c1; let b = p.away.c1; if (ratio(a, b) < 1.4) b = b === p.away.c1 ? p.away.c2 : p.away.c1; return [a, b]; };
-
-  /* ---------- count up (the Swiss move): numerals tween whenever they change ---------- */
-  function countTo(el, to, dec = 1, ms = 900) {
-    const from = el._v == null ? 0 : el._v; el._v = to;
-    const show = (v) => { el.textContent = dec ? v.toFixed(dec) : String(Math.round(v)); };
-    if (reduce()) { show(to); return; }
-    const t0 = performance.now();
-    const step = (t) => { const k = Math.min((t - t0) / ms, 1); show(from + (to - from) * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
-    requestAnimationFrame(step);
-  }
-  const seen = new WeakSet();
-  const inView = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting && !seen.has(e.target)) { seen.add(e.target); const c = e.target._count; if (c) c(); } }), { threshold: 0.35 });
-  const onFirstView = (el, fn) => { el._count = fn; inView.observe(el); };
-
-  /* ---------- cut-out title tiles ---------- */
-  function tiles(row) {
-    const r = BB.rng(Number(row.dataset.seed));
-    const faces = ["w", "k", "w", "r", "w", "k"];
-    row.innerHTML = [...row.dataset.tiles].map((ch) => {
-      const face = faces[Math.floor(r() * faces.length)];
-      const serif = r() < 0.16 ? " f2" : "";
-      const rot = ((r() - 0.5) * 5).toFixed(1), y = ((r() - 0.5) * 0.06).toFixed(3), s = (0.96 + r() * 0.08).toFixed(2);
-      return `<span class="tile ${face}${serif}" style="--r:${rot}deg;--y:${y}em;--s:${s}em;--bd:${(r() * 0.3).toFixed(2)}s">${ch}</span>`;
-    }).join("");
-  }
-
-  /* ---------- the uncrumple: a paper filter that relaxes in stop-motion steps ---------- */
-  let fid = 0;
-  const NS = "http://www.w3.org/2000/svg";
-  function uncrumple(el) {
-    if (reduce()) return;
-    const id = "crumple" + fid++;
-    const f = document.createElementNS(NS, "filter");
-    f.setAttribute("id", id); f.setAttribute("x", "-12%"); f.setAttribute("y", "-12%"); f.setAttribute("width", "124%"); f.setAttribute("height", "124%");
-    f.innerHTML = `<feTurbulence type="fractalNoise" baseFrequency="0.014 0.024" numOctaves="3" seed="${3 + fid}" result="n"/>
-      <feDisplacementMap in="SourceGraphic" in2="n" scale="60" xChannelSelector="R" yChannelSelector="G" result="w"/>
-      <feDiffuseLighting in="n" lighting-color="#fff" surfaceScale="8" diffuseConstant="1.1" result="l"><feDistantLight azimuth="235" elevation="50"/></feDiffuseLighting>
-      <feComponentTransfer in="l" result="l2"><feFuncR type="linear" slope="1" intercept="0"/><feFuncG type="linear" slope="1" intercept="0"/><feFuncB type="linear" slope="1" intercept="0"/></feComponentTransfer>
-      <feComposite in="l2" in2="w" operator="in" result="lc"/><feBlend in="lc" in2="w" mode="multiply"/>`;
-    $("svg defs").appendChild(f);
-    const disp = f.querySelector("feDisplacementMap"), funcs = f.querySelectorAll("feFuncR,feFuncG,feFuncB");
-    el.style.filter = `url(#${id})`;
-    let i = 0; const N = 9;
-    const tick = () => {
-      const p = 1 - i / N;
-      disp.setAttribute("scale", (60 * p).toFixed(1));
-      funcs.forEach((fn) => { fn.setAttribute("slope", p.toFixed(2)); fn.setAttribute("intercept", (1 - p).toFixed(2)); });
-      el.style.transform = `scale(${(0.8 + 0.2 * (1 - p)).toFixed(3)}) rotate(${(-6 * p).toFixed(2)}deg)`;
-      if (i++ < N) setTimeout(tick, 105); else { el.style.filter = ""; el.style.transform = ""; f.remove(); }
-    };
-    tick();
-  }
+  const ZD = window.BACKBOARD_ZINE || { players: [], tools: [], qa: [] };
 
   /* ---------- cover ---------- */
-  document.querySelectorAll("[data-tiles]").forEach(tiles);
+  $$("[data-tiles]").forEach(tiles);
   const vid = $("#herovid"), pp = $("#herobtn");
   function setPP() { const paused = vid.paused; pp.dataset.state = paused ? "paused" : "playing"; pp.setAttribute("aria-label", paused ? "Play background footage" : "Pause background footage"); }
   pp.addEventListener("click", () => { if (vid.paused) vid.play().catch(() => {}); else vid.pause(); setPP(); });
   vid.addEventListener("play", setPP); vid.addEventListener("pause", setPP);
   vid.style.opacity = "0";
   vid.addEventListener("playing", () => { vid.style.opacity = "1"; });
-  if (!reduce()) {
-    new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { vid.play().catch(() => {}); } else { vid.pause(); } })).observe(vid);
-  }
+  if (!reduce()) new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) vid.play().catch(() => {}); else vid.pause(); })).observe(vid);
 
-  /* ---------- matchup ---------- */
-  const flipped = { h: false, a: false };
-  function faceHTML(t, color, role) {
-    const k = inkOn(color);
-    const rows = [["Last 10", fmt.wins10(t)], ["Elo", Math.round(t.elo)], ["Point margin", fmt.signed(t.form.pm10)], ["Points for", t.form.pts10.toFixed(1)], ["Points against", t.form.opp10.toFixed(1)], ["Rest days", t.form.rest.toFixed(1)]];
-    return `<article class="face front scrap t${role === "h" ? 2 : 3}" style="--face:${color};--k:${k}"><div><div class="ab">${t.abbr}</div></div><div class="tagbit"><span>Last 10</span><b>${fmt.wins10(t)}</b><span>Elo <em data-elo="${Math.round(t.elo)}">${Math.round(t.elo)}</em></span></div><div><div class="nk">${t.nick}</div><div class="ct">${t.city}, ${role === "h" ? "home" : "away"}</div></div></article>
-      <article class="face back scrap t${role === "h" ? 3 : 2}"><h4>${t.nick}</h4><table>${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table></article>`;
-  }
-  function paintCards(p) {
-    const [c1, c2] = pair(p);
-    $("#fi-h").innerHTML = faceHTML(p.home, c1, "h"); $("#fi-a").innerHTML = faceHTML(p.away, c2, "a");
-    $("#fb-h").setAttribute("aria-label", `Flip the ${p.home.nick} card`); $("#fb-a").setAttribute("aria-label", `Flip the ${p.away.nick} card`);
-  }
-  ["h", "a"].forEach((s) => {
-    $("#fb-" + s).addEventListener("click", () => {
-      flipped[s] = !flipped[s];
-      $("#fl-" + s).classList.toggle("flipped", flipped[s]);
-      $("#fb-" + s).setAttribute("aria-pressed", String(flipped[s]));
-    });
+  /* ---------- toolbox: every card shows a real number from the data ---------- */
+  const board = BB.titleBoard();
+  const champ = board.find((t) => t.po.actual === "won the title");
+  const cards = [
+    { href: "matchups.html", cls: "", r: -1.6, kick: "Matchups", big: "870", unit: "", h: "Run any game", p: "Win chance, projected score and why it leans, for every home and away pairing. Head-to-head history too.", n: 870 },
+    { href: "teams.html", cls: "y", r: 1.4, kick: "Teams", big: "30", unit: "", h: "Team explorer", p: "Record, recent form, Elo, preseason projection, offseason moves and playoff result for every franchise.", n: 30 },
+    { href: "season.html", cls: "", r: -1.1, kick: "Season", big: BB.meta.sims.toLocaleString("en-US"), unit: "", h: "Season and playoffs", p: "Simulated seasons: league strength, standings, the bracket and title odds next to what happened.", n: null },
+    { href: "players.html", cls: "r2", r: 1.7, kick: "Players", big: String(ZD.players.length), unit: "", h: "Impact and what-ifs", p: "Look up a player's impact diagnostic, then move one across teams or eras and read the confidence grade.", n: ZD.players.length },
+    { href: "assistant.html", cls: "", r: -1.3, kick: "Ask", big: String(ZD.tools.length), unit: "", h: "Ask and audit", p: "Ask in plain words, read the model's receipts, and see every tool under the hood.", n: ZD.tools.length },
+  ];
+  $("#toolbox-grid").innerHTML = cards.map((c, i) => `<a class="scrap tool ${c.cls} t${(i % 3) + 1}" href="${c.href}" style="--r:${c.r}deg"><span class="kick">${c.kick}</span><span class="big"><span ${c.n != null ? `data-n="${c.n}"` : ""}>${esc(c.big)}</span>${c.unit ? `<small>${c.unit}</small>` : ""}</span><h3>${c.h}</h3><p>${esc(c.p)}</p><span class="more">Open ${c.kick}</span></a>`).join("");
+  $$("#toolbox-grid .tool").forEach((el) => {
+    const num = el.querySelector("[data-n]"); if (!num) return; const to = Number(num.dataset.n); const dec = 0;
+    onFirstView(el, () => { num._v = 0; countTo(num, to, dec, 800); });
   });
 
-  let centerBuilt = false;
-  function paintCenter(p) {
-    if (!centerBuilt) {
-      centerBuilt = true;
-      $("#center").innerHTML = `<div class="pcts"><div class="p" id="ph"><b><span id="nh">0</span><small>%</small></b><span class="lb" id="lh"></span></div><div class="vs" aria-hidden="true">vs</div><div class="p" id="pa"><b><span id="na">0</span><small>%</small></b><span class="lb" id="la"></span></div></div>
-        <span class="verdict" id="verdict"></span><p class="proj" id="proj"></p>`;
-      onFirstView($("#center"), () => { const q = BB.state.pred(); $("#nh")._v = 0; $("#na")._v = 0; countTo($("#nh"), q.pHome * 100); countTo($("#na"), q.pAway * 100); });
-    }
-    $("#ph").className = "p " + (p.fav === "home" ? "win" : "lose"); $("#pa").className = "p " + (p.fav === "away" ? "win" : "lose");
-    $("#lh").textContent = `${p.home.abbr} home`; $("#la").textContent = `${p.away.abbr} away`;
-    if (seen.has($("#center"))) { countTo($("#nh"), p.pHome * 100); countTo($("#na"), p.pAway * 100); }
-    else { $("#nh").textContent = fmt.pct(p.pHome); $("#na").textContent = fmt.pct(p.pAway); }
-    $("#verdict").textContent = p.verdict.label;
-    $("#proj").innerHTML = `<b>${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}</b> projected<small>${p.favTeam.city} ${p.favTeam.nick} over ${p.dogTeam.nick}. The 80% range for the home margin runs ${Math.round(p.margin.lo)} to ${fmt.signed(p.margin.hi, 0)}, and the typical miss is ${BB.meta.marginMae} points, so read it as a lean.</small><span class="pen" style="display:block;margin-top:0.4rem;transform:rotate(-2deg)">even teams? home court alone starts ${p.home.abbr} at ${fmt.pct0(p.homeCourtOnly)}%.</span>`;
-  }
-
-  function paintTags(p) {
-    const max = 0.09;
-    const rots = [-2.5, 1.8, -1.2, 2.6, -2, 1.4, -1.6];
-    $("#tags").innerHTML = p.sorted.map((g, i) => {
-      const home = g.value >= 0; const m = Math.min(Math.abs(g.value) / max, 1);
-      return `<li class="${home ? "home" : "away"}" style="--m:${m.toFixed(2)};--r:${rots[i % rots.length]}deg"><span>${g.label}</span><b>${fmt.signed(Math.abs(g.value) * 100).replace("+", "+")}</b><i>${home ? p.home.abbr : p.away.abbr}</i></li>`;
-    }).join("");
-    $("#tagnote").innerHTML = `Bigger tag, bigger push. Yellow helps ${p.home.abbr}, red helps ${p.away.abbr}. Each tag is the change in ${p.home.abbr}'s win chance, in percentage points, if the two teams were even on that input. It shows what the model reacts to, not what causes wins.`;
-  }
-
-  function paintQuick() {
-    const box = $("#quick");
-    box.insertAdjacentHTML("afterbegin", BB.featured.map((pr, i) => `<button type="button" data-i="${i}" style="--r:${(i % 2 ? 1 : -1) * (0.7 + i * 0.3)}deg" aria-pressed="false">${i === 0 ? "The Finals" : BB.teams[pr[0]].abbr + " v " + BB.teams[pr[1]].abbr}</button>`).join(""));
-    box.addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (!b) return; const pr = BB.featured[Number(b.dataset.i)]; BB.state.set(pr[0], pr[1]); repaint(); });
-  }
-  const syncQuick = () => document.querySelectorAll("#quick button[data-i]").forEach((b) => { const pr = BB.featured[Number(b.dataset.i)]; b.setAttribute("aria-pressed", String(pr[0] === BB.state.hi && pr[1] === BB.state.ai)); });
-  let repaint = () => {};
-
-  /* ---------- receipts ---------- */
-  function paintReceipts() {
-    const h = BB.meta.holdout;
-    $("#receipt").innerHTML = `<i class="tape" style="left: 34%; top: -22px; --tr: -3deg"></i>Backboard receipt<br>${BB.meta.model.replace(/_/g, " ")}<br>------------------------<span class="big"><span id="acc">0</span><small>%</small></span>picked right<dl><dt>Games it never saw</dt><dd>${h.games.toLocaleString("en-US")}</dd><dt>Log loss</dt><dd>${h.logLoss.toFixed(4)}</dd><dt>Calibration error</dt><dd>${h.ece.toFixed(3)}</dd><dt>Holdout starts</dt><dd>${h.start}</dd></dl><br>thank you. probabilities are not guarantees.`;
-    onFirstView($("#receipt"), () => { uncrumple($("#receipt")); });
-    $("#acc").textContent = fmt.pct(h.accuracy, 1);
-    const bins = BB.calibration;
-    const W = 560, H = 430, m = { l: 58, r: 20, t: 20, b: 56 };
-    const x = (v) => m.l + v * (W - m.l - m.r), y = (v) => H - m.b - v * (H - m.t - m.b);
-    const hi = bins[6];
-    const table = bins.map((b) => `<tr><td>${fmt.pct0(b.lo)} to ${fmt.pct0(b.hi)}%</td><td>${b.games}</td><td>${fmt.pct(b.pred)}%</td><td>${fmt.pct(b.obs)}%</td></tr>`).join("");
-    $("#graph").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="ct cd"><title id="ct">Calibration chart</title><desc id="cd">What the model said against how often it happened, in nine groups. Points sit just under the diagonal at the high end: it runs a little confident.</desc>
-      ${[0, 0.25, 0.5, 0.75, 1].map((t) => `<text x="${x(t)}" y="${H - m.b + 24}" text-anchor="middle" font-size="13">${t * 100}%</text><text x="${m.l - 10}" y="${y(t) + 4}" text-anchor="end" font-size="13">${t * 100}%</text>`).join("")}
-      <path d="M${x(0)} ${y(0)} L ${x(1)} ${y(1)}" stroke="#101010" stroke-width="2" stroke-dasharray="7 7" fill="none"/>
-      ${bins.map((b) => `<path d="M${x(b.pred)} ${y(b.ciLo)} V ${y(b.ciHi)}" stroke="#101010" stroke-width="2.6"/>`).join("")}
-      <path d="M${bins.map((b) => `${x(b.pred)} ${y(b.obs)}`).join(" L")}" fill="none" stroke="#101010" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-      ${bins.map((b) => `<circle cx="${x(b.pred)}" cy="${y(b.obs)}" r="8" fill="#ee3a1f" stroke="#101010" stroke-width="2.6"/>`).join("")}
-      <path d="M${x(hi.pred) - 22} ${y(hi.obs)} C ${x(hi.pred) - 24} ${y(hi.obs) - 28}, ${x(hi.pred) + 26} ${y(hi.obs) - 28}, ${x(hi.pred) + 24} ${y(hi.obs) + 6} C ${x(hi.pred) + 22} ${y(hi.obs) + 28}, ${x(hi.pred) - 26} ${y(hi.obs) + 26}, ${x(hi.pred) - 22} ${y(hi.obs)}" fill="none" stroke="#101010" stroke-width="3" stroke-linecap="round"/>
-      <text x="${(m.l + W - m.r) / 2}" y="${H - 8}" text-anchor="middle" font-size="14" font-weight="700">WHAT IT SAID (HOME TEAM WINS)</text>
-      <text transform="translate(16 ${(m.t + H - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="14" font-weight="700">WHAT HAPPENED</text></svg>
-      <p class="pen">said ${fmt.pct0(hi.pred)}, got ${fmt.pct0(hi.obs)}. a little cocky.</p>
-      <div class="sr-only"><table><caption>Calibration groups</caption><thead><tr><th>Group</th><th>Games</th><th>Model said</th><th>Home won</th></tr></thead><tbody>${table}</tbody></table></div>`;
-  }
-
-  /* ---------- odds ---------- */
-  function paintOdds() {
-    const board = BB.titleBoard();
-    const champ = board.find((t) => t.po.actual === "won the title");
-    const top = board[0];
-    $("#o-h").innerHTML = `<span class="hl">${fmt.pct0(champ.po.title)}%</span> odds. ${champ.nick} won it.`;
-    let rows = board.slice(0, 7); if (!rows.includes(champ)) rows = rows.slice(0, 6).concat(champ);
-    $("#facts").innerHTML = `
-      <div class="scrap t2 fa"><span class="n"><span id="cn-a">0</span><small>%</small></span><p>${fmt.fullName(top)} were the favorites. ${BB.RESULT_LABEL[top.po.actual]}.</p></div>
-      <div class="scrap t3 fb"><i class="tape y" style="left: 30%; top: -22px; --tr: -4deg"></i><span class="n"><span id="cn-b">0</span><small>%</small></span><p>${fmt.fullName(champ)}. ${BB.RESULT_LABEL[champ.po.actual]}.</p></div>
-      <div class="scrap photo fc"><div class="pic"><img src="media/still-84.jpg" alt="" width="696" height="720" loading="lazy"></div></div>`;
-    $("#cn-a").textContent = fmt.pct(top.po.title); $("#cn-b").textContent = fmt.pct(champ.po.title);
-    $("#ledger").insertAdjacentHTML("beforeend", `<table><thead><tr><th>Team</th><th style="text-align:right">Title odds</th><th>What happened</th></tr></thead><tbody>${rows.map((t) => `<tr class="${t === champ ? "champ" : ""}"><td>${t.abbr}</td><td class="n2">${fmt.pct(t.po.title)}%</td><td>${BB.RESULT_LABEL[t.po.actual]}</td></tr>`).join("")}</tbody></table><p class="fine">Odds use the real seeded bracket with team strength frozen at the end of the regular season. Results come from the games database.</p>`);
-  }
-
-  /* ---------- what if ---------- */
-  function paintWhatIf() {
-    const w = BB.whatIf(); const bt = w.backtest;
-    const a = w.effects.find((e) => e.id === w.fromId), b = w.effects.find((e) => e.id === w.toId);
-    $("#wlede").textContent = `The what-if tool moves one player and re-runs the season 1,000 times. It grades its own confidence: ${w.confidence.toLowerCase()}.`;
-    const team = (e, cls) => { const c = e.team.c1; const c2 = ratio(c, "#f3e32a") < 1.6 ? e.team.c2 : c; return `<div class="scrap ${cls} team" style="--face:${c2};--k:${inkOn(c2)}"><span class="t">${e.team.city} ${e.team.nick}</span><span class="chg"><span data-c="${e.change}">0</span></span><p>wins, ${e.winsBefore} to ${e.winsAfter}. Direct playoff odds ${fmt.pct0(e.playoffBefore)}% to ${fmt.pct0(e.playoffAfter)}%.</p></div>`; };
-    $("#move").innerHTML = team(a, "t2") + `<svg class="arrow" viewBox="0 0 90 60" aria-hidden="true"><path d="M6 32 C 30 8, 54 8, 80 30 M66 18 L82 31 L64 40"/></svg>` + team(b, "t3");
-    document.querySelectorAll("#move [data-c]").forEach((el) => { const v = Number(el.dataset.c); el.textContent = (v < 0 ? "-" : "+") + Math.abs(v).toFixed(1); });
-    onFirstView($("#move"), () => document.querySelectorAll("#move [data-c]").forEach((el) => { const v = Number(el.dataset.c); const s = v < 0 ? "-" : "+"; el._v = 0; const t0 = performance.now(); if (reduce()) return; const step = (t) => { const k = Math.min((t - t0) / 1000, 1); el.textContent = s + (Math.abs(v) * (1 - Math.pow(1 - k, 3))).toFixed(1); if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); }));
-    $("#stamp").textContent = `Confidence: ${w.confidence}`;
-    $("#cardnote").innerHTML = `<i class="tape" style="left: 40%; top: -22px; --tr: 3deg"></i>${w.player} to ${w.to.city}, before opening night. ${w.sims.toLocaleString("en-US")} simulated seasons, same seed with and without the move.<br><br>Tested on real moves from ${bt.seasons}: ${Math.round(bt.largeEffectsRight * bt.largeEffectsCount)} of ${bt.largeEffectsCount} big effects pointed the right way, but overall win error did not shrink (${bt.maeWithout} to ${bt.maeWith}).<br><br>Fit, injuries and the cap are not modeled.`;
-    $("#cardnote")._count = () => uncrumple($("#cardnote")); inView.observe($("#cardnote"));
-  }
-
-  /* ---------- boot ---------- */
-  paintQuick();
-  repaint = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
-  BB.state.subscribe((p) => { paintCards(p); paintCenter(p); paintTags(p); syncQuick(); });
-  paintReceipts(); paintOdds(); paintWhatIf();
-  $("#fine").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed. Hero footage is a 90s dunk montage edit.`;
+  /* ---------- the miss ---------- */
+  const f = BB.featured[0];
+  const p = BB.predict(f[0], f[1]);
+  const lost = p.favTeam;
+  $("#xlede").textContent = `The default matchup is the real ${BB.meta.seasonLabel} Finals. The model gave the ${p.favTeam.nick} ${fmt.pct(p.favP)}%. The ${champ.nick} won it. Every page keeps that miss on screen instead of hiding it.`;
+  $("#missbig").innerHTML = `<div class="p ${p.fav === "home" ? "" : "lose"}"><b><span id="mh">${fmt.pct(p.pHome)}</span><small>%</small></b><span class="lb">${p.home.abbr} home</span></div><div class="vs" aria-hidden="true">vs</div><div class="p ${p.fav === "away" ? "" : "lose"}"><b><span id="ma">${fmt.pct(p.pAway)}</span><small>%</small></b><span class="lb">${p.away.abbr} away</span></div>`;
+  onFirstView($("#missbig"), () => { countTo($("#mh"), p.pHome * 100); countTo($("#ma"), p.pAway * 100); });
+  $("#misscard").insertAdjacentHTML("beforeend", `Pregame pick<br>${lost.city} ${lost.nick}, ${fmt.pct(p.favP)}%<br>------------------------<br>Projected ${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}<br>Result ${champ.nick} won the title<br><br>A ${fmt.pct0(p.favP)}% pick loses about ${Math.round((1 - p.favP) * 10)} times in ten. That is the point of showing the odds.`);
+  $("#misscard")._count = () => uncrumple($("#misscard")); Z.inView.observe($("#misscard"));
 })();
 </script>
 </body>

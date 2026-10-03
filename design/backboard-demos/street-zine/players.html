@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Players | Backboard Street Zine</title>
+<meta name="description" content="Look up any 2025-26 player's impact diagnostic, then run the What-if Lab: move one player across teams or eras and read the confidence grade the model gives itself.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo:wght@400;600;800&family=Courier+Prime:wght@400;700&family=Reenie+Beanie&display=swap">
+<link rel="stylesheet" href="zine.css">
+<style>
+  /* ---------- player impact ---------- */
+  .lookup { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(1.4rem, 4vw, 4rem); margin-top: 2.6rem; align-items: start; }
+  .found { list-style: none; padding: 0; margin-top: 1rem; display: grid; gap: 0.4rem; max-height: 440px; overflow-y: auto; }
+  .found button { display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; width: 100%; min-height: 44px; padding: 0.4rem 0.8rem; background: #0e0e0e; color: var(--fg); border: 2px solid transparent; cursor: pointer; text-align: left; font: 700 0.95rem var(--f-body); }
+  .found button:hover { border-color: var(--yellow); } .found button[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
+  .found small { font: 700 0.78rem var(--f-type); text-transform: uppercase; opacity: 0.8; align-self: center; }
+  .pcard { --face: #fbfaf6; --pad: 2rem 1.8rem 1.8rem; }
+  .pcard h3 { font: 400 clamp(2.6rem, 5vw, 4.4rem)/0.92 var(--f-head); text-transform: uppercase; }
+  .pcard .team { margin-top: 0.4rem; font: 700 0.95rem var(--f-type); text-transform: uppercase; }
+  .pcard .big { display: block; margin-top: 1.4rem; font: 400 clamp(5rem, 10vw, 8.4rem)/0.84 var(--f-head); font-variant-numeric: tabular-nums; }
+  .pcard .big small { display: block; margin-top: 0.5rem; font: 700 0.9rem/1.3 var(--f-type); text-transform: uppercase; }
+  .pcard dl { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 1rem; margin: 1.2rem 0 0; border-top: 2px dashed var(--ink); padding-top: 0.7rem; font: 700 0.95rem/1.7 var(--f-type); text-transform: uppercase; }
+  .pcard dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .pcard .fine { margin-top: 1rem; font: 400 0.88rem/1.45 var(--f-body); text-transform: none; color: rgb(16 16 16 / 0.8); }
+  .pcard .stamp { margin-top: 1.2rem; font-size: 1.4rem; }
+  .pcard .stamp.low { color: var(--red); border-color: var(--red); } .pcard .stamp.mod { color: var(--ink); border-color: var(--ink); }
+
+  /* ---------- what-if lab ---------- */
+  .readfirst { --face: #fbfaf6; --pad: 2.2rem 1.8rem 1.6rem; margin-top: 2.2rem; max-width: 760px; font: 700 0.98rem/1.6 var(--f-type); text-transform: uppercase; }
+  .readfirst b { font: 400 1.5rem/1 var(--f-head); }
+  .move { display: grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr); gap: 1rem; align-items: center; margin-top: 2.6rem; }
+  .team { --pad: 1.6rem 1.6rem 1.8rem; min-height: 300px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .team .t { font: 700 0.9rem var(--f-type); text-transform: uppercase; margin-bottom: 0.8rem; }
+  .team .chg { display: block; margin-bottom: 0.8rem; font: 400 clamp(5rem, 10vw, 9rem)/1 var(--f-head); font-variant-numeric: tabular-nums; }
+  .team h4 { font: 400 clamp(2rem, 3.6vw, 3.2rem)/1 var(--f-head); text-transform: uppercase; }
+  .team p { font: 700 0.9rem/1.35 var(--f-type); text-transform: uppercase; max-width: 30ch; }
+  .arrow { width: 90px; height: 60px; overflow: visible; } .arrow path { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+  .cardnote { --face: #fbfaf6; --pad: 2.4rem 1.8rem 1.8rem; margin-top: 2.4rem; max-width: 720px; font: 700 0.98rem/1.7 var(--f-type); text-transform: uppercase; }
+  .cardnote ul { margin: 0.4rem 0 0; padding-left: 1.2rem; } .cardnote li { margin-top: 0.5rem; }
+  .res { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1.4rem; margin-top: 2.2rem; }
+  .res .scrap { --face: #fbfaf6; --pad: 1.3rem 1.4rem 1.5rem; }
+  .res span { display: block; font: 700 0.8rem var(--f-type); text-transform: uppercase; }
+  .res b { display: block; margin: 0.3rem 0; font: 400 clamp(2.8rem, 5vw, 4.2rem)/0.9 var(--f-head); font-variant-numeric: tabular-nums; }
+  .res p { font: 700 0.82rem/1.3 var(--f-type); text-transform: uppercase; }
+  .linetbl { margin-top: 2rem; --face: #fbfaf6; --pad: 1.4rem 1.4rem 1.6rem; }
+  .linetbl caption { text-align: left; font: 400 1.5rem/1 var(--f-head); padding-bottom: 0.6rem; text-transform: uppercase; }
+  details.how { margin-top: 1.6rem; max-width: 780px; } details.how summary { cursor: pointer; font: 800 0.95rem var(--f-body); letter-spacing: 0.08em; text-transform: uppercase; min-height: 44px; display: flex; align-items: center; }
+  details.how ul { margin: 0.4rem 0 1rem; padding-left: 1.2rem; font: 400 0.95rem/1.5 var(--f-body); } details.how li { margin-top: 0.4rem; }
+  .build { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem 1.2rem; align-items: end; margin-top: 1.6rem; }
+  .engine-note { margin-top: 1.2rem; font: 700 0.9rem/1.5 var(--f-type); text-transform: uppercase; }
+  .engine-note code { font: inherit; background: var(--ink); color: var(--paper); padding: 0.1rem 0.4rem; }
+
+  @media (max-width: 900px) {
+    .lookup { grid-template-columns: minmax(0, 1fr); }
+    .move { grid-template-columns: minmax(0, 1fr); } .arrow { transform: rotate(90deg); justify-self: center; margin-block: 0.4rem; }
+  }
+</style>
+</head>
+<body data-page="players">
+
+<header class="page dark phead" id="top">
+  <div class="wrap">
+    <p class="kicker">Page 5 of 6 · Players</p>
+    <h1 class="h2">Impact and <span class="hl">what-ifs</span></h1>
+    <p class="lede">Read a player's impact diagnostic, then move a player across teams or eras and see how little the model trusts its own answer.</p>
+    <nav class="chips" aria-label="On this page"><a class="chip" href="#impact" style="--r:-1deg">Player impact</a><a class="chip" href="#whatif" style="--r:1.2deg">What-if Lab</a></nav>
+  </div>
+</header>
+
+<!-- PLAYER IMPACT -->
+<section class="page dark tight" id="impact" aria-labelledby="i-h" style="padding-top:0">
+  <div class="wrap">
+    <h2 class="h2 m" id="i-h">Player <span class="hl">impact</span></h2>
+    <p class="lede" id="ilede"></p>
+    <div class="lookup">
+      <div>
+        <div class="field"><label for="q">Search a player</label><input id="q" type="search" autocomplete="off" placeholder="Try Wembanyama, Curry, Jokic"></div>
+        <ul class="found" id="found" aria-label="Matching players"></ul>
+      </div>
+      <div class="scrap t2 pcard" id="pcard" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT-IF LAB -->
+<section class="page yellow" id="whatif" aria-labelledby="w-h">
+  <div class="wrap">
+    <h2 class="h2 m" id="w-h">What-if <span class="hl">Lab</span></h2>
+    <div class="scrap t2 readfirst"><i class="tape" style="left: 40%; top: -22px; --tr: 3deg"></i><b>Read this first.</b><br>These are model-based what-if estimates under stated assumptions, with low confidence. They are not claims about what would really have happened.</div>
+    <div class="chips" role="group" aria-label="Choose a what-if" id="scen"></div>
+    <div id="scene" aria-live="polite"></div>
+
+    <h3 class="h2 m" style="margin-top:4.5rem;font-size:clamp(2rem,4vw,3.2rem)">Build your own</h3>
+    <p class="lede" style="font-size:1rem">Put any player's season in place of one real player on a team-season from 1985 on. The simulation takes about a minute and needs the live engine.</p>
+    <div class="build" id="build">
+      <div class="field"><label for="b-team">Team</label><select id="b-team"></select></div>
+      <div class="field"><label for="b-season">Season</label><select id="b-season"></select></div>
+      <div class="field"><label for="b-out">Player out</label><select id="b-out"><option value="">Load the roster first</option></select></div>
+      <div class="field"><label for="b-in">Player in</label><input id="b-in" type="text" placeholder="e.g. Michael Jordan" autocomplete="off"></div>
+      <div class="field"><label for="b-inseason">Their season</label><select id="b-inseason"></select></div>
+      <button class="btn" type="button" id="b-run" disabled>Run it</button>
+    </div>
+    <p class="engine-note" id="engine-note">Checking for the live engine...</p>
+    <div id="build-out" aria-live="polite"></div>
+  </div>
+</section>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/zine-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="zine.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { $, $$, esc, countTo, onFirstView, inView, uncrumple, inkOn, ratio, reduce, engine } = Z;
+  const { fmt } = BB;
+  const ZD = window.BACKBOARD_ZINE || { players: [], eraSwaps: [] };
+  const teamName = (id) => { const t = Z.teamById(id); return t ? fmt.fullName(t) : "Unknown team"; };
+  const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  /* ================= player impact ================= */
+  const players = ZD.players.map((p) => ({ ...p, key: norm(p.name) }));
+  let pick = (players.find((p) => p.key === "victor wembanyama") || players[0] || {}).id;
+  $("#ilede").textContent = `A descriptive diagnostic for each of the ${players.length} players who appeared in 2025-26, from their last 10 games. It is an association, not a forecast of what a trade would do.`;
+
+  function list() {
+    const q = norm($("#q").value.trim());
+    let rows;
+    if (q) { const words = q.split(/\s+/); rows = players.filter((p) => words.every((w) => p.key.split(/\s+/).some((n) => n.startsWith(w)))); }
+    else rows = players.filter((p) => p.min >= 20).sort((a, b) => b.chg - a.chg);
+    rows = rows.slice(0, 10);
+    $("#found").innerHTML = rows.length ? rows.map((p) => `<li><button type="button" data-id="${p.id}" aria-pressed="${p.id === pick}"><span>${esc(p.name)}</span><small>${p.team ? Z.teamById(p.team) ? Z.teamById(p.team).abbr : "" : ""} ${fmt.signed(p.chg, 1)}</small></button></li>`).join("") : `<li><p class="note" style="margin:0">No player matches "${esc($("#q").value)}". Only players with minutes in 2025-26 are in the data.</p></li>`;
+  }
+  function card() {
+    const p = players.find((x) => x.id === pick); const box = $("#pcard");
+    if (!p) { box.textContent = "No player data in this build."; return; }
+    const low = p.conf === "low";
+    box.innerHTML = `<i class="tape y" style="left: 36%; top: -22px; --tr: -3deg"></i>
+      <h3>${esc(p.name)}</h3><p class="team">${esc(teamName(p.team))}</p>
+      <span class="big"><span id="pchg">${fmt.signed(p.chg, 1)}</span><small>net rating points, if added to an average roster at ${p.min.toFixed(0)} minutes</small></span>
+      <dl><dt>Player net rating</dt><dd>${fmt.signed(p.net, 1)}</dd><dt>Expected minutes</dt><dd>${p.min.toFixed(1)}</dd><dt>Games measured</dt><dd>${p.games}</dd></dl>
+      <span class="stamp ${low ? "low" : "mod"}">Confidence: ${p.conf}</span>
+      <p class="fine">Minutes-weighted net-rating proxy over the games before the cutoff. It is descriptive and association-only, not a causal forecast of roster or trade impact, and it is not an input to the prediction model. Fewer than 5 prior games would be low confidence.</p>`;
+    const el = $("#pchg"); el._v = 0; const to = p.chg;
+    if (reduce()) el.textContent = fmt.signed(to, 1);
+    else { const t0 = performance.now(); const step = (t) => { const k = Math.min((t - t0) / 700, 1); el.textContent = fmt.signed(to * (1 - Math.pow(1 - k, 3)), 1); if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+  }
+  $("#q").addEventListener("input", list);
+  $("#found").addEventListener("click", (e) => { const b = e.target.closest("button[data-id]"); if (!b) return; pick = Number(b.dataset.id); list(); card(); });
+  list(); card();
+
+  /* ================= what-if lab ================= */
+  const STAT_ROWS = [["pts_100", "Points per 100"], ["ts", "True shooting"], ["tpa_100", "Threes per 100"], ["tp_pct", "Three-point %"], ["ast_100", "Assists per 100"], ["tov_100", "Turnovers per 100"], ["orb_100", "Off. rebounds per 100"], ["drb_100", "Def. rebounds per 100"], ["stl_100", "Steals per 100"], ["blk_100", "Blocks per 100"], ["ft_pct", "Free-throw %"]];
+  const isPct = (k) => k === "ts" || k.endsWith("_pct");
+  const sv = (k, v) => (v == null ? "-" : isPct(k) ? (v * 100).toFixed(1) + "%" : v.toFixed(1));
+  const seasonLabel = (s) => `${s}-${String(s + 1).slice(2)}`;
+
+  function swapHTML(data) {
+    const r = data.report, e = data.effect, pc = r.projected_change, bt = r.baseline_team, cf = r.confidence, po = r.postseason || {};
+    const outP = e.out_player, inP = e.in_player, host = Z.teamById(e.team_id);
+    const hostColor = host ? Z.colorOn(host, "#f3e32a") : "#101010";
+    const win = pc.wins, nr = pc.net_rating_per_100, wr = pc.wins_80pct_range, nrr = pc.net_rating_80pct_range;
+    const titleLine = po.title ? `${fmt.pct(po.title[0])}% to ${fmt.pct(po.title[1])}%` : "n/a";
+    const up = r.projected_change.full_transfer_upper_scenario;
+    return `<div class="move">
+        <div class="scrap t2 team" style="--face:#0e0e0e;--k:var(--paper)"><span class="t">Out · ${seasonLabel(e.season)}</span><h4>${esc(outP.name)}</h4><p>${(outP.team_minutes_share * 100).toFixed(1)}% of ${host ? esc(host.nick) : "team"} minutes, ${outP.games} games</p></div>
+        <svg class="arrow" viewBox="0 0 90 60" aria-hidden="true" focusable="false"><path d="M6 32 C 30 8, 54 8, 80 30 M66 18 L82 31 L64 40"/></svg>
+        <div class="scrap t3 team" style="--face:#fbfaf6"><span class="t">In · ${seasonLabel(inP.season)}, translated</span><h4>${esc(inP.name)}</h4><p>same minutes, rates re-scaled to the ${seasonLabel(e.season)} league</p></div>
+      </div>
+      <div class="res">
+        <div class="scrap t1"><span>Net rating per 100</span><b>${fmt.signed(nr, 2)}</b><p>80% range ${fmt.signed(nrr[0], 2)} to ${fmt.signed(nrr[1], 2)}</p></div>
+        <div class="scrap t2"><span>Wins</span><b>${fmt.signed(win, 1)}</b><p>80% range ${fmt.signed(wr[0], 1)} to ${fmt.signed(wr[1], 1)}. Baseline ${bt.simulated_mean_wins.toFixed(1)} simulated, ${bt.actual_wins} real.</p></div>
+        <div class="scrap t3"><span>Title odds</span><b>${po.title ? fmt.pct(po.title[1]) + "%" : "n/a"}</b><p>${titleLine} with the swap</p></div>
+        ${up ? `<div class="scrap t1"><span>Upper scenario</span><b>${fmt.signed(up.wins, 1)}</b><p>wins if the whole box-score value carried over</p></div>` : ""}
+      </div>
+      <div style="margin-top:2rem"><span class="stamp">Confidence: ${esc(cf.level)}</span></div>
+      <div class="scrap t2 cardnote"><i class="tape" style="left: 40%; top: -22px; --tr: 3deg"></i>${esc(r.headline)}<br><br>${esc(r.what_it_means)}<ul>${cf.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+      <div class="scrap t3 linetbl"><div class="tscroll"><table class="tbl"><caption>The stat lines</caption><thead><tr><th>Stat</th><th class="r">${esc(outP.name.split(" ").pop())} ${seasonLabel(e.season)}</th><th class="r">${esc(inP.name.split(" ").pop())} ${seasonLabel(inP.season)}</th><th class="r">Translated</th></tr></thead><tbody>${STAT_ROWS.map(([k, l]) => `<tr><td>${l}</td><td class="r">${sv(k, outP.stat_line[k])}</td><td class="r">${sv(k, inP.original_stat_line[k])}</td><td class="n2">${sv(k, inP.translated_stat_line[k])}</td></tr>`).join("")}</tbody></table></div></div>
+      <details class="how"><summary>Method, data and assumptions</summary><p class="note" style="color:inherit"><b>Method</b></p><ul>${r.method.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p class="note" style="color:inherit"><b>Assumptions</b></p><ul>${r.assumptions.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p class="note" style="color:inherit"><b>Data used</b></p><ul>${r.data_used.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></details>`;
+  }
+
+  function curryHTML() {
+    const w = BB.whatIf(); const bt = w.backtest;
+    const a = w.effects.find((e) => e.id === w.fromId), b = w.effects.find((e) => e.id === w.toId);
+    const team = (e, cls) => { const c = e.team.c1; const c2 = ratio(c, "#f3e32a") < 1.6 ? e.team.c2 : c; return `<div class="scrap ${cls} team" style="--face:${c2};--k:${inkOn(c2)}"><span class="t">${e.team.city} ${e.team.nick}</span><span class="chg"><span data-c="${e.change}">0</span></span><p>wins, ${e.winsBefore} to ${e.winsAfter}. Direct playoff odds ${fmt.pct0(e.playoffBefore)}% to ${fmt.pct0(e.playoffAfter)}%.</p></div>`; };
+    return `<p class="lede">The what-if tool moves one player and re-runs the season ${w.sims.toLocaleString("en-US")} times. It grades its own confidence: ${w.confidence.toLowerCase()}.</p>
+      <div class="move" id="move">${team(a, "t2")}<svg class="arrow" viewBox="0 0 90 60" aria-hidden="true" focusable="false"><path d="M6 32 C 30 8, 54 8, 80 30 M66 18 L82 31 L64 40"/></svg>${team(b, "t3")}</div>
+      <div style="margin-top:2rem"><span class="stamp">Confidence: ${w.confidence}</span></div>
+      <div class="scrap t2 cardnote"><i class="tape" style="left: 40%; top: -22px; --tr: 3deg"></i>${esc(w.player)} to ${w.to.city}, before opening night. ${w.sims.toLocaleString("en-US")} simulated seasons, same seed with and without the move.<br><br>Tested on real moves from ${bt.seasons}: ${Math.round(bt.largeEffectsRight * bt.largeEffectsCount)} of ${bt.largeEffectsCount} big effects pointed the right way, but overall win error did not shrink (${bt.maeWithout} to ${bt.maeWith}).<br><br>Fit, injuries and the cap are not modeled.</div>`;
+  }
+  function countCurry() {
+    const els = $$("#move [data-c]");
+    els.forEach((el) => { const v = Number(el.dataset.c); el.textContent = (v < 0 ? "-" : "+") + Math.abs(v).toFixed(1); });
+    const mv = $("#move"); if (!mv) return;
+    onFirstView(mv, () => els.forEach((el) => { if (reduce()) return; const v = Number(el.dataset.c); const s = v < 0 ? "-" : "+"; const t0 = performance.now(); const step = (t) => { const k = Math.min((t - t0) / 1000, 1); el.textContent = s + (Math.abs(v) * (1 - Math.pow(1 - k, 3))).toFixed(1); if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); }));
+  }
+
+  const scenarios = [{ label: "Curry to San Antonio", html: curryHTML, after: countCurry }]
+    .concat(ZD.eraSwaps.map((d) => ({ label: d.effect.out_player.name.split(" ").pop() + " for " + d.effect.in_player.name.split(" ").pop() + ", " + seasonLabel(d.effect.season), html: () => swapHTML(d) })));
+  let cur = 0;
+  function scene() {
+    $("#scen").innerHTML = scenarios.map((s, i) => `<button class="chip" type="button" data-i="${i}" aria-pressed="${i === cur}" style="--r:${(i % 2 ? 1 : -1) * 0.8}deg">${esc(s.label)}</button>`).join("");
+    $("#scene").innerHTML = scenarios[cur].html();
+    if (scenarios[cur].after) scenarios[cur].after();
+  }
+  $("#scen").addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (!b) return; cur = Number(b.dataset.i); scene(); });
+  scene();
+
+  /* ================= build your own (live engine) ================= */
+  const seasons = (sel, from, to, dflt) => { sel.innerHTML = Array.from({ length: to - from + 1 }, (_, i) => to - i).map((s) => `<option value="${s}"${s === dflt ? " selected" : ""}>${seasonLabel(s)}</option>`).join(""); };
+  $("#b-team").innerHTML = BB.teams.map((t) => `<option value="${t.id}">${fmt.fullName(t)}</option>`).join("");
+  seasons($("#b-season"), 1985, 2025, 2015); seasons($("#b-inseason"), 1985, 2025, 1995);
+  const run = $("#b-run"), note = $("#engine-note");
+  let live = false;
+  async function loadRoster() {
+    if (!live) return;
+    $("#b-out").innerHTML = '<option value="">Loading...</option>';
+    try {
+      const r = await engine.post("/tools/team_season_roster", { parameters: { team_id: Number($("#b-team").value), season: Number($("#b-season").value) } });
+      if (r.status !== "success") throw new Error((r.error && r.error.message) || "no roster");
+      $("#b-out").innerHTML = r.data.players.map((p) => `<option value="${p.person_id}">${esc(p.name)} (${p.minutes_per_game} min)</option>`).join("");
+    } catch (e) { $("#b-out").innerHTML = '<option value="">No roster found</option>'; }
+  }
+  $("#b-team").addEventListener("change", loadRoster); $("#b-season").addEventListener("change", loadRoster);
+  engine.probe().then((base) => {
+    live = base !== false;
+    if (!live) { note.innerHTML = `The live engine is not running, so this form is off. Start it from the repository root with <code>.venv/Scripts/python.exe src/api.py</code>, then reload this page.`; return; }
+    note.textContent = "Live engine connected. Pick a team-season, a player to take out and a player to put in."; run.disabled = false; loadRoster();
+  });
+  run.addEventListener("click", async () => {
+    const out = Number($("#b-out").value), inName = $("#b-in").value.trim();
+    if (!out || !inName) { note.textContent = "Choose a player to take out and type a player to put in."; return; }
+    run.disabled = true; note.textContent = "Simulating. This takes about a minute."; $("#build-out").innerHTML = "";
+    try {
+      const r = await engine.post("/tools/simulate_era_swap", { parameters: { team_id: Number($("#b-team").value), season: Number($("#b-season").value), out_person_id: out, in_player: inName, in_season: Number($("#b-inseason").value) } });
+      if (r.status !== "success") throw new Error((r.error && r.error.message) || "the engine could not run that swap");
+      $("#build-out").innerHTML = swapHTML(r.data); note.textContent = "Done.";
+    } catch (e) { note.textContent = "Could not run it: " + e.message; }
+    run.disabled = false;
+  });
+})();
+</script>
+</body>
+</html>

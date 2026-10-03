@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask | Backboard Street Zine</title>
+<meta name="description" content="Ask the Backboard assistant in plain words, read the model's receipts (holdout accuracy and calibration), and see the platform status and every tool under the hood.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo:wght@400;600;800&family=Courier+Prime:wght@400;700&family=Reenie+Beanie&display=swap">
+<link rel="stylesheet" href="zine.css">
+<style>
+  /* ---------- assistant ---------- */
+  .chat { display: grid; gap: 1.2rem; margin-top: 2.4rem; max-width: 860px; }
+  .msg { display: grid; gap: 0.4rem; max-width: 92%; }
+  .msg.you { justify-self: end; }
+  .bubble { padding: 0.9rem 1.2rem 1rem; color: var(--ink); background: var(--paper); font: 700 0.98rem/1.55 var(--f-type); transform: rotate(var(--r, 0deg));
+    clip-path: polygon(0 3%, 2% 0, 98% 2%, 100% 0, 100% 97%, 98% 100%, 2% 98%, 0 100%); }
+  .msg.you .bubble { background: var(--yellow); text-transform: uppercase; }
+  .bubble .tool { display: inline-block; margin-bottom: 0.5rem; padding: 0.1rem 0.5rem; background: var(--ink); color: var(--paper); font: 700 0.75rem var(--f-type); text-transform: uppercase; letter-spacing: 0.05em; }
+  .bubble .tool.rec { background: var(--red); color: var(--ink); }
+  .bubble details { margin-top: 0.7rem; font: 400 0.88rem/1.45 var(--f-body); } .bubble summary { cursor: pointer; font: 800 0.78rem var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; min-height: 32px; display: flex; align-items: center; }
+  .bubble ul { margin: 0.2rem 0 0; padding-left: 1.1rem; }
+  .askform { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: end; margin-top: 2rem; max-width: 860px; }
+  .askform .field { flex: 1 1 320px; }
+  .askhint { margin-top: 1rem; max-width: 860px; font: 700 0.85rem/1.5 var(--f-type); text-transform: uppercase; color: var(--dim); }
+  .askhint code { background: #0e0e0e; padding: 0.1rem 0.4rem; color: var(--yellow); font: inherit; }
+
+  /* ---------- receipts ---------- */
+  .rc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(1.5rem, 4vw, 4rem); margin-top: 3rem; align-items: start; }
+  .receipt { --pad: 1.8rem 1.6rem 2.4rem; --face: #fbfaf6; font: 700 0.95rem/1.7 var(--f-type); text-transform: uppercase; }
+  .receipt .big { display: block; font: 400 clamp(6rem, 12vw, 10rem)/0.82 var(--f-head); font-variant-numeric: tabular-nums; margin: 0.4rem 0; }
+  .receipt .big small { font-size: 0.4em; }
+  .receipt dl { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 1rem; margin: 0.8rem 0 0; border-top: 2px dashed var(--ink); padding-top: 0.6rem; }
+  .receipt dt { font-weight: 400; } .receipt dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .graph { --face: #fbfaf6; --pad: 1.6rem; position: relative; }
+  .graphin { background-image: linear-gradient(rgb(16 16 16 / 0.12) 1px, transparent 1px), linear-gradient(90deg, rgb(16 16 16 / 0.12) 1px, transparent 1px); background-size: 26px 26px; padding: 0.6rem; }
+  .graphin svg { display: block; width: 100%; height: auto; overflow: visible; } .graphin text { font-family: var(--f-type); fill: var(--ink); }
+  .graph .pen { position: absolute; right: 9%; bottom: 20%; max-width: 12ch; transform: rotate(-5deg); z-index: 3; }
+  .errs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1.4rem; margin-top: 2.6rem; }
+  .errs .scrap { --face: #fbfaf6; --pad: 1.2rem 1.3rem 1.4rem; }
+  .errs span { display: block; font: 700 0.78rem var(--f-type); text-transform: uppercase; }
+  .errs b { display: block; margin: 0.3rem 0; font: 400 clamp(2.8rem, 5vw, 4rem)/0.9 var(--f-head); font-variant-numeric: tabular-nums; }
+  .errs p { font: 700 0.8rem/1.3 var(--f-type); text-transform: uppercase; }
+
+  /* ---------- engine ---------- */
+  .status { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1.2rem; margin-top: 2.4rem; }
+  .status .scrap { --face: #fbfaf6; --pad: 1.1rem 1.2rem 1.3rem; }
+  .status span { display: block; font: 700 0.78rem var(--f-type); text-transform: uppercase; }
+  .status b { display: block; margin-top: 0.3rem; font: 400 1.7rem/1.05 var(--f-head); text-transform: uppercase; overflow-wrap: anywhere; }
+  .status .on { color: #0a6b2a; } .status .off { color: var(--red); }
+  .toolwrap { margin-top: 2.6rem; --face: #fbfaf6; --pad: 1.4rem 1.4rem 1.6rem; }
+  .toolwrap .tbl td { vertical-align: top; } .toolwrap .tbl td.tn { white-space: nowrap; font-weight: 700; }
+  .toolwrap .tbl td.d { font: 400 0.88rem/1.4 var(--f-body); text-transform: none; }
+  .where { display: inline-block; padding: 0.1rem 0.5rem; font: 700 0.75rem var(--f-type); text-transform: uppercase; background: var(--yellow); }
+  .where.no { background: var(--paper-2); }
+  .howto { margin-top: 2rem; font: 700 0.88rem/1.6 var(--f-type); text-transform: uppercase; }
+  .howto code { display: block; margin-top: 0.4rem; padding: 0.5rem 0.8rem; background: #0e0e0e; color: var(--fg); font: 700 0.85rem var(--f-type); text-transform: none; overflow-x: auto; white-space: pre; }
+  @media (max-width: 900px) { .rc { grid-template-columns: minmax(0, 1fr); } .msg { max-width: 100%; } }
+</style>
+</head>
+<body data-page="ask">
+
+<header class="page dark phead" id="top">
+  <div class="wrap">
+    <p class="kicker">Page 6 of 6 · Ask</p>
+    <h1 class="h2">Ask and <span class="hl">audit</span></h1>
+    <p class="lede">Ask in plain words, check how the model did on games it never saw, and see every tool it runs on.</p>
+    <nav class="chips" aria-label="On this page"><a class="chip" href="#ask" style="--r:-1deg">Assistant</a><a class="chip" href="#receipts" style="--r:1.2deg">Receipts</a><a class="chip" href="#engine" style="--r:-0.6deg">Under the hood</a></nav>
+  </div>
+</header>
+
+<!-- ASSISTANT -->
+<section class="page dark tight" id="ask" aria-labelledby="a-h" style="padding-top:0">
+  <div class="wrap">
+    <h2 class="h2 m" id="a-h">Ask the <span class="hl">model</span></h2>
+    <p class="lede">It never answers from memory. Each answer is a tool call, with its assumptions and limits attached.</p>
+    <div class="chips" id="samples" aria-label="Sample questions"></div>
+    <div class="chat" id="chat" role="log" aria-live="polite"></div>
+    <form class="askform" id="askform">
+      <div class="field"><label for="askq">Your question</label><input id="askq" type="text" autocomplete="off" placeholder="What is the Spurs record in 2025?"></div>
+      <button class="btn" type="submit">Ask</button>
+    </form>
+    <p class="askhint" id="askhint">Checking for the live engine...</p>
+  </div>
+</section>
+
+<!-- RECEIPTS -->
+<section class="page white" id="receipts" aria-labelledby="r-h">
+  <div class="wrap">
+    <h2 class="h2" id="r-h">The <span class="hl">receipts</span></h2>
+    <p class="lede">How it did on games it never saw while learning.</p>
+    <div class="rc">
+      <div class="scrap t2 receipt" id="receipt"></div>
+      <div class="scrap graph" id="graphbox"><i class="tape y" style="left: 30%; top: -22px; --tr: 3deg"></i><div class="graphin" id="graph"></div></div>
+    </div>
+    <div class="errs" id="errs"></div>
+  </div>
+</section>
+
+<!-- UNDER THE HOOD -->
+<section class="page red" id="engine" aria-labelledby="e-h">
+  <div class="wrap">
+    <h2 class="h2 m" id="e-h">Under the <span class="hl">hood</span></h2>
+    <p class="lede">The data is as fresh as the last game in the database. Nothing is fetched from the internet.</p>
+    <div class="status" id="status"></div>
+    <div class="scrap t2 toolwrap">
+      <div class="chips" role="group" aria-label="Filter tools" style="margin:0 0 1rem"><button class="chip" type="button" data-f="all" aria-pressed="true">All tools</button><button class="chip" type="button" data-f="site" aria-pressed="false">On this site</button><button class="chip" type="button" data-f="engine" aria-pressed="false">Engine only</button></div>
+      <div class="tscroll" id="tools"></div>
+    </div>
+    <div class="howto" id="howto"></div>
+  </div>
+</section>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/zine-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="zine.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { $, $$, esc, countTo, onFirstView, uncrumple, engine } = Z;
+  const { fmt } = BB;
+  const ZD = window.BACKBOARD_ZINE || { qa: [], tools: [], status: {} };
+
+  /* ================= assistant ================= */
+  const chat = $("#chat");
+  let live = false, n = 0;
+  const rot = () => ((n++ % 2 ? 1 : -1) * (0.3 + (n % 3) * 0.25)).toFixed(2);
+  const say = (who, html) => { chat.insertAdjacentHTML("beforeend", `<div class="msg ${who}"><div class="bubble" style="--r:${rot()}deg">${html}</div></div>`); chat.lastElementChild.scrollIntoView({ block: "nearest", behavior: Z.reduce() ? "auto" : "smooth" }); };
+  const notes = (a, l) => (a && a.length) || (l && l.length) ? `<details><summary>Assumptions and limits</summary><ul>${(a || []).map((x) => `<li>${esc(x)}</li>`).join("")}${(l || []).map((x) => `<li><b>Limit:</b> ${esc(x)}</li>`).join("")}</ul></details>` : "";
+  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+
+  function answerRecorded(q) {
+    const hit = ZD.qa.find((x) => norm(x.q) === norm(q));
+    if (hit) return `<span class="tool rec">Recorded · ${esc(hit.tool)}</span><br>${esc(hit.answer)}${notes(hit.assumptions, hit.limitations)}`;
+    return `I can only answer the recorded questions without the live engine. Tap one of the sample questions above, or start the engine to ask anything the tool layer supports.`;
+  }
+  async function ask(q) {
+    say("you", esc(q));
+    if (!live) { say("bot", answerRecorded(q)); return; }
+    try {
+      const r = await engine.post("/ask", { question: q, mode: "deterministic" });
+      const env = r.envelope || {};
+      say("bot", `<span class="tool">${esc(r.tool || "no tool")}</span><br>${esc(r.answer || "No answer.")}${notes(env.assumptions, env.limitations)}`);
+    } catch (e) { say("bot", "The engine did not answer: " + esc(e.message)); }
+  }
+  $("#samples").innerHTML = ZD.qa.map((x, i) => `<button class="chip" type="button" data-i="${i}" style="--r:${(i % 2 ? 1 : -1) * (0.5 + (i % 3) * 0.3)}deg">${esc(x.q)}</button>`).join("");
+  $("#samples").addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) ask(ZD.qa[Number(b.dataset.i)].q); });
+  $("#askform").addEventListener("submit", (e) => { e.preventDefault(); const q = $("#askq").value.trim(); if (!q) return; $("#askq").value = ""; ask(q); });
+  say("bot", `Ask about a team's record, a head-to-head, a projection or a player's impact. Every answer is a call to one of ${ZD.tools.length} tools, and it shows which.`);
+  engine.probe().then((base) => {
+    live = base !== false;
+    $("#askhint").innerHTML = live ? "Live engine connected: ask anything the tool layer supports." : `Offline: the sample questions replay answers recorded from the engine. For anything else, start it with <code>.venv/Scripts/python.exe src/api.py</code> and reload.`;
+    renderStatus();
+  });
+
+  /* ================= receipts ================= */
+  const h = BB.meta.holdout;
+  $("#receipt").innerHTML = `<i class="tape" style="left: 34%; top: -22px; --tr: -3deg"></i>Backboard receipt<br>${BB.meta.model.replace(/_/g, " ")}<br>------------------------<span class="big"><span id="acc">0</span><small>%</small></span>picked right<dl><dt>Games it never saw</dt><dd>${h.games.toLocaleString("en-US")}</dd><dt>Log loss</dt><dd>${h.logLoss.toFixed(4)}</dd><dt>Calibration error</dt><dd>${h.ece.toFixed(3)}</dd><dt>Holdout starts</dt><dd>${h.start}</dd></dl><br>thank you. probabilities are not guarantees.`;
+  $("#acc").textContent = fmt.pct(h.accuracy, 1);
+  onFirstView($("#receipt"), () => { uncrumple($("#receipt")); countTo($("#acc"), h.accuracy * 100, 1, 1000); });
+  const bins = BB.calibration;
+  const W = 560, H = 430, m = { l: 58, r: 20, t: 20, b: 56 };
+  const x = (v) => m.l + v * (W - m.l - m.r), y = (v) => H - m.b - v * (H - m.t - m.b);
+  const hi = bins[6];
+  const table = bins.map((b) => `<tr><td>${fmt.pct0(b.lo)} to ${fmt.pct0(b.hi)}%</td><td>${b.games}</td><td>${fmt.pct(b.pred)}%</td><td>${fmt.pct(b.obs)}%</td></tr>`).join("");
+  $("#graph").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="ct cd"><title id="ct">Calibration chart</title><desc id="cd">What the model said against how often it happened, in nine groups. Points sit just under the diagonal at the high end: it runs a little confident.</desc>
+    ${[0, 0.25, 0.5, 0.75, 1].map((t) => `<text x="${x(t)}" y="${H - m.b + 24}" text-anchor="middle" font-size="13">${t * 100}%</text><text x="${m.l - 10}" y="${y(t) + 4}" text-anchor="end" font-size="13">${t * 100}%</text>`).join("")}
+    <path d="M${x(0)} ${y(0)} L ${x(1)} ${y(1)}" stroke="#101010" stroke-width="2" stroke-dasharray="7 7" fill="none"/>
+    ${bins.map((b) => `<path d="M${x(b.pred)} ${y(b.ciLo)} V ${y(b.ciHi)}" stroke="#101010" stroke-width="2.6"/>`).join("")}
+    <path d="M${bins.map((b) => `${x(b.pred)} ${y(b.obs)}`).join(" L")}" fill="none" stroke="#101010" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    ${bins.map((b) => `<circle cx="${x(b.pred)}" cy="${y(b.obs)}" r="8" fill="#ee3a1f" stroke="#101010" stroke-width="2.6"/>`).join("")}
+    <path d="M${x(hi.pred) - 22} ${y(hi.obs)} C ${x(hi.pred) - 24} ${y(hi.obs) - 28}, ${x(hi.pred) + 26} ${y(hi.obs) - 28}, ${x(hi.pred) + 24} ${y(hi.obs) + 6} C ${x(hi.pred) + 22} ${y(hi.obs) + 28}, ${x(hi.pred) - 26} ${y(hi.obs) + 26}, ${x(hi.pred) - 22} ${y(hi.obs)}" fill="none" stroke="#101010" stroke-width="3" stroke-linecap="round"/>
+    <text x="${(m.l + W - m.r) / 2}" y="${H - 8}" text-anchor="middle" font-size="14" font-weight="700">WHAT IT SAID (HOME TEAM WINS)</text>
+    <text transform="translate(16 ${(m.t + H - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="14" font-weight="700">WHAT HAPPENED</text></svg>
+    <p class="pen">said ${fmt.pct0(hi.pred)}, got ${fmt.pct0(hi.obs)}. a little cocky.</p>
+    <div class="sr-only"><table><caption>Calibration groups</caption><thead><tr><th>Group</th><th>Games</th><th>Model said</th><th>Home won</th></tr></thead><tbody>${table}</tbody></table></div>`;
+  const maeAbs = BB.teams.reduce((a, t) => a + Math.abs(Z.wins(t) - t.pre.wins), 0) / BB.teams.length;
+  $("#errs").innerHTML = [
+    ["Score margin", `${BB.meta.marginMae}`, "points typical miss on the home margin"],
+    ["Preseason wins", `${BB.meta.preseasonMae}`, "wins typical miss, per the backtest"],
+    ["This season's wins", maeAbs.toFixed(1), "wins average miss across the 30 teams, 2025-26"],
+  ].map(([l, v, d], i) => `<div class="scrap t${i + 1}"><span>${l}</span><b>${v}</b><p>${d}</p></div>`).join("");
+
+  /* ================= under the hood ================= */
+  function renderStatus() {
+    const s = ZD.status || {};
+    const cell = (l, v, cls) => `<div class="scrap t${(n++ % 3) + 1}"><span>${l}</span><b class="${cls || ""}">${v}</b></div>`;
+    $("#status").innerHTML = [
+      cell("Live engine", live ? "Connected" : "Offline, snapshot", live ? "on" : "off"),
+      cell("Production model", esc(BB.meta.model.replace(/_/g, " "))),
+      cell("Latest completed game", esc((s.latest_completed_game || BB.meta.latestGame || "").slice(0, 10))),
+      cell("Latest feature row", esc((s.latest_feature_row || "").slice(0, 10))),
+      cell("Latest transaction", esc(s.latest_transaction || "")),
+      cell("Transactions on file", s.transaction_count ? s.transaction_count.toLocaleString("en-US") : "n/a"),
+      cell("Next season", s.upcoming_season ? `${s.upcoming_season}-${String(s.upcoming_season + 1).slice(2)}, ${s.upcoming_season_regular_season_games_in_database} games loaded` : "n/a"),
+      cell("Snapshot built", esc(ZD.generated || BB.meta.generated)),
+    ].join("");
+    const h = s.how_to_update;
+    $("#howto").innerHTML = h ? `How to update<code>Schedule:  ${esc(h.schedule)}</code><code>Results:   ${esc(h.results_and_box_scores)}</code><code>Moves:     ${esc(h.transactions)}</code>` : "";
+  }
+
+  const WHERE = {
+    predict_matchup: "Matchups", predict_margin: "Matchups", head_to_head: "Matchups, Teams",
+    team_record: "Teams", team_form: "Teams", team_elo_rating: "Teams", team_projection: "Teams", team_roster: "Teams, Season",
+    simulate_season: "Season", project_rest_of_season: "Season", playoff_odds: "Season", team_strength: "Season",
+    player_impact: "Players", resolve_player: "Players", simulate_era_swap: "Players", team_season_roster: "Players",
+    data_status: "Ask", validation_report: "Ask",
+  };
+  let filter = "all";
+  function paintTools() {
+    const rows = ZD.tools.filter((t) => filter === "all" || (filter === "site" ? WHERE[t.name] : !WHERE[t.name]));
+    $("#tools").innerHTML = `<table class="tbl"><thead><tr><th>Tool</th><th>What it does</th><th>On this site</th></tr></thead><tbody>${rows.map((t) => `<tr><td class="tn">${esc(t.name)}</td><td class="d">${esc(t.description)}</td><td>${WHERE[t.name] ? `<span class="where">${WHERE[t.name]}</span>` : `<span class="where no">Engine only</span>`}</td></tr>`).join("")}</tbody></table>`;
+  }
+  $$("[data-f]").forEach((b) => b.addEventListener("click", () => { filter = b.dataset.f; $$("[data-f]").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); paintTools(); }));
+  paintTools(); renderStatus();
+})();
+</script>
+</body>
+</html>

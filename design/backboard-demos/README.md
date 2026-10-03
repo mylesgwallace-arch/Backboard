@@ -49,6 +49,32 @@ production engine's own tool layer. Nothing on the pages is mock data:
 `shared/bb.js` is the small kit every page uses to read that data. The default
 matchup on every page is the real 2025-26 Finals.
 
+## The street zine site (the full web UI)
+
+`street-zine/` is the whole Backboard web UI in the street-zine style, six pages
+behind a Limelight nav bar (a plain-JS port of the `limelight-nav` component: a light
+bar that slides to the active tab). Open `street-zine/index.html`.
+
+| Page | Features it carries |
+|---|---|
+| Home | Cover, a card for each page, the real Finals miss |
+| Matchups | Matchup, projected score and margin range, what moves the odds, head-to-head |
+| Teams | Team explorer: record, form, Elo, preseason projection, playoff odds, summer moves |
+| Season | League predictions, season simulator standings, playoffs, title odds, 2026-27 outlook |
+| Players | Player impact lookup, What-if Lab (with a build-your-own form) |
+| Ask | Assistant, receipts (validation and calibration), status and tool list |
+
+`shared/zine-data.js` holds the extra engine output these pages need (all 30 teams'
+2025-26 records, every head-to-head, a player-impact diagnostic for each of the 582
+players who appeared, summer roster moves, roster-adjusted strength, two era-swap
+what-ifs, recorded assistant answers, platform status and the tool list). Rebuild it
+with `tools/build_zine_data.py` from the repository root (about three minutes).
+
+Two things need the live engine, and each shows an offline state without it: the
+Ask page for questions beyond the recorded ones, and Players > Build your own. Start
+it with `.venv/Scripts/python.exe src/api.py`. The site finds it at 127.0.0.1:8000 or
+8010, or at `?api=http://host:port`.
+
 Regenerating needs `src/explain.py`, the calibration report and the what-if tool,
 which live on the `claude/model-transparency` branch. The generated file itself is
 static and needs none of them.

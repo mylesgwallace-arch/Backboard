@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matchups | Backboard Street Zine</title>
+<meta name="description" content="Pick any home and away team: win probability, projected score with an 80% range, what is moving the odds, and the all-time head-to-head record.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo:wght@400;600;800&family=Courier+Prime:wght@400;700&family=Reenie+Beanie&display=swap">
+<link rel="stylesheet" href="zine.css">
+<style>
+  /* ---------- matchup ---------- */
+  .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); gap: clamp(1rem, 3vw, 3rem); align-items: center; margin-top: 3rem; }
+  .side { display: grid; justify-items: center; gap: 1.2rem; }
+  .side .field { width: min(100%, 290px); }
+  .flipper { --w: clamp(190px, 21vw, 290px); position: relative; width: var(--w); aspect-ratio: 5 / 7; perspective: 1100px; }
+  .flip-in { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.7s steps(7, end); }
+  .flipper.flipped .flip-in { transform: rotateY(180deg); }
+  .face { position: absolute; inset: 7px; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; flex-direction: column; justify-content: space-between; --pad: 1.3rem; }
+  .face.back { transform: rotateY(180deg); --face: #0e0e0e; --k: var(--paper); justify-content: flex-start; gap: 0.7rem; }
+  .face .ab { font: 400 calc(var(--w) * 0.36)/0.82 var(--f-head); letter-spacing: 0.01em; }
+  .face .nk { font: 400 calc(var(--w) * 0.13)/0.95 var(--f-head); text-transform: uppercase; }
+  .face .ct { font: 700 calc(var(--w) * 0.05)/1.2 var(--f-type); text-transform: uppercase; }
+  .face.back h4 { font: 400 calc(var(--w) * 0.14)/1 var(--f-head); text-transform: uppercase; }
+  .face.back table { width: 100%; border-collapse: collapse; font: 700 calc(var(--w) * 0.058)/1.2 var(--f-type); font-variant-numeric: tabular-nums; text-transform: uppercase; }
+  .face.back td { padding: 0.34em 0; border-bottom: 1px dashed rgb(255 255 255 / 0.4); } .face.back td:last-child { text-align: right; color: var(--yellow); }
+  .tagbit { align-self: flex-start; position: relative; padding: 0.4rem 0.8rem 0.35rem; background: var(--yellow); color: var(--ink); transform: rotate(-3deg); clip-path: polygon(0 5%, 100% 0, 97% 100%, 3% 95%); }
+  .tagbit span { display: block; font: 700 calc(var(--w) * 0.045)/1.2 var(--f-type); text-transform: uppercase; } .tagbit em { font-style: normal; }
+  .tagbit b { font: 400 calc(var(--w) * 0.15)/1 var(--f-head); font-variant-numeric: tabular-nums; }
+  .flipbtn { position: absolute; inset: 0; z-index: 6; background: none; border: 0; cursor: pointer; }
+  .hintflip { position: absolute; z-index: 7; right: -8%; bottom: 8%; transform: rotate(5deg); pointer-events: none; }
+  .hintflip span { display: block; padding: 0.35rem 0.7rem; background: var(--yellow); color: var(--ink); font: 700 0.8rem/1.2 var(--f-type); text-transform: uppercase; clip-path: polygon(0 4%, 100% 0, 97% 100%, 3% 96%); }
+  .center { text-align: center; }
+  .pcts { display: flex; justify-content: center; align-items: flex-end; gap: clamp(0.6rem, 2vw, 1.6rem); }
+  .pcts .p { display: flex; flex-direction: column; align-items: center; }
+  .pcts .p b { font: 400 clamp(3.4rem, 6.2vw, 6.4rem)/0.86 var(--f-head); font-variant-numeric: tabular-nums; }
+  .pcts .p b small { font-size: 0.42em; }
+  .pcts .p .lb { margin-top: 0.4rem; font: 800 0.9rem var(--f-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+  .pcts .p.win b { color: var(--paper); } .pcts .p.lose b { color: var(--red); }
+  .pcts .vs { font: 400 2rem var(--f-head); color: var(--dim); padding-bottom: 2rem; }
+  .verdict { display: inline-block; margin-top: 1.2rem; padding: 0.4rem 1rem; background: var(--red); color: var(--ink); font: 400 1.4rem/1 var(--f-head); letter-spacing: 0.08em; text-transform: uppercase; transform: rotate(-2deg); clip-path: polygon(0 6%, 100% 0, 98% 100%, 2% 94%); }
+  .proj { margin-top: 1rem; font: 700 1rem/1.4 var(--f-type); text-transform: uppercase; }
+  .proj b { font: 400 2rem/1 var(--f-head); color: var(--yellow); }
+  .proj small { display: block; margin-top: 0.4rem; font: 400 0.8rem/1.4 var(--f-body); text-transform: none; color: var(--dim); max-width: 46ch; margin-inline: auto; }
+  .quick { justify-content: center; }
+  .moving { margin-top: 4rem; }
+  .moving h3 { font: 400 clamp(1.8rem, 3.4vw, 3rem)/1 var(--f-head); text-transform: uppercase; }
+  .tags { list-style: none; padding: 0; margin-top: 1.4rem; display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.4rem; }
+  .tags li { --m: 0.3; position: relative; padding: 0.55rem 1.1rem 0.5rem; color: var(--ink); transform: rotate(var(--r, 0deg)); clip-path: polygon(1% 0, 99% 4%, 100% 100%, 0 96%, 2% 50%); background: var(--yellow); }
+  .tags li.away { background: var(--red); }
+  .tags li span { display: block; font: 700 0.78rem/1.2 var(--f-type); text-transform: uppercase; }
+  .tags li b { font: 400 calc(1.5rem + var(--m) * 2.6rem)/1 var(--f-head); font-variant-numeric: tabular-nums; }
+  .tags li i { font: 700 0.8rem var(--f-type); font-style: normal; margin-left: 0.3rem; }
+
+  /* ---------- the model, three ways ---------- */
+  .three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1.2rem, 3vw, 2.4rem); margin-top: 2.4rem; }
+  .three .scrap { --face: #fbfaf6; --pad: 1.4rem 1.4rem 1.6rem; }
+  .three .n { display: block; font: 400 clamp(3.4rem, 5.6vw, 5rem)/0.86 var(--f-head); font-variant-numeric: tabular-nums; }
+  .three .n small { font-size: 0.42em; }
+  .three p { margin-top: 0.5rem; font: 700 0.88rem/1.35 var(--f-type); text-transform: uppercase; }
+
+  /* ---------- head to head ---------- */
+  .duel { margin-top: 3rem; }
+  .duelbar { display: flex; height: clamp(110px, 16vw, 170px); }
+  .duelbar > div { display: flex; flex-direction: column; justify-content: center; padding: 0 1.4rem; min-width: 7rem; flex: var(--g) 1 0; overflow-wrap: anywhere; }
+  .duelbar > div + div { text-align: right; align-items: flex-end; }
+  .duelbar b { font: 400 clamp(3.4rem, 8vw, 6.4rem)/0.86 var(--f-head); font-variant-numeric: tabular-nums; }
+  .duelbar span { font: 700 0.95rem var(--f-type); text-transform: uppercase; }
+  .duelnote { margin-top: 1.2rem; font: 700 1rem/1.5 var(--f-type); text-transform: uppercase; max-width: 70ch; }
+  .duelnote small { display: block; margin-top: 0.6rem; font: 400 0.9rem/1.45 var(--f-body); text-transform: none; color: rgb(16 16 16 / 0.75); }
+
+  @media (max-width: 900px) {
+    .duo { grid-template-columns: minmax(0, 1fr); }
+    .duo .side.away { order: 3; } .duo .center { order: 2; }
+    .flipper { --w: min(58vw, 250px); }
+    .three { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) { .flip-in { transition: none; } }
+</style>
+</head>
+<body data-page="matchups">
+
+<header class="page dark phead" id="top">
+  <div class="wrap">
+    <p class="kicker">Page 2 of 6 · Matchups</p>
+    <h1 class="h2">Run the <span class="hl">matchup</span></h1>
+    <p class="lede">Pick a home team and a visitor. Get the win chance, the projected score and what is moving the odds, then the head-to-head history.</p>
+    <nav class="chips" aria-label="On this page"><a class="chip" href="#matchup" style="--r:-1deg">Win probability</a><a class="chip" href="#h2h" style="--r:1.2deg">Head to head</a><a class="chip" href="#how" style="--r:-0.6deg">How to read it</a></nav>
+  </div>
+</header>
+
+<!-- MATCHUP -->
+<section class="page dark" id="matchup" aria-labelledby="m-h">
+  <div class="wrap">
+    <h2 class="h2 m" id="m-h">Win <span class="hl">probability</span></h2>
+    <p class="lede">Tap a card to flip it and see the stats behind it.</p>
+    <div class="duo">
+      <div class="side">
+        <div class="flipper" id="fl-h"><div class="flip-in" id="fi-h"></div><button class="flipbtn" type="button" id="fb-h" aria-pressed="false"></button><div class="hintflip"><span>Tap to flip</span></div></div>
+        <div class="field"><label for="home">Home team</label><select id="home"></select></div>
+      </div>
+      <div class="center" id="center" aria-live="polite"></div>
+      <div class="side away">
+        <div class="flipper" id="fl-a"><div class="flip-in" id="fi-a"></div><button class="flipbtn" type="button" id="fb-a" aria-pressed="false"></button></div>
+        <div class="field"><label for="away">Away team</label><select id="away"></select></div>
+      </div>
+    </div>
+    <div class="chips quick" id="quick" aria-label="Quick picks"><button class="swapb" id="swap" type="button">Swap sides</button></div>
+    <div class="moving">
+      <h3>What's moving the odds</h3>
+      <ul class="tags" id="tags"></ul>
+      <p class="note" id="tagnote"></p>
+    </div>
+  </div>
+</section>
+
+<!-- HEAD TO HEAD -->
+<section class="page white" id="h2h" aria-labelledby="h-h">
+  <div class="wrap">
+    <h2 class="h2 m" id="h-h">Head to <span class="hl">head</span></h2>
+    <p class="lede">History for the two teams picked above. Change them up there and this updates.</p>
+    <div class="duel" id="duel"></div>
+    <p class="duelnote" id="duelnote"></p>
+  </div>
+</section>
+
+<!-- HOW TO READ IT -->
+<section class="page yellow" id="how" aria-labelledby="w-h">
+  <div class="wrap">
+    <h2 class="h2 m" id="w-h">How to <span class="hl">read it</span></h2>
+    <p class="lede">The same game three ways, so you can see how much the model leans on strength alone.</p>
+    <div class="three" id="three"></div>
+    <p class="note" id="threenote"></p>
+  </div>
+</section>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/zine-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="zine.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { $, $$, countTo, onFirstView, seen, inkOn, ratio, reduce, uncrumple } = Z;
+  const { fmt } = BB;
+  const pair = (p) => { const a = p.home.c1; let b = p.away.c1; if (ratio(a, b) < 1.4) b = b === p.away.c1 ? p.away.c2 : p.away.c1; return [a, b]; };
+
+  const flipped = { h: false, a: false };
+  function faceHTML(t, color, role) {
+    const k = inkOn(color);
+    const rows = [["Last 10", fmt.wins10(t)], ["Elo", Math.round(t.elo)], ["Point margin", fmt.signed(t.form.pm10)], ["Points for", t.form.pts10.toFixed(1)], ["Points against", t.form.opp10.toFixed(1)], ["Rest days", t.form.rest.toFixed(1)]];
+    return `<article class="face front scrap t${role === "h" ? 2 : 3}" style="--face:${color};--k:${k}"><div><div class="ab">${t.abbr}</div></div><div class="tagbit"><span>Last 10</span><b>${fmt.wins10(t)}</b><span>Elo <em>${Math.round(t.elo)}</em></span></div><div><div class="nk">${t.nick}</div><div class="ct">${t.city}, ${role === "h" ? "home" : "away"}</div></div></article>
+      <article class="face back scrap t${role === "h" ? 3 : 2}"><h4>${t.nick}</h4><table>${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table></article>`;
+  }
+  function paintCards(p) {
+    const [c1, c2] = pair(p);
+    $("#fi-h").innerHTML = faceHTML(p.home, c1, "h"); $("#fi-a").innerHTML = faceHTML(p.away, c2, "a");
+    $("#fb-h").setAttribute("aria-label", `Flip the ${p.home.nick} card`); $("#fb-a").setAttribute("aria-label", `Flip the ${p.away.nick} card`);
+  }
+  ["h", "a"].forEach((s) => $("#fb-" + s).addEventListener("click", () => {
+    flipped[s] = !flipped[s];
+    $("#fl-" + s).classList.toggle("flipped", flipped[s]);
+    $("#fb-" + s).setAttribute("aria-pressed", String(flipped[s]));
+  }));
+
+  let centerBuilt = false;
+  function paintCenter(p) {
+    if (!centerBuilt) {
+      centerBuilt = true;
+      $("#center").innerHTML = `<div class="pcts"><div class="p" id="ph"><b><span id="nh">0</span><small>%</small></b><span class="lb" id="lh"></span></div><div class="vs" aria-hidden="true">vs</div><div class="p" id="pa"><b><span id="na">0</span><small>%</small></b><span class="lb" id="la"></span></div></div>
+        <span class="verdict" id="verdict"></span><p class="proj" id="proj"></p>`;
+      onFirstView($("#center"), () => { const q = BB.state.pred(); $("#nh")._v = 0; $("#na")._v = 0; countTo($("#nh"), q.pHome * 100); countTo($("#na"), q.pAway * 100); });
+    }
+    $("#ph").className = "p " + (p.fav === "home" ? "win" : "lose"); $("#pa").className = "p " + (p.fav === "away" ? "win" : "lose");
+    $("#lh").textContent = `${p.home.abbr} home`; $("#la").textContent = `${p.away.abbr} away`;
+    if (seen.has($("#center"))) { countTo($("#nh"), p.pHome * 100); countTo($("#na"), p.pAway * 100); }
+    else { $("#nh").textContent = fmt.pct(p.pHome); $("#na").textContent = fmt.pct(p.pAway); }
+    $("#verdict").textContent = p.verdict.label;
+    $("#proj").innerHTML = `<b>${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}</b> projected<small>${p.favTeam.city} ${p.favTeam.nick} over ${p.dogTeam.nick}. The 80% range for the home margin runs ${Math.round(p.margin.lo)} to ${fmt.signed(p.margin.hi, 0)}, and the typical miss is ${BB.meta.marginMae} points, so read it as a lean.</small><span class="pen" style="display:block;margin-top:0.4rem;transform:rotate(-2deg)">even teams? home court alone starts ${p.home.abbr} at ${fmt.pct0(p.homeCourtOnly)}%.</span>`;
+  }
+
+  function paintTags(p) {
+    const max = 0.09;
+    const rots = [-2.5, 1.8, -1.2, 2.6, -2, 1.4, -1.6];
+    $("#tags").innerHTML = p.sorted.map((g, i) => {
+      const home = g.value >= 0; const m = Math.min(Math.abs(g.value) / max, 1);
+      return `<li class="${home ? "home" : "away"}" style="--m:${m.toFixed(2)};--r:${rots[i % rots.length]}deg"><span>${g.label}</span><b>${fmt.signed(Math.abs(g.value) * 100)}</b><i>${home ? p.home.abbr : p.away.abbr}</i></li>`;
+    }).join("");
+    $("#tagnote").innerHTML = `Bigger tag, bigger push. Yellow helps ${p.home.abbr}, red helps ${p.away.abbr}. Each tag is the change in ${p.home.abbr}'s win chance, in percentage points, if the two teams were even on that input. It shows what the model reacts to, not what causes wins.`;
+  }
+
+  function paintQuick() {
+    const box = $("#quick");
+    box.insertAdjacentHTML("afterbegin", BB.featured.map((pr, i) => `<button class="chip" type="button" data-i="${i}" style="--r:${(i % 2 ? 1 : -1) * (0.7 + i * 0.3)}deg" aria-pressed="false">${i === 0 ? "The Finals" : BB.teams[pr[0]].abbr + " v " + BB.teams[pr[1]].abbr}</button>`).join(""));
+    box.addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (!b) return; const pr = BB.featured[Number(b.dataset.i)]; BB.state.set(pr[0], pr[1]); repaint(); });
+  }
+  const syncQuick = () => $$("#quick button[data-i]").forEach((b) => { const pr = BB.featured[Number(b.dataset.i)]; b.setAttribute("aria-pressed", String(pr[0] === BB.state.hi && pr[1] === BB.state.ai)); });
+  let repaint = () => {};
+
+  /* ---------- head to head ---------- */
+  function paintDuel(p) {
+    const r = Z.h2h(p.home.id, p.away.id);
+    if (!r) { $("#duel").innerHTML = ""; $("#duelnote").textContent = "No head-to-head record in the data build."; return; }
+    const [c1, c2] = pair(p);
+    const lead = r.a === r.b ? null : r.a > r.b ? p.home : p.away;
+    const side = (t, wins, color) => `<div style="--g:${Math.max(wins, 1)};background:${color};color:${inkOn(color)}"><b>${wins}</b><span>${t.city} ${t.nick}</span></div>`;
+    $("#duel").innerHTML = `<div class="scrap t2 duelwrap" style="--pad:0.5rem;--face:#fbfaf6"><div class="duelbar">${side(p.home, r.a, c1)}${side(p.away, r.b, c2)}</div></div>`;
+    const homeSays = p.fav === "home" ? p.home : p.away;
+    const histSays = lead;
+    const agree = !histSays || histSays === p.favTeam;
+    $("#duelnote").innerHTML = `${r.games.toLocaleString("en-US")} regular-season games, all time.${lead ? ` ${lead.city} ${lead.nick} lead ${Math.max(r.a, r.b)} to ${Math.min(r.a, r.b)}.` : " The series is dead even."}
+      <small>${agree ? `The model's pick, ${p.favTeam.nick}, agrees with the series history.` : `The model picks ${p.favTeam.nick} even though ${histSays.nick} lead the series. The model uses this season's strength and form, not the old record.`} This is a count from the games database, not a model output, and it does not weigh how long ago those games were played.</small>`;
+  }
+
+  /* ---------- how to read it ---------- */
+  function paintThree(p) {
+    const items = [
+      { n: fmt.pct(p.homeCourtOnly), t: `Home court alone. Two even teams would start ${p.home.abbr} here.` },
+      { n: fmt.pct(p.eloProb), t: `Strength rating only (Elo). Who has been better, adjusted for who they beat.` },
+      { n: fmt.pct(p.pHome), t: `The full model. Elo plus form, rest and who is available.` },
+    ];
+    $("#three").innerHTML = items.map((it, i) => `<div class="scrap t${(i % 3) + 1}" style="transform:rotate(${[-1.4, 1, -0.8][i]}deg)"><span class="n">${it.n}<small>%</small></span><p>${it.t}</p></div>`).join("");
+    $("#threenote").textContent = `All three are the chance that ${p.home.nick} (home) win. Where the full model sits far from the Elo-only number, form, rest or availability is doing the work.`;
+  }
+
+  paintQuick();
+  repaint = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
+  BB.state.subscribe((p) => { paintCards(p); paintCenter(p); paintTags(p); syncQuick(); paintDuel(p); paintThree(p); });
+})();
+</script>
+</body>
+</html>
