@@ -107,7 +107,7 @@ button, select, input { font: inherit; color: inherit; }
 .bars { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
 .bars li { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) 4.4rem; gap: 0.7rem; align-items: center; font: 700 0.9rem var(--f-type); text-transform: uppercase; }
 .bars .tk { height: 22px; background: rgb(16 16 16 / 0.12); }
-.bars .tk i { display: block; height: 100%; background: var(--c, var(--ink)); width: calc(var(--w, 0) * 1%); transition: width 0.7s steps(8, end); }
+.bars .tk i { display: block; width: 100%; height: 100%; background: var(--c, var(--ink)); transform: scaleX(calc(var(--w, 0) / 100)); transform-origin: left; transition: transform 0.7s steps(8, end); }
 .bars b { text-align: right; font: 400 1.2rem/1 var(--f-head); font-variant-numeric: tabular-nums; }
 
 .stamp { display: inline-block; padding: 0.5rem 1rem; border: 5px solid var(--red); color: var(--red); font: 400 clamp(1.6rem, 3.4vw, 2.6rem)/1 var(--f-head); letter-spacing: 0.06em; text-transform: uppercase; transform: rotate(-5deg); mix-blend-mode: multiply; background: rgb(255 255 255 / 0.25); }
