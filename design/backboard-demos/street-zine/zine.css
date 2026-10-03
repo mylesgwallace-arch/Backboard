@@ -16,6 +16,7 @@
   --f-pen: "Reenie Beanie", "Segoe Print", cursive;
   --f-rans: "Abril Fatface", Georgia, serif;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --glow: var(--red);       /* the Limelight nav light */
   --fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .32 0 0 0 0 .28 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
 }
 * { box-sizing: border-box; margin: 0; }
@@ -125,10 +126,10 @@ button, select, input { font: inherit; color: inherit; }
 .zi svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.42; transition: opacity 0.1s ease-in-out; }
 .zi span { font: 800 0.6rem/1 var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.42; transition: opacity 0.1s ease-in-out; }
 .zi:hover svg, .zi:hover span, .zi[aria-current="page"] svg, .zi[aria-current="page"] span { opacity: 1; }
-.zi[aria-current="page"] { color: var(--yellow); }
-.zlime { position: absolute; top: 0; z-index: 1; left: -999px; width: 44px; height: 5px; border-radius: 99px; background: var(--yellow); }
+.zi[aria-current="page"] { color: var(--glow); }
+.zlime { position: absolute; top: 0; z-index: 1; left: -999px; width: 44px; height: 5px; border-radius: 99px; background: var(--glow); }
 .zlime.ready { transition: left 0.4s ease-in-out; }
-.zlime::after { content: ""; position: absolute; left: -30%; top: 5px; width: 160%; height: 56px; clip-path: polygon(5% 100%, 25% 0, 75% 0, 95% 100%); background: linear-gradient(to bottom, rgb(243 227 42 / 0.32), transparent); pointer-events: none; }
+.zlime::after { content: ""; position: absolute; left: -30%; top: 5px; width: 160%; height: 56px; clip-path: polygon(5% 100%, 25% 0, 75% 0, 95% 100%); background: linear-gradient(to bottom, color-mix(in srgb, var(--glow) 38%, transparent), transparent); pointer-events: none; }
 
 footer.zfoot { position: relative; z-index: 3; padding: 2rem 0 3.5rem; color: var(--dim); font-size: 0.9rem; background: var(--ground); }
 footer.zfoot .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.8rem; }
