@@ -27,6 +27,7 @@ Design rules:
 import argparse
 import json
 import sqlite3
+import threading
 from pathlib import Path
 
 import pandas as pd
@@ -79,6 +80,8 @@ try:
     )
     from src.margin_model import load_margin_bundle, predict_margin
     from src import era_swap
+    from src import player_profile as profiles
+    from src import sandbox
 except ImportError:  # pragma: no cover - direct-script support
     from main import (
         FEATURES_PATH,
@@ -127,6 +130,8 @@ except ImportError:  # pragma: no cover - direct-script support
     )
     from margin_model import load_margin_bundle, predict_margin
     import era_swap
+    import player_profile as profiles
+    import sandbox
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -148,6 +153,13 @@ PROBABILITIES_CACHE = {}
 MODEL_INPUTS_CACHE = {}
 
 
+# Single-flight locks: the API server warms these caches in a background
+# thread, and a request arriving meanwhile waits for that build instead of
+# starting a second, competing one.
+_PROBABILITIES_LOCK = threading.Lock()
+_MODEL_INPUTS_LOCK = threading.Lock()
+
+
 class ToolUnavailable(Exception):
     """Raised when a tool cannot produce a result with available data."""
 
@@ -162,12 +174,13 @@ def _cached_probabilities(
     metrics_path=METRICS_PATH,
 ):
     key = (str(features_path), str(model_path), str(metrics_path))
-    if key not in PROBABILITIES_CACHE:
-        PROBABILITIES_CACHE[key] = load_pregame_probabilities(
-            features_path=features_path,
-            model_path=model_path,
-            metrics_path=metrics_path,
-        )
+    with _PROBABILITIES_LOCK:
+        if key not in PROBABILITIES_CACHE:
+            PROBABILITIES_CACHE[key] = load_pregame_probabilities(
+                features_path=features_path,
+                model_path=model_path,
+                metrics_path=metrics_path,
+            )
     return PROBABILITIES_CACHE[key]
 
 
@@ -178,8 +191,9 @@ def clear_probability_cache():
 
 
 def _cached_model_inputs():
-    if "inputs" not in MODEL_INPUTS_CACHE:
-        MODEL_INPUTS_CACHE["inputs"] = load_model_inputs()
+    with _MODEL_INPUTS_LOCK:
+        if "inputs" not in MODEL_INPUTS_CACHE:
+            MODEL_INPUTS_CACHE["inputs"] = load_model_inputs()
     return MODEL_INPUTS_CACHE["inputs"]
 
 
@@ -199,6 +213,7 @@ def _cached_margin_bundle():
 INT_TYPE = "int"
 STR_TYPE = "str"
 BOOL_TYPE = "bool"
+LIST_TYPE = "list"
 
 PLAYOFF_LIMITATION = (
     "Season projections are descriptive outputs of the validated per-game model; "
@@ -731,6 +746,83 @@ def _execute_player_season_stats(parameters):
             f"{parameters['season']} season."
         )
     return stats
+
+
+def _execute_player_profile(parameters):
+    """Bio, season tables (recorded + calculated), career totals and highs."""
+    person_id = _person_id_or_name(parameters)
+    try:
+        return profiles.player_profile(person_id)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _execute_player_game_log(parameters):
+    """Every game of one season for one player, with splits."""
+    person_id = _person_id_or_name(parameters)
+    kind = parameters.get("kind", "regular")
+    if kind not in ("regular", "playoffs", "play_in"):
+        raise ToolError("kind must be 'regular', 'playoffs' or 'play_in'.")
+    try:
+        return profiles.player_game_log(person_id, parameters["season"], kind)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _execute_player_outlook(parameters):
+    """Percentiles, box impact, comparables, aging curve and projection."""
+    person_id = _person_id_or_name(parameters)
+    try:
+        return profiles.player_outlook(person_id, parameters.get("season"))
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _sandbox_season(parameters):
+    mode = parameters.get("mode", "next")
+    if mode not in ("next", "replay"):
+        raise ToolError("mode must be 'next' or 'replay'.")
+    seasons = sandbox.seasons_available()
+    season = parameters.get("season")
+    if season is None:
+        season = seasons["next"] if mode == "next" else seasons["latest_completed"]
+    return int(season), mode
+
+
+def _execute_sandbox_rosters(parameters):
+    """Every team's starting roster for a sandbox season."""
+    season, mode = _sandbox_season(parameters)
+    try:
+        result = sandbox.roster_snapshot(season, mode)
+    except sandbox.ScenarioError as exc:
+        raise ToolError(str(exc))
+    result["seasons"] = sandbox.seasons_available()
+    return result
+
+
+def _execute_sandbox_preview(parameters):
+    """Apply moves and return each changed team's net-rating change (no simulation)."""
+    season, mode = _sandbox_season(parameters)
+    try:
+        return sandbox.preview(season, mode, parameters.get("moves", []))
+    except sandbox.ScenarioError as exc:
+        raise ToolError(str(exc))
+
+
+def _execute_sandbox_simulate(parameters):
+    """Baseline vs. scenario season and playoffs for any set of moves."""
+    season, mode = _sandbox_season(parameters)
+    probabilities = _cached_probabilities() if mode == "replay" else None
+    try:
+        return sandbox.simulate_scenario(
+            season, mode, parameters.get("moves", []),
+            probabilities=probabilities, inputs=_cached_model_inputs(),
+            n_simulations=parameters.get("n_simulations", 1000),
+            random_state=parameters.get("random_state", 42),
+            transfer=parameters.get("transfer", "calibrated"),
+        )
+    except sandbox.ScenarioError as exc:
+        raise ToolError(str(exc))
 
 
 RAW_DIR = ROOT / "data" / "raw"
@@ -1741,6 +1833,188 @@ TOOLS = {
         ],
         "execute": _execute_playoff_odds,
     },
+    "player_profile": {
+        "name": "player_profile",
+        "description": (
+            "Everything recorded about one player: bio (age, height, draft, positions), "
+            "every regular-season and playoff season per team and combined, with "
+            "totals, shooting splits and calculated rates (TS%, eFG%, usage, assist / "
+            "rebound / steal / block / turnover percentages, game score), career "
+            "totals, career highs and milestone counts."
+        ),
+        "category": "database_query",
+        "model": "nba.db players, player_statistics and team_statistics (factual + standard formulas)",
+        "parameters": [
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "NBA personId (or give 'player')."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Player name; must resolve to exactly one player."},
+        ],
+        "assumptions": [
+            "A game counts when the player logged minutes, or (for eras without minutes) "
+            "has a stat line and no did-not-play comment.",
+            "Rate statistics use the public Basketball-Reference formulas with team totals "
+            "scaled to the player's estimated on-court share of each team stint.",
+        ],
+        "limitations": [
+            "Team-based rates (usage, rebound/steal/block percentages, pace) need complete "
+            "team box scores, which start in 1985-86; earlier seasons show them as null.",
+            "Steals and blocks were not recorded before 1973-74, turnovers before "
+            "1977-78, threes before 1979-80 and plus-minus before 1996-97.",
+            "Games started are shown only for seasons where the source marks starters "
+            "reliably (2000-01, 2017-18 to 2020-21 and 2022-23 on).",
+        ],
+        "execute": _execute_player_profile,
+    },
+    "player_game_log": {
+        "name": "player_game_log",
+        "description": (
+            "Every game of one season for one player (regular season, playoffs or "
+            "play-in) with box score, game score and 10-game rolling averages, plus "
+            "splits: home/road, wins/losses, rest days, month, starter/bench and team."
+        ),
+        "category": "database_query",
+        "model": "nba.db player_statistics (factual query)",
+        "parameters": [
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "NBA personId (or give 'player')."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Player name; must resolve to exactly one player."},
+            {"name": "season", "type": INT_TYPE, "required": True,
+             "description": "Season start year, e.g. 2025 for 2025-26."},
+            {"name": "kind", "type": STR_TYPE, "required": False,
+             "description": "'regular' (default), 'playoffs' or 'play_in'."},
+        ],
+        "assumptions": ["Rest days count calendar days between the player's games."],
+        "limitations": ["Starter/bench splits appear only where starters are recorded reliably."],
+        "execute": _execute_player_game_log,
+    },
+    "player_outlook": {
+        "name": "player_outlook",
+        "description": (
+            "Derived view of one player-season (1985-86 on): league percentiles, "
+            "role tags, box impact and wins added (the box-score team model the "
+            "Sandbox uses), the most similar player-seasons at the same age and "
+            "what they did next, an aging curve, a next-season projection with a "
+            "range, and the team's record with and without the player."
+        ),
+        "category": "model_estimate",
+        "model": "era_swap box-score team model (calibrated) + similarity comparables",
+        "parameters": [
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "NBA personId (or give 'player')."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Player name; must resolve to exactly one player."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year; defaults to the player's latest season."},
+        ],
+        "assumptions": [
+            "Percentiles are among players with 500+ regular-season minutes that season.",
+            "Comparables: weighted distance between league-relative per-100 profiles "
+            "(z-scores within each season) and minutes per game, same age +/- 1, "
+            "1,000+ minutes.",
+            "The projection applies comparables' changes into the next season, weighted "
+            "by similarity, in this season's league context.",
+        ],
+        "limitations": [
+            "Box impact is a box-score estimate: it sees offense far better than defense "
+            "and is scaled by the realization factor measured on real roster changes.",
+            "Projections describe what similar players did; they know nothing about this "
+            "player's health, contract or role.",
+            "The with/without record is an association, not a causal effect.",
+        ],
+        "execute": _execute_player_outlook,
+    },
+    "sandbox_rosters": {
+        "name": "sandbox_rosters",
+        "description": (
+            "Every team's starting roster for a Sandbox season: minutes per game, games "
+            "and box impact per player. 'next' mode (default) is the season after the "
+            "latest in the database with rosters as they ended; 'replay' mode is a real "
+            "season from 1985-86 on."
+        ),
+        "category": "simulation",
+        "model": "complete player-team-season tables + era_swap box-score model",
+        "parameters": [
+            {"name": "mode", "type": STR_TYPE, "required": False,
+             "description": "'next' (default) or 'replay'."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year; defaults to the next season (next mode) or "
+                            "the latest completed one (replay)."},
+        ],
+        "assumptions": ["In next mode each player is on the team they ended last season with."],
+        "limitations": ["Offseason moves after the data ends are not included; add them as moves."],
+        "execute": _execute_sandbox_rosters,
+    },
+    "sandbox_preview": {
+        "name": "sandbox_preview",
+        "description": (
+            "Apply a list of roster moves (trade, sign, release, injury, minutes) and "
+            "return each changed team's before/after roster, re-balanced minutes and "
+            "net-rating change. Fast; does not simulate the season."
+        ),
+        "category": "simulation",
+        "model": "era_swap box-score team model with the calibrated realization factor",
+        "parameters": [
+            {"name": "mode", "type": STR_TYPE, "required": False,
+             "description": "'next' (default) or 'replay'."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year."},
+            {"name": "moves", "type": LIST_TYPE, "required": True,
+             "description": 'Ordered moves, e.g. [{"type": "trade", "assets": [{"person_id": 1, '
+                            '"from_team_id": 2, "to_team_id": 3}]}]; also sign (person_id, '
+                            "to_team_id, from_season), release (person_id, team_id), injury "
+                            "(person_id, team_id, games_missed) and minutes (person_id, team_id, mpg)."},
+        ],
+        "assumptions": [
+            "Moved players keep their minutes share; returning players absorb the rest "
+            "proportionally (at most 42 minutes a game); replacement-level players fill gaps.",
+        ],
+        "limitations": [
+            "Box-score values only; no fit, chemistry or coaching effects.",
+        ],
+        "execute": _execute_sandbox_preview,
+    },
+    "sandbox_simulate": {
+        "name": "sandbox_simulate",
+        "description": (
+            "What-if Sandbox: apply any roster moves, then simulate the whole league's "
+            "season and playoffs with and without them (paired simulations): wins, "
+            "playoff, conference and title odds for every team, who won each trade, and "
+            "sample seasons with full brackets."
+        ),
+        "category": "simulation",
+        "model": "elo_boosted_ensemble game probabilities + era_swap box-score team model",
+        "parameters": [
+            {"name": "mode", "type": STR_TYPE, "required": False,
+             "description": "'next' (default) or 'replay'."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year."},
+            {"name": "moves", "type": LIST_TYPE, "required": True,
+             "description": "Ordered moves (see sandbox_preview)."},
+            {"name": "n_simulations", "type": INT_TYPE, "required": False,
+             "description": "Simulations per scenario (100-5000, default 1000)."},
+            {"name": "random_state", "type": INT_TYPE, "required": False,
+             "description": "Seed (default 42); the baseline and scenario share it."},
+            {"name": "transfer", "type": STR_TYPE, "required": False,
+             "description": "'calibrated' (default, validated) or 'full' (unvalidated upper scenario)."},
+        ],
+        "assumptions": [
+            "A team's net-rating change shifts each of its games by a per-game margin at its "
+            "pace (probit scale), as in the What-if Lab.",
+            "Next mode reuses last season's matchups and freezes team strength at the end of "
+            "last season with the calibrated preseason uncertainty.",
+        ],
+        "limitations": [
+            "Confidence is low: box-score-valued roster changes explain only part of real "
+            "changes in team strength.",
+            "Replay mode's first call in a server process loads every game's probability "
+            "(about a minute).",
+            "Random tiebreakers; today's conference alignment; playoffs are skipped for "
+            "seasons whose real field cannot be reproduced.",
+        ],
+        "execute": _execute_sandbox_simulate,
+    },
     "validation_report": {
         "name": "validation_report",
         "description": (
@@ -1813,6 +2087,15 @@ def validate_parameters(schema, parameters):
                 cleaned[name] = bool(value)
             else:
                 raise ToolError(f"Parameter '{name}' must be true or false.")
+        elif spec["type"] == LIST_TYPE:
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    raise ToolError(f"Parameter '{name}' must be a JSON list.")
+            if not isinstance(value, list):
+                raise ToolError(f"Parameter '{name}' must be a list.")
+            cleaned[name] = value
         else:
             if not isinstance(value, str):
                 raise ToolError(f"Parameter '{name}' must be a string.")

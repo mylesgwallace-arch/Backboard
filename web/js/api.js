@@ -181,3 +181,47 @@ export function getPlayerImpact({ personId, before, window }) {
   if (window != null) parameters.window = window;
   return runTool("player_impact", parameters);
 }
+
+// Player pages (see src/player_profile.py).
+
+export function getPlayerProfile(personId) {
+  return runTool("player_profile", { person_id: personId });
+}
+
+export function getPlayerGameLog({ personId, season, kind }) {
+  const parameters = { person_id: personId, season };
+  if (kind) parameters.kind = kind;
+  return runTool("player_game_log", parameters);
+}
+
+export function getPlayerOutlook({ personId, season }) {
+  const parameters = { person_id: personId };
+  if (season != null) parameters.season = season;
+  return runTool("player_outlook", parameters);
+}
+
+// Sandbox (see src/sandbox.py). A scenario is { mode, season, moves }.
+
+export function getSandboxRosters({ mode, season } = {}) {
+  const parameters = {};
+  if (mode) parameters.mode = mode;
+  if (season != null) parameters.season = season;
+  return runTool("sandbox_rosters", parameters);
+}
+
+export function previewScenario({ mode, season, moves }) {
+  const parameters = { moves };
+  if (mode) parameters.mode = mode;
+  if (season != null) parameters.season = season;
+  return runTool("sandbox_preview", parameters);
+}
+
+export function simulateScenario({ mode, season, moves, nSimulations, randomState, transfer }) {
+  const parameters = { moves };
+  if (mode) parameters.mode = mode;
+  if (season != null) parameters.season = season;
+  if (nSimulations != null) parameters.n_simulations = nSimulations;
+  if (randomState != null) parameters.random_state = randomState;
+  if (transfer) parameters.transfer = transfer;
+  return runTool("sandbox_simulate", parameters);
+}

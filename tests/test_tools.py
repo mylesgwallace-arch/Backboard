@@ -19,6 +19,7 @@ from src.tools import (
     parse_args,
     validate_parameters,
     clear_probability_cache,
+    ToolError,
 )
 
 
@@ -769,3 +770,29 @@ def test_era_swap_requires_both_players(monkeypatch):
                                                 "in_season": 2015, "in_person_id": 201939})
     assert result["status"] == "error"
     assert "out_player" in result["error"]["message"]
+
+
+def test_player_page_and_sandbox_tools_are_registered():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    for name in ("player_profile", "player_game_log", "player_outlook",
+                 "sandbox_rosters", "sandbox_preview", "sandbox_simulate"):
+        assert name in tools
+        assert tools[name]["description"]
+        assert tools[name]["limitations"]
+    moves = {p["name"]: p for p in tools["sandbox_simulate"]["parameters"]}["moves"]
+    assert moves["type"] == "list" and moves["required"] is True
+
+
+def test_list_parameters_accept_json_text_and_reject_other_types():
+    schema = [{"name": "moves", "type": "list", "required": True, "description": ""}]
+    assert validate_parameters(schema, {"moves": '[{"type": "release"}]'}) == {"moves": [{"type": "release"}]}
+    assert validate_parameters(schema, {"moves": []}) == {"moves": []}
+    for bad in ("not json", {"type": "release"}, 3):
+        with pytest.raises(ToolError):
+            validate_parameters(schema, {"moves": bad})
+
+
+def test_a_malformed_scenario_is_a_structured_error():
+    result = execute_tool("sandbox_preview", {"moves": "nope"})
+    assert result["status"] == "error"
+    assert "JSON list" in result["error"]["message"]

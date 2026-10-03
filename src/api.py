@@ -33,6 +33,7 @@ integration tests, with CORS headers so a future browser front end can call it.
 import argparse
 import json
 import re
+import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -300,6 +301,44 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(status, payload)
 
 
+def warm_caches():
+    """Load the slow, shared inputs once so the first page view is fast.
+
+    Runs in a daemon thread at server start: the player-page league tables,
+    the Sandbox engine, the model inputs, the next-season schedule and
+    (slowest, about a minute) every game's pregame probability for
+    replay-mode simulations. Each cache is single-flight, so a request that
+    arrives meanwhile waits for the build instead of starting a second one.
+    A failure only means the first request pays the cost instead.
+    """
+    try:
+        from src import player_profile, sandbox
+        from src.tools import _cached_model_inputs, _cached_probabilities
+    except ImportError:  # pragma: no cover - direct-script support
+        import player_profile
+        import sandbox
+        from tools import _cached_model_inputs, _cached_probabilities
+
+    def next_season_setup():
+        season = sandbox.seasons_available()["next"]
+        sandbox.season_setup(season, "next", None, _cached_model_inputs())
+
+    steps = [
+        ("player tables", player_profile.team_season_totals),
+        ("league reference", player_profile.league_reference),
+        ("sandbox engine", sandbox.engine),
+        ("model inputs", _cached_model_inputs),
+        ("next-season schedule", next_season_setup),
+        ("season probabilities", _cached_probabilities),
+    ]
+    for label, step in steps:
+        try:
+            step()
+        except Exception as exc:  # pragma: no cover - best effort
+            print(f"  warm-up skipped {label}: {exc}")
+    print("  caches warm: player pages and the Sandbox are ready")
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="Serve the NBA analytics tool layer over HTTP (stdlib only)."
@@ -308,6 +347,8 @@ def parse_args(argv=None):
                         help="Bind host (default: 127.0.0.1).")
     parser.add_argument("--port", type=int, default=8000,
                         help="Bind port (default: 8000).")
+    parser.add_argument("--no-warm", action="store_true",
+                        help="Do not pre-load model caches in the background at start.")
     return parser.parse_args(argv)
 
 
@@ -318,6 +359,9 @@ def main(argv=None):
     print(f"  production model: {PRODUCTION_MODEL}")
     print("  endpoints: GET / (front end), GET /health, GET /tools, "
           "POST /tools/<name>, POST /ask, POST /ingest")
+    if not args.no_warm:
+        print("  warming caches in the background (about a minute)")
+        threading.Thread(target=warm_caches, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -211,3 +211,9 @@ def test_what_if_swap_questions_become_one_era_swap_call():
 def test_what_if_without_the_replaced_player_asks():
     with pytest.raises(ValueError, match="name both players"):
         plan_question("What if the 1992-93 Bulls had 2015-16 Stephen Curry instead of somebody?")
+
+
+def test_list_parameters_become_arrays_of_objects():
+    schemas = {schema["name"]: schema for schema in tool_schemas()}
+    moves = schemas["sandbox_simulate"]["input_schema"]["properties"]["moves"]
+    assert moves == {"type": "array", "items": {"type": "object"}, "description": moves["description"]}

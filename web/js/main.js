@@ -20,6 +20,8 @@ import * as playoffsPage from "./pages/playoffs.js";
 import * as playerImpactPage from "./pages/playerImpact.js";
 import * as currentSeasonPage from "./pages/currentSeason.js";
 import * as whatIfPage from "./pages/whatIf.js";
+import * as playersPage from "./pages/players.js";
+import * as sandboxPage from "./pages/sandbox.js";
 
 const ICONS = {
   dashboard:
@@ -38,6 +40,10 @@ const ICONS = {
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5.5h16v10.2H9.8L5 20V15.7H4Z"/><path d="M8 9.6h8M8 12.6h5" stroke-linecap="round"/></svg>',
   headToHead:
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="12" r="3.2"/><circle cx="18" cy="12" r="3.2"/><path d="M9.2 12h5.6" stroke-linecap="round" stroke-dasharray="1.6 2.4"/></svg>',
+  players:
+    '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/></svg>',
+  sandbox:
+    '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M6 19v-4h4v4M14 19v-7h4v7"/><path d="M9 9l3-5 3 5M12 4v8"/></svg>',
   whatIf:
     '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 7h10l-3-3M17 17H7l3 3"/><circle cx="12" cy="12" r="1.4"/></svg>',
   currentSeason:
@@ -51,10 +57,12 @@ const ROUTES = [
   { path: "/current-season", label: "Current Season", icon: ICONS.currentSeason, page: currentSeasonPage },
   { path: "/matchups", label: "Matchups", icon: ICONS.matchups, page: matchupsPage },
   { path: "/teams", label: "Teams", icon: ICONS.teams, page: teamsPage },
+  { path: "/players", label: "Players", icon: ICONS.players, page: playersPage },
   { path: "/head-to-head", label: "Head-to-Head", icon: ICONS.headToHead, page: headToHeadPage },
   { path: "/simulator", label: "Season Simulator", icon: ICONS.simulator, page: simulatorPage },
   { path: "/playoffs", label: "Playoffs", icon: ICONS.playoffs, page: playoffsPage },
   { path: "/player-impact", label: "Player Impact", icon: ICONS.playerImpact, page: playerImpactPage },
+  { path: "/sandbox", label: "Sandbox", icon: ICONS.sandbox, page: sandboxPage, badge: "New" },
   { path: "/what-if", label: "What-if Lab", icon: ICONS.whatIf, page: whatIfPage },
   { path: "/league-predictions", label: "League Predictions", icon: ICONS.league, page: leaguePage },
   { path: "/assistant", label: "Assistant", icon: ICONS.assistant, page: assistantPage },
@@ -101,6 +109,8 @@ function setTopbar(route) {
   const meta = route.page.meta || { title: route.label, subtitle: "" };
   document.querySelector("#topbar-title").textContent = meta.title;
   document.querySelector("#topbar-subtitle").textContent = meta.subtitle || "";
+  // Pages may refine this once their data loads (e.g. a player's name).
+  document.title = route.path === "/dashboard" ? "Backboard — NBA Analytics" : `${meta.title} · Backboard`;
 }
 
 // Optional page hero: a page module may export `renderHero(slot, ctx)`.
