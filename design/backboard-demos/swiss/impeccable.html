@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backboard | Swiss Poster, Impeccable</title>
+<meta name="description" content="Backboard as a modernist sports poster where probability is the image: full-bleed team-color fields split at the win chance, a sentence-style matchup picker and title odds drawn as a treemap, with real model output.">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@300..800&display=swap">
+<link rel="stylesheet" href="../shared/slots.css">
+<style>
+  :root {
+    --paper: #f5f5f2;
+    --ink: #0f0f0f;
+    --mid: #d8d8d3;
+    --dim: #55554f;
+    --h: #1d428a; --a: #8a8d8f;
+    --f: "Host Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --col: 24px;               /* baseline unit */
+    --gut: clamp(12px, 1.6vw, 24px);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; scrollbar-color: var(--ink) var(--paper); background: var(--paper); }
+  body { background: var(--paper); color: var(--ink); font: 300 1.125rem/1.33 var(--f); -webkit-font-smoothing: antialiased; overflow-x: hidden; caret-color: var(--ink); }
+  ::selection { background: var(--ink); color: var(--paper); }
+  a { color: inherit; }
+  button, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  b, strong { font-weight: 800; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 0 var(--gut); }
+  .g12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gut); }
+  .num { font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; font-variant-numeric: tabular-nums; }
+  .pic { width: 56px; height: 56px; flex: none; fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: square; stroke-linejoin: miter; }
+
+  /* visible 12-column grid and baseline, toggled */
+  .grid { position: fixed; inset: 0; z-index: 60; pointer-events: none; display: none; }
+  body.show-grid .grid { display: block; }
+  .grid .in { max-width: 1400px; height: 100%; margin: 0 auto; padding: 0 var(--gut); display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gut); }
+  .grid .in i { background: rgb(230 40 40 / 0.1); }
+  .grid::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 23px, rgb(230 40 40 / 0.16) 23px 24px); }
+
+  .top { position: relative; z-index: 5; background: var(--paper); }
+  .top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; font-weight: 800; font-size: 1.15rem; letter-spacing: -0.03em; text-transform: lowercase; }
+  .brand svg { width: 30px; height: 30px; }
+  .top nav { display: flex; gap: clamp(0.8rem, 2vw, 2rem); }
+  .top nav a { text-decoration: none; font-weight: 800; font-size: 0.92rem; padding: 0.6rem 0; border-bottom: 3px solid transparent; }
+  .top nav a:hover { border-color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 1.6rem; min-height: 56px; padding: 0.7rem 1.2rem; background: var(--ink); color: var(--paper); border: 3px solid var(--ink); border-radius: 0; cursor: pointer; text-decoration: none; white-space: nowrap; font-weight: 800; font-size: 1.05rem; letter-spacing: -0.02em; transition: background 0.15s, color 0.15s; }
+  .btn:hover { background: var(--paper); color: var(--ink); } .btn:active { transform: translateY(1px); }
+  .btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 3.4; stroke-linecap: square; }
+
+  /* ---------- hero: probability is the image ---------- */
+  .hero { min-height: min(calc(100dvh - 64px), 880px); display: grid; grid-template-rows: auto 1fr; }
+  .plate { padding: clamp(1.2rem, 3vh, 2.4rem) 0 clamp(1.2rem, 3vh, 2.2rem); }
+  .plate h1 { grid-column: 1 / span 8; font-weight: 800; font-size: clamp(2.8rem, 6.6vw, 6.4rem); letter-spacing: -0.05em; line-height: 0.88; }
+  .plate .sub { grid-column: 9 / span 4; align-self: end; font-size: clamp(1.05rem, 1.4vw, 1.3rem); max-width: 26ch; }
+  .sentence { grid-column: 1 / span 9; margin-top: clamp(1rem, 3vh, 2rem); font-weight: 300; font-size: clamp(1.3rem, 2.5vw, 2.3rem); letter-spacing: -0.03em; line-height: 1.25; }
+  .sentence select { appearance: none; display: inline-block; max-width: 100%; padding: 0 1.5em 0 0; border: 0; border-bottom: 4px solid var(--ink); border-radius: 0; background-color: transparent; cursor: pointer; font-weight: 800; font-size: inherit; letter-spacing: inherit; line-height: 1.1; height: 1.35em;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='11'%3E%3Cpath d='M1 1l8 8 8-8' fill='none' stroke='%230f0f0f' stroke-width='3.4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.1em center; }
+  .sentence select:hover { background-color: rgb(15 15 15 / 0.06); }
+  .cta { grid-column: 10 / span 3; align-self: end; margin-top: 1.2rem; }
+  .cta .btn { width: 100%; }
+  .quick { grid-column: 1 / span 9; display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; margin-top: 1rem; }
+  .quick button { min-height: 44px; padding: 0.2rem 0; background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 800; font-size: 0.95rem; letter-spacing: -0.01em; }
+  .quick button:hover { border-color: var(--ink); } .quick button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); padding-inline: 0.6rem; }
+  .swap { min-height: 44px; padding: 0.2rem 0.6rem; background: transparent; border: 2px solid var(--ink); border-radius: 0; cursor: pointer; font-weight: 800; font-size: 0.9rem; }
+  .swap:hover { background: var(--ink); color: var(--paper); }
+  .fields { display: flex; min-height: 0; border-top: 4px solid var(--ink); }
+  .fld { flex: var(--p) 1 0; min-width: 18%; background: var(--c); color: var(--k); position: relative; overflow: hidden; container-type: inline-size; transition: flex-grow 0.9s var(--ease); }
+  .fld + .fld { border-left: 4px solid var(--ink); }
+  .fld .lb { position: absolute; left: 4cqw; top: 3cqw; right: 4cqw; font-weight: 800; font-size: clamp(0.95rem, 4.6cqw, 1.4rem); letter-spacing: -0.02em; }
+  .fld .lb small { display: block; font-weight: 300; font-size: 0.8em; }
+  .fld .n { position: absolute; left: 3cqw; bottom: 1cqw; font-size: min(34cqw, 40vh); }
+  .fld .n small { font-size: 0.32em; letter-spacing: 0; margin-left: 0.05em; }
+  .hero .pic.ball { position: absolute; right: var(--gut); top: 24px; width: 48px; height: 48px; }
+
+  /* ---------- posters ---------- */
+  section.sheet { padding-block: clamp(3rem, 7vw, 6.5rem); border-top: 4px solid var(--ink); }
+  .sheet .hd { grid-column: 1 / span 9; font-weight: 800; font-size: clamp(2.6rem, 6.8vw, 6.2rem); letter-spacing: -0.05em; line-height: 0.88; }
+  .sheet .pic { grid-column: 12; justify-self: end; width: clamp(48px, 5vw, 72px); height: auto; }
+  .sheet .lede { grid-column: 1 / span 5; margin-top: 1.2rem; font-size: 1.25rem; font-weight: 300; max-width: 30ch; }
+  .rows { grid-column: 1 / -1; margin-top: 2.4rem; border-top: 4px solid var(--ink); }
+  .kr { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gut); align-items: center; padding: 0.55rem 0; border-bottom: 1px solid var(--ink); min-height: 96px; }
+  .kr .k { grid-column: 1 / span 3; font-weight: 800; font-size: 1.15rem; letter-spacing: -0.02em; line-height: 1.1; }
+  .kr .v { grid-column: 4 / span 3; font-size: clamp(3rem, 6vw, 5.4rem); }
+  .kr .who { grid-column: 7 / span 1; font-weight: 800; font-size: 0.9rem; }
+  .kr .dv { grid-column: 8 / span 5; position: relative; height: 28px; }
+  .kr .dv::before { content: ""; position: absolute; left: 50%; top: -18px; bottom: -18px; width: 3px; background: var(--ink); }
+  .kr .dv i { position: absolute; top: 0; bottom: 0; background: var(--c); }
+  .read { grid-column: 1 / span 7; margin-top: 1.6rem; font-size: 1.15rem; } .read b { font-weight: 800; }
+  .tape { grid-column: 8 / span 5; margin-top: 1.6rem; width: 100%; border-collapse: collapse; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .tape th, .tape td { padding: 0.45rem 0.3rem; text-align: right; border-bottom: 1px solid var(--ink); } .tape th:first-child, .tape td:first-child { text-align: left; }
+  .tape th { font-weight: 800; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 3px solid var(--ink); }
+  .note { grid-column: 1 / span 8; margin-top: 1rem; font-size: 0.92rem; color: var(--dim); max-width: 68ch; }
+
+  .acc { grid-column: 1 / span 8; font-size: clamp(7rem, 24vw, 22rem); margin-top: 1.4rem; }
+  .acc small { font-size: 0.36em; letter-spacing: 0; }
+  .bins { grid-column: 9 / span 4; align-self: end; margin-top: 1.4rem; }
+  .bins .b { display: grid; grid-template-columns: 3.4rem 1fr; gap: 0.6rem; align-items: center; padding: 0.35rem 0; border-top: 1px solid var(--ink); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  .bins .b i { display: block; height: 7px; background: var(--ink); } .bins .b i + i { background: var(--mid); margin-top: 3px; }
+  .bins .b span { font-weight: 800; }
+  .facts { grid-column: 1 / span 8; display: flex; flex-wrap: wrap; gap: 0.6rem 3rem; margin-top: 1.4rem; padding-top: 1rem; border-top: 4px solid var(--ink); }
+  .facts b { display: block; font-size: 2rem; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; } .facts span { font-size: 0.86rem; color: var(--dim); }
+
+  .tree { grid-column: 1 / -1; position: relative; margin-top: 2.2rem; height: clamp(360px, 46vw, 620px); border: 4px solid var(--ink); }
+  .tree .cell { position: absolute; background: var(--c); color: var(--k); padding: 0.6rem 0.7rem; overflow: hidden; border: 2px solid var(--paper); container-type: inline-size; }
+  .tree .cell b { display: block; font-size: clamp(0.9rem, 8cqw, 1.7rem); letter-spacing: -0.03em; line-height: 1; }
+  .tree .cell .p { display: block; font-weight: 800; font-size: clamp(1.4rem, 20cqw, 4.6rem); letter-spacing: -0.05em; line-height: 0.9; margin-top: 0.15rem; font-variant-numeric: tabular-nums; }
+  .tree .cell small { display: block; font-weight: 300; font-size: clamp(0.72rem, 6cqw, 0.9rem); margin-top: 0.2rem; }
+  .tree .cell.champ { outline: 6px solid var(--ink); outline-offset: -6px; }
+  .tree .cell.tiny b, .tree .cell.tiny small { display: none; } .tree .cell.tiny .p { font-size: 0.8rem; }
+  .odds-key { grid-column: 1 / span 8; margin-top: 1.4rem; }
+  .ok { display: grid; grid-template-columns: 1.2rem 3.4rem 5rem minmax(0, 1fr); gap: 0.9rem; align-items: center; padding: 0.45rem 0; border-top: 1px solid var(--ink); font-size: 0.98rem; }
+  .ok i { width: 1.2rem; height: 1.2rem; background: var(--c); } .ok .p { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .ok.champ { background: var(--mid); font-weight: 800; }
+  .photo { grid-column: 9 / span 4; margin-top: 1.4rem; aspect-ratio: 4 / 5; background: repeating-linear-gradient(135deg, #c9c9c4 0 3px, #dadad5 3px 7px); border: 4px solid var(--ink); position: relative; align-self: start; }
+  .photo::after { content: ""; position: absolute; inset: 20% 22%; border: 4px solid var(--ink); border-radius: 50%; }
+
+  .duo { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-top: 2.2rem; border: 4px solid var(--ink); position: relative; }
+  .duo .f { background: var(--c); color: var(--k); padding: clamp(1rem, 2.4vw, 2rem); min-height: 380px; display: flex; flex-direction: column; justify-content: space-between; container-type: inline-size; }
+  .duo .f + .f { border-left: 4px solid var(--ink); }
+  .duo .t { font-weight: 800; font-size: 1.15rem; letter-spacing: -0.02em; } .duo .n { font-size: min(36cqw, 22vh); } .duo p { font-size: 0.98rem; max-width: 30ch; }
+  .duo .mv { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 96px; height: 96px; display: grid; place-items: center; background: var(--paper); border: 4px solid var(--ink); z-index: 2; }
+  .duo .mv svg { width: 54px; height: 54px; fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: square; }
+  .conf { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gut); align-items: baseline; margin-top: 1.6rem; }
+  .conf b { grid-column: 1 / span 6; font-size: clamp(2.6rem, 6vw, 5.4rem); letter-spacing: -0.05em; text-transform: uppercase; line-height: 0.9; color: transparent; -webkit-text-stroke: 3px var(--ink); }
+  .conf p { grid-column: 7 / span 6; color: var(--dim); max-width: 60ch; }
+
+  .close .hd { grid-column: 1 / -1; font-size: clamp(3.2rem, 11vw, 10.4rem); } .close .btn { grid-column: 1 / span 4; margin-top: 2rem; }
+  footer { border-top: 4px solid var(--ink); padding: 1.2rem 0 2.6rem; font-size: 0.9rem; color: var(--dim); }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.8rem 2rem; }
+  .gtoggle { min-height: 44px; padding: 0.2rem 0.9rem; background: transparent; border: 2px solid var(--ink); border-radius: 0; cursor: pointer; font-weight: 800; font-size: 0.85rem; color: var(--ink); }
+  .gtoggle[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .damaged { display: none; } .no-data .damaged { display: grid; place-items: center; min-height: 100dvh; padding: 2rem; }
+
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .fld { transition: none; } }
+  @media (max-width: 900px) {
+    .top nav { display: none; }
+    .hero { min-height: auto; }
+    .plate h1, .plate .sub, .sentence, .cta, .quick { grid-column: 1 / -1; } .plate .sub { margin-top: 1rem; max-width: 34ch; }
+    .fields { min-height: 380px; } .fld { min-width: 36%; } .fld .n { font-size: min(34cqw, 30vh); }
+    .kr { grid-template-columns: 1fr 1fr; min-height: 0; padding: 0.8rem 0; } .kr .k { grid-column: 1 / -1; } .kr .v { grid-column: 1 / span 1; font-size: 3.2rem; } .kr .who { display: none; } .kr .dv { grid-column: 2 / span 1; }
+    .read, .note, .odds-key, .acc, .facts { grid-column: 1 / -1; } .tape { grid-column: 1 / -1; } .bins, .photo { grid-column: 1 / -1; } .photo { max-width: 300px; }
+    .duo { grid-template-columns: minmax(0, 1fr); } .duo .f + .f { border-left: 0; border-top: 4px solid var(--ink); } .duo .mv { display: none; }
+    .conf b, .conf p { grid-column: 1 / -1; }
+    .sheet .hd { grid-column: 1 / -1; } .sheet .pic { display: none; }
+    .close .btn { grid-column: 1 / -1; }
+    .tree { height: 520px; }
+  }
+</style>
+</head>
+<body>
+<div class="damaged" role="alert"><div><div class="num" style="font-size:5rem">--</div><p>The demo data did not load. Reload the page.</p></div></div>
+<div class="grid" aria-hidden="true"><div class="in"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Backboard home"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="3" width="40" height="26" fill="none" stroke="#0f0f0f" stroke-width="4"/><rect x="16" y="12" width="16" height="11" fill="none" stroke="#0f0f0f" stroke-width="4"/><ellipse cx="24" cy="33.2" rx="10.2" ry="2.8" fill="none" stroke="#0f0f0f" stroke-width="4"/><path d="M15 34 18.5 46M33 34 29.5 46M24 36v10" fill="none" stroke="#0f0f0f" stroke-width="2" stroke-linecap="round"/></svg>backboard</a>
+    <nav aria-label="Sections"><a href="#keys">Keys</a><a href="#receipts">Receipts</a><a href="#odds">Title odds</a><a href="#whatif">What if</a></nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="hero-h" style="position:relative">
+    <div class="plate"><div class="wrap g12">
+      <h1 id="hero-h">Know who wins.</h1>
+      <p class="sub">Win probabilities for any NBA matchup, from a model that shows its work.</p>
+      <p class="sentence"><label class="sr-only" for="home">Home team</label><select id="home"></select> host <label class="sr-only" for="away">Away team</label><select id="away"></select>.</p>
+      <div class="cta"><button class="btn" id="go" type="button">Predict a matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></button></div>
+      <div class="quick" id="quick" aria-label="Quick picks"><button class="swap" id="swap" type="button">Swap</button></div>
+    </div></div>
+    <div class="fields" id="fields" role="img" aria-live="polite"></div>
+  </section>
+
+  <section class="sheet" id="keys" aria-labelledby="k-h">
+    <div class="wrap g12">
+      <h2 class="hd" id="k-h">The keys to the game</h2>
+      <svg class="pic" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><circle cx="32" cy="32" r="26"/><path d="M6 32H58M32 6V58M14 12C24 22 24 42 14 52M50 12C40 22 40 42 50 52"/></svg>
+      <p class="lede">Each bar shows what moves the odds, in percentage points, and toward whom.</p>
+      <div class="rows" id="krows" aria-live="polite"></div>
+      <p class="read" id="read"></p>
+      <table class="tape" id="tape"></table>
+      <p class="note" id="knote"></p>
+    </div>
+  </section>
+
+  <section class="sheet" id="receipts" aria-labelledby="r-h">
+    <div class="wrap g12">
+      <h2 class="hd" id="r-h">The receipts</h2>
+      <svg class="pic" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M8 8H56V32H8ZM22 20H42V32H22ZM32 32V44M12 44H52"/><ellipse cx="32" cy="50" rx="18" ry="5"/></svg>
+      <p class="lede">How the model did on games it never saw while learning.</p>
+      <div class="acc num" id="acc" aria-label="Picked right"></div>
+      <div class="bins" id="bins"></div>
+      <div class="facts" id="facts"></div>
+      <p class="note" id="bnote"></p>
+    </div>
+  </section>
+
+  <section class="sheet" id="odds" aria-labelledby="o-h">
+    <div class="wrap g12">
+      <h2 class="hd" id="o-h">Odds are not promises</h2>
+      <svg class="pic" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M6 10H58V54H6ZM6 32H58M32 10V54M32 32V54"/><circle cx="32" cy="32" r="8"/></svg>
+      <p class="lede">Title odds from the end of the 2025-26 regular season. Each block is drawn to the size of its chance. The outlined block won it.</p>
+      <div class="tree" id="tree" role="img"></div>
+      <div class="odds-key" id="okey"></div>
+      <div class="photo hf-slot" data-hf="Black and white documentary photograph, a basketball resting in the net at the end of a night game, film grain, high contrast, off-center, no people, no logos, no readable text" data-hf-size="1200x1500"></div>
+      <p class="note" style="grid-column:1 / span 8">Odds use the real seeded bracket with team strength frozen at the end of the regular season. Results come from the games database.</p>
+    </div>
+  </section>
+
+  <section class="sheet" id="whatif" aria-labelledby="w-h">
+    <div class="wrap g12">
+      <h2 class="hd" id="w-h">What if Curry played for the Spurs?</h2>
+      <svg class="pic" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M6 12H58V52H6ZM22 12V52M42 12V52M6 32H22M42 32H58"/></svg>
+      <p class="lede">The what-if tool re-runs the season with one player moved, and grades its own confidence.</p>
+      <div class="duo" id="duo"></div>
+      <div class="conf" id="conf"></div>
+    </div>
+  </section>
+
+  <section class="sheet close" aria-labelledby="c-h">
+    <div class="wrap g12"><h2 class="hd" id="c-h">Pick a game. Then argue with it.</h2><button class="btn" id="go2" type="button">Predict a matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></button></div>
+  </section>
+</main>
+
+<footer><div class="wrap"><p id="fineprint"></p><button class="gtoggle" id="gt" type="button" aria-pressed="false">Show grid</button></div></footer>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="../shared/slots.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  if (!window.BB) { document.body.classList.add("no-data"); return; }
+  const { fmt } = BB;
+  const PAPER = "#f5f5f2", INK = "#0f0f0f";
+  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const inkOn = (hex) => (ratio(hex, INK) >= ratio(hex, PAPER) ? INK : PAPER);
+  const pair = (p) => { const a = p.home.c1; let b = p.away.c1; if (ratio(a, b) < 1.5) b = b === p.away.c1 ? p.away.c2 : p.away.c1; if (ratio(a, b) < 1.5) b = INK; return [a, b]; };
+  const cs = (c) => `--c:${c};--k:${inkOn(c)}`;
+  const reduce = () => BB.reduced.matches;
+
+  /* ---- the poster: the split is the probability; numerals tween between values ---- */
+  const shown = { h: null, a: null };
+  function tween(el, from, to) {
+    if (reduce() || from == null) { el.textContent = fmt.pct(to); return; }
+    const t0 = performance.now(), dur = 800;
+    const step = (t) => { const k = Math.min((t - t0) / dur, 1); const e = 1 - Math.pow(1 - k, 3); el.textContent = fmt.pct(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+  function paintFields(p) {
+    const [c1, c2] = pair(p);
+    const root = $("#fields");
+    root.setAttribute("aria-label", `${p.home.abbr} ${fmt.pct(p.pHome)} percent, ${p.away.abbr} ${fmt.pct(p.pAway)} percent`);
+    if (!root.children.length) {
+      root.innerHTML = `<div class="fld h"><span class="lb"></span><span class="n num"><span></span><small>%</small></span></div><div class="fld a"><span class="lb"></span><span class="n num"><span></span><small>%</small></span></div>`;
+    }
+    const [fh, fa] = root.children;
+    fh.style.cssText = `${cs(c1)};--p:${(p.pHome * 100).toFixed(2)}`; fa.style.cssText = `${cs(c2)};--p:${(p.pAway * 100).toFixed(2)}`;
+    fh.querySelector(".lb").innerHTML = `${p.home.city} ${p.home.nick}<small>home</small>`; fa.querySelector(".lb").innerHTML = `${p.away.city} ${p.away.nick}<small>away</small>`;
+    tween(fh.querySelector(".n span"), shown.h, p.pHome); tween(fa.querySelector(".n span"), shown.a, p.pAway);
+    shown.h = p.pHome; shown.a = p.pAway;
+  }
+
+  function paintKeys(p) {
+    const [c1, c2] = pair(p);
+    const max = 0.12;
+    $("#krows").innerHTML = p.sorted.map((g) => {
+      const w = Math.min(Math.abs(g.value) / max, 1) * 50; const home = g.value >= 0;
+      return `<div class="kr"><span class="k">${g.label}</span><span class="v num">${fmt.signed(Math.abs(g.value) * 100).replace("+", "")}</span><span class="who">${home ? p.home.abbr : p.away.abbr}</span><span class="dv" aria-hidden="true"><i style="${home ? `left:50%;width:${w}%` : `right:50%;width:${w}%`};--c:${home ? c1 : c2}"></i></span></div>`;
+    }).join("");
+    const tale = (t) => `<td>${fmt.wins10(t)}</td><td>${Math.round(t.elo)}</td><td>${fmt.signed(t.form.pm10)}</td>`;
+    $("#read").innerHTML = `<b>${p.favTeam.city} ${p.favTeam.nick} over ${p.dogTeam.nick}.</b> ${p.verdict.label}. Projected score ${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}. The 80% range for the home margin runs ${Math.round(p.margin.lo)} to ${fmt.signed(p.margin.hi, 0)}, and the typical miss is ${BB.meta.marginMae} points, so read it as a lean. Even teams at home start ${p.home.abbr} near ${fmt.pct0(p.homeCourtOnly)}%.`;
+    $("#tape").innerHTML = `<thead><tr><th>Tale of the tape</th><th>Last 10</th><th>Elo</th><th>Margin</th></tr></thead><tbody><tr><td>${p.home.abbr}</td>${tale(p.home)}</tr><tr><td>${p.away.abbr}</td>${tale(p.away)}</tr></tbody>`;
+    $("#knote").textContent = `Each bar is the change in ${p.home.abbr}'s win chance, in percentage points, if the two teams were even on that input. It shows what the model responds to, not what causes wins.`;
+  }
+
+  function paintReceipts() {
+    const h = BB.meta.holdout;
+    $("#acc").innerHTML = `${fmt.pct(h.accuracy, 1)}<small>%</small>`;
+    const hi = BB.calibration[6];
+    $("#bins").innerHTML = BB.calibration.map((b) => `<div class="b"><span>${fmt.pct0(b.lo)}s</span><div><i style="width:${b.pred * 100}%"></i><i style="width:${b.obs * 100}%"></i></div></div>`).join("");
+    $("#bins").setAttribute("role", "img"); $("#bins").setAttribute("aria-label", "For nine groups of games, the top bar is what the model said and the bottom bar is how often the home team won.");
+    $("#facts").innerHTML = `<div><b>${h.games.toLocaleString("en-US")}</b><span>held-out games, picked right</span></div><div><b>${h.logLoss.toFixed(4)}</b><span>log loss</span></div><div><b>${h.ece.toFixed(3)}</b><span>calibration error</span></div>`;
+    $("#bnote").textContent = `In each pair of bars, black is what the model said and grey is what happened. It runs a little confident: when it said about ${fmt.pct0(hi.pred)}%, the home team won ${fmt.pct0(hi.obs)}%.`;
+  }
+
+  /* ---- squarified treemap: area is the odds ---- */
+  function squarify(items, x, y, w, h) {
+    const total = items.reduce((s, i) => s + i.v, 0); const out = [];
+    let rest = items.slice(); let rx = x, ry = y, rw = w, rh = h, rt = total;
+    while (rest.length) {
+      const side = Math.min(rw, rh); const k = rw * rh / rt; let row = [rest[0]]; let i = 1;
+      const score = (r) => { const s = r.reduce((a, q) => a + q.v, 0) * k; const mx = Math.max(...r.map((q) => q.v)) * k, mn = Math.min(...r.map((q) => q.v)) * k; return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn)); };
+      while (i < rest.length && score([...row, rest[i]]) <= score(row)) { row.push(rest[i]); i++; }
+      const rs = row.reduce((a, q) => a + q.v, 0) * k; const thick = rs / side;
+      let off = 0;
+      row.forEach((q) => { const len = (q.v * k) / thick; if (rw >= rh) out.push({ ...q, x: rx, y: ry + off, w: thick, h: len }); else out.push({ ...q, x: rx + off, y: ry, w: len, h: thick }); off += len; });
+      if (rw >= rh) { rx += thick; rw -= thick; } else { ry += thick; rh -= thick; }
+      rt -= row.reduce((a, q) => a + q.v, 0); rest = rest.slice(row.length);
+    }
+    return out;
+  }
+
+  function paintOdds() {
+    const board = BB.titleBoard();
+    const champ = board.find((t) => t.po.actual === "won the title");
+    let rows = board.slice(0, 7); if (!rows.includes(champ)) rows = rows.slice(0, 6).concat(champ);
+    const rest = Math.max(1 - rows.reduce((s, t) => s + t.po.title, 0), 0);
+    const items = rows.map((t) => ({ v: t.po.title, t, c: ratio(t.c1, PAPER) >= 1.3 ? t.c1 : t.c2 })).concat([{ v: rest, t: null, c: "#d8d8d3" }]);
+    const box = $("#tree"); const W = box.clientWidth - 8, H = box.clientHeight - 8;
+    const cells = squarify(items, 0, 0, W, H);
+    box.setAttribute("aria-label", "Title odds drawn to area: " + rows.map((t) => `${t.abbr} ${fmt.pct(t.po.title)} percent`).join(", "));
+    box.innerHTML = cells.map((c) => {
+      const t = c.t; const tiny = c.w < 90 || c.h < 70;
+      return `<div class="cell${t === champ ? " champ" : ""}${tiny ? " tiny" : ""}" style="${cs(c.c)};left:${c.x}px;top:${c.y}px;width:${c.w}px;height:${c.h}px">${t ? `<b>${t.abbr}</b><span class="p">${fmt.pct(t.po.title)}%</span><small>${BB.RESULT_LABEL[t.po.actual]}</small>` : `<b>Field</b><span class="p">${fmt.pct(rest)}%</span>`}</div>`;
+    }).join("");
+    $("#okey").innerHTML = rows.map((t) => `<div class="ok${t === champ ? " champ" : ""}"><i style="--c:${ratio(t.c1, PAPER) >= 1.3 ? t.c1 : t.c2}"></i><b>${t.abbr}</b><span class="p">${fmt.pct(t.po.title)}%</span><span>${BB.RESULT_LABEL[t.po.actual]}</span></div>`).join("");
+  }
+
+  function paintWhatIf() {
+    const w = BB.whatIf(); const bt = w.backtest;
+    const a = w.effects.find((e) => e.id === w.fromId), b = w.effects.find((e) => e.id === w.toId);
+    const ca = a.team.c1, cb = ratio(b.team.c1, PAPER) >= 1.3 ? b.team.c1 : b.team.c2;
+    const f = (e, c) => `<div class="f" style="${cs(c)}"><span class="t">${e.team.city} ${e.team.nick}</span><span class="n num">${fmt.signed(e.change)}</span><p>wins, ${e.winsBefore} to ${e.winsAfter}. Direct playoff odds ${fmt.pct0(e.playoffBefore)}% to ${fmt.pct0(e.playoffAfter)}%.</p></div>`;
+    $("#duo").innerHTML = f(a, ca) + f(b, cb) + `<div class="mv" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M8 32H52M40 18L54 32L40 46"/></svg></div>`;
+    $("#conf").innerHTML = `<b>Confidence: ${w.confidence}</b><p>${w.sims.toLocaleString("en-US")} simulated seasons, ${w.player} moved before opening night. Tested on real moves from ${bt.seasons}, ${Math.round(bt.largeEffectsRight * bt.largeEffectsCount)} of ${bt.largeEffectsCount} big effects pointed the right way, but overall win error did not shrink (${bt.maeWithout} to ${bt.maeWith}). Fit, injuries and the cap are not modeled.</p>`;
+  }
+
+  /* ---- controls ---- */
+  function paintQuick() {
+    const box = $("#quick");
+    box.insertAdjacentHTML("beforeend", BB.featured.map((pr, i) => `<button type="button" data-i="${i}" aria-pressed="false">${i === 0 ? "The Finals" : BB.teams[pr[0]].abbr + " v " + BB.teams[pr[1]].abbr}</button>`).join(""));
+    box.addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (!b) return; const pr = BB.featured[Number(b.dataset.i)]; BB.state.set(pr[0], pr[1]); repaint(); });
+  }
+  const syncQuick = () => document.querySelectorAll("#quick button[data-i]").forEach((b) => { const pr = BB.featured[Number(b.dataset.i)]; b.setAttribute("aria-pressed", String(pr[0] === BB.state.hi && pr[1] === BB.state.ai)); });
+  let repaint = () => {};
+
+  paintQuick();
+  repaint = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
+  BB.state.subscribe((p) => { paintFields(p); paintKeys(p); syncQuick(); });
+  paintReceipts(); paintWhatIf();
+  const layoutOdds = () => paintOdds();
+  requestAnimationFrame(layoutOdds);
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(layoutOdds);
+  let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(layoutOdds, 120); });
+  const jump = () => { window.scrollTo({ top: 0, behavior: reduce() ? "auto" : "smooth" }); $("#home").focus({ preventScroll: true }); };
+  $("#go").addEventListener("click", () => { const p = BB.state.pred(); paintFields(p); $("#fields").scrollIntoView({ behavior: reduce() ? "auto" : "smooth", block: "end" }); });
+  $("#go2").addEventListener("click", jump);
+  $("#gt").addEventListener("click", (e) => { const on = document.body.classList.toggle("show-grid"); e.currentTarget.setAttribute("aria-pressed", String(on)); e.currentTarget.textContent = on ? "Hide grid" : "Show grid"; });
+  $("#fineprint").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed. Probabilities are not guarantees.`;
+})();
+</script>
+</body>
+</html>

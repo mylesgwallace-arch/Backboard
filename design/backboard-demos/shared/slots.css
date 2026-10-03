@@ -1,0 +1,19 @@
+/* Higgsfield placeholder slots: invisible chrome unless the URL has ?slots */
+.hf-slot { position: relative; }
+.hf-label { display: none; }
+.show-slots .hf-slot { outline: 2px dashed #ff2bd6; outline-offset: -2px; }
+.show-slots .hf-label {
+  display: block;
+  position: absolute;
+  inset: auto 8px 8px 8px;
+  z-index: 90;
+  padding: 6px 8px;
+  border-radius: 3px;
+  background: rgb(10 10 12 / 0.88);
+  color: #fff;
+  font: 500 11px/1.35 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  pointer-events: none;
+}

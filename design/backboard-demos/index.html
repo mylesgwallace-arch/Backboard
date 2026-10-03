@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backboard Style Lab</title>
+<meta name="description" content="Six visual worlds for the Backboard landing page, each built twice with real model data, once with the Taste skill and once with the Impeccable skill.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Fragment+Mono&display=swap">
+<style>
+  /* Layout concept: a contact sheet. One row per visual world, two frames per row (Taste, Impeccable),
+     so the only thing that changes between neighbors is the skill; the data underneath is identical. */
+  :root {
+    --bg: #f2f3f5;
+    --card: #ffffff;
+    --ink: #14161a;
+    --muted: #5b6270;
+    --line: #d8dbe1;
+    --accent: #ff5b14;
+    --on-accent: #1c0e05;
+    --f-body: "Figtree", system-ui, "Segoe UI", sans-serif;
+    --f-mono: "Fragment Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1013; --card: #171a1f; --ink: #eef0f3; --muted: #9aa1ad; --line: #2a2f37; --accent: #ff7a3d; --on-accent: #1c0e05;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1013; --card: #171a1f; --ink: #eef0f3; --muted: #9aa1ad; --line: #2a2f37; --accent: #ff7a3d; --on-accent: #1c0e05;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font: 400 1rem/1.55 var(--f-body); padding-block: clamp(1.5rem, 4vw, 3.5rem); padding-inline: 16px; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .wrap { max-width: 1180px; margin-inline: auto; }
+  h1, h2, p { margin: 0; }
+  h1 { font-weight: 800; font-size: clamp(2.4rem, 6vw, 4.6rem); line-height: 0.95; letter-spacing: -0.04em; text-wrap: balance; }
+  .lede { margin-top: 1.2rem; max-width: 62ch; font-size: clamp(1.05rem, 1.6vw, 1.25rem); color: var(--muted); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: 1.4rem 2.4rem; margin-top: 2rem; padding-top: 1.4rem; border-top: 1px solid var(--line); }
+  .facts p { font-size: 0.95rem; color: var(--muted); max-width: 40ch; min-width: 0; }
+  .facts b { color: var(--ink); font-weight: 700; }
+  .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem 1.4rem; margin-top: 1.6rem; }
+  .tools label { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 44px; cursor: pointer; font-weight: 600; }
+  .tools input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .tools small { color: var(--muted); font-size: 0.86rem; }
+
+  .world { margin-top: clamp(2.4rem, 6vw, 4.4rem); }
+  .world header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1.4rem; margin-bottom: 1.1rem; }
+  .world h2 { font-weight: 800; font-size: clamp(1.5rem, 3vw, 2.2rem); letter-spacing: -0.03em; }
+  .world header p { color: var(--muted); max-width: 64ch; min-width: 0; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 2.4vw, 1.8rem); }
+  .frame { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .frame > a.shot { display: block; line-height: 0; border-bottom: 1px solid var(--line); background: var(--line); }
+  .frame img { width: 100%; height: auto; aspect-ratio: 1000 / 625; display: block; transition: opacity 0.2s; }
+  .frame > a.shot:hover img { opacity: 0.9; }
+  .frame .meta { display: flex; flex-direction: column; gap: 0.7rem; padding: 1rem 1.1rem 1.2rem; flex: 1; min-width: 0; }
+  .tag { align-self: flex-start; padding: 0.2rem 0.6rem; border-radius: 4px; font: 400 0.78rem/1.4 var(--f-mono); letter-spacing: 0.02em; text-transform: uppercase; }
+  .tag.taste { border: 1px solid var(--ink); }
+  .tag.imp { background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); }
+  .frame .meta p { font-size: 0.97rem; color: var(--muted); min-width: 0; }
+  .open { margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; text-underline-offset: 0.25em; text-decoration-thickness: 2px; }
+  .open:hover { color: var(--accent); }
+  .brief { display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.5rem; border-radius: 4px; background: var(--ink); color: var(--bg); font: 400 0.72rem/1.5 var(--f-mono); text-transform: uppercase; vertical-align: 0.25em; }
+
+  footer { margin-top: clamp(2.6rem, 6vw, 4.4rem); padding-top: 1.4rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.92rem; }
+  footer p + p { margin-top: 0.6rem; }
+  footer code { font: 400 0.86rem var(--f-mono); }
+
+  @media (max-width: 760px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { .frame img { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Backboard style lab</h1>
+    <p class="lede">Six visual worlds for the Backboard landing page, each built twice: once with the Taste skill and once with the Impeccable skill. Every page shows the same real model output, so only the style changes.</p>
+    <div class="facts">
+      <p><b>Real numbers.</b> Every probability, projected score, title-odds figure and what-if on these pages comes from the production model. Data runs through 2026-06-13, with team strength frozen on 2026-04-12.</p>
+      <p><b>The default matchup is the real Finals.</b> The model gave the Spurs 72.1% and the Knicks won it. Each page keeps that miss on screen instead of hiding it.</p>
+      <p><b>Every page is a full landing page.</b> A working matchup picker for all 870 pairings, why-it-leans breakdown, the model's receipts, title odds against what happened, and a what-if with its own confidence grade.</p>
+    </div>
+    <div class="tools">
+      <label for="slots"><input id="slots" type="checkbox"> Reveal image placeholders</label>
+      <small>Each outlined box marks where a Higgsfield image would go and prints its prompt. Nothing has been generated yet.</small>
+    </div>
+  </header>
+
+  <main>
+    <section class="world" aria-labelledby="w-street">
+      <header><h2 id="w-street">Street zine <span class="brief">full site</span></h2><p>The xerox zine as the whole Backboard web UI: six pages behind a Limelight nav bar. Matchups, teams, season and playoffs, player impact and what-ifs, and the assistant, all on real model output.</p></header>
+      <div class="pair">
+        <article class="frame"><a class="shot" href="street-zine/index.html"><img src="thumbs/street-zine.jpg" width="1000" height="625" alt="Street zine: cut-out BACKBOARD letters with torn white edges beside a taped TV playing a dunk montage" loading="lazy"></a>
+          <div class="meta"><span class="tag taste">Combined</span><p>Home, Matchups, Teams, Season, Players and Ask. The assistant and the build-your-own what-if go live when the engine is running; everything else works from the data snapshot.</p><a class="open" data-page href="street-zine/index.html">Open the site</a></div></article>
+      </div>
+    </section>
+
+    <section class="world" aria-labelledby="w-zine">
+      <header><h2 id="w-zine">Xerox zine <span class="brief">your 90s brief</span></h2><p>Photocopy, tape, cut-out letters and typewriter captions. Scrapbook grit instead of the blacktop look.</p></header>
+      <div class="pair">
+        <article class="frame"><a class="shot" href="zine/taste.html"><img src="thumbs/zine-taste.jpg" width="1000" height="625" alt="Zine, Taste: ransom-note headline on newsprint with a taped photo slot and a torn paper score chit" loading="lazy"></a>
+          <div class="meta"><span class="tag taste">Taste skill</span><p>A composed collage on newsprint: ransom-note headline, taped photo slot, typed captions and pen marks on the real charts.</p><a class="open" data-page href="zine/taste.html">Open the page</a></div></article>
+        <article class="frame"><a class="shot" href="zine/impeccable.html"><img src="thumbs/zine-impeccable.jpg" width="1000" height="625" alt="Zine, Impeccable: stacked cut-out letters spelling BACKBOARD with misregistered orange, over a taped cover photo" loading="lazy"></a>
+          <div class="meta"><span class="tag imp">Impeccable skill</span><p>The zine is the object: stapled spreads on a photocopier lid. Feed two teams through the copier and it prints the sheet.</p><a class="open" data-page href="zine/impeccable.html">Open the page</a></div></article>
+      </div>
+    </section>
+
+    <section class="world" aria-labelledby="w-bc">
+      <header><h2 id="w-bc">Finals broadcast</h2><p>The graphics package you watch the game through: scorebug, lower-third, wipes and a data crawl.</p></header>
+      <div class="pair">
+        <article class="frame"><a class="shot" href="broadcast/taste.html"><img src="thumbs/broadcast-taste.jpg" width="1000" height="625" alt="Broadcast, Taste: italic condensed headline over an arena stage with a team-color lower-third showing 72.1 and 27.9 percent" loading="lazy"></a>
+          <div class="meta"><span class="tag taste">Taste skill</span><p>A Finals-night graphics package: lower-third pick, a sticky keys-to-the-game panel and team-color data plates.</p><a class="open" data-page href="broadcast/taste.html">Open the page</a></div></article>
+        <article class="frame"><a class="shot" href="broadcast/impeccable.html"><img src="thumbs/broadcast-impeccable.jpg" width="1000" height="625" alt="Broadcast, Impeccable: a scorebug in the corner, giant headline and two angled team-color slabs sized by win chance" loading="lazy"></a>
+          <div class="meta"><span class="tag imp">Impeccable skill</span><p>The page is the broadcast: a scorebug that picks the matchup, a lower-third that follows the segment, a ticker and team-color replay wipes.</p><a class="open" data-page href="broadcast/impeccable.html">Open the page</a></div></article>
+      </div>
+    </section>
+
+    <section class="world" aria-labelledby="w-hw">
+      <header><h2 id="w-hw">Hardwood court</h2><p>The floor itself: maple, painted paint, regulation lines. The court is the layout.</p></header>
+      <div class="pair">
+        <article class="frame"><a class="shot" href="hardwood/taste.html"><img src="thumbs/hardwood-taste.jpg" width="1000" height="625" alt="Hardwood, Taste: maple floor with a painted blue key showing the live pick and a three-point arc" loading="lazy"></a>
+          <div class="meta"><span class="tag taste">Taste skill</span><p>A maple court with a painted lane, arcs that draw as you scroll, and a jump-ball circle split by win probability.</p><a class="open" data-page href="hardwood/taste.html">Open the page</a></div></article>
+        <article class="frame"><a class="shot" href="hardwood/impeccable.html"><img src="thumbs/hardwood-impeccable.jpg" width="1000" height="625" alt="Hardwood, Impeccable: a half-court covered in one thousand dots, one per replay of the game" loading="lazy"></a>
+          <div class="meta"><span class="tag imp">Impeccable skill</span><p>A shot chart: replay the game 1,000 times and watch the dots land. Every bar further down is built from countable dots.</p><a class="open" data-page href="hardwood/impeccable.html">Open the page</a></div></article>
+      </div>
+    </section>
+
+    <section class="world" aria-labelledby="w-card">
+      <header><h2 id="w-card">Trading card</h2><p>Cardboard and foil. The card is the interface, and the back of the card holds the reasoning.</p></header>
+      <div class="pair">
+        <article class="frame"><a class="shot" href="card/taste.html"><img src="thumbs/card-taste.jpg" width="1000" height="625" alt="Trading card, Taste: a fan of two foil team cards and a dark pick card reading 72.1 percent" loading="lazy"></a>
+          <div class="meta"><span class="tag taste">Taste skill</span><p>A collector's table: tilting foil cards, flip-to-read backs, a graded slab for the report card and a set sized by title odds.</p><a class="open" data-page href="card/taste.html">Open the page</a></div></article>
+        <article class="frame"><a class="shot" href="card/impeccable.html"><img src="thumbs/card-impeccable.jpg" width="1000" height="625" alt="Trading card, Impeccable: a sealed foil pack beside the headline and a gold Predict a matchup button" loading="lazy"></a>
+          <div class="meta"><span class="tag imp">Impeccable skill</span><p>Rip the pack. Two team cards and a pick card whose finish, base, silver or gold, shows how sure the model is.</p><a class="open" data-page href="card/impeccable.html">Open the page</a></div></article>
+      </div>
+    </section>
+
+    <section class="world" aria-labelledby="w-sb">
+      <header><h2 id="w-sb">Arena scoreboard</h2><p>Seven-segment digits with the unlit segments drawn, dot-matrix labels, amber and red LEDs on matte black.</p></header>
+      <div class="pair">
+        <article class="frame"><a class="shot" href="scoreboard/taste.html"><img src="thumbs/scoreboard-taste.jpg" width="1000" height="625" alt="Scoreboard, Taste: dot-matrix headline beside a board with amber seven-segment 72.1 and 27.9" loading="lazy"></a>
+          <div class="meta"><span class="tag taste">Taste skill</span><p>A calm arena board: seven-segment numbers with ghost segments, dot-matrix labels and a leaderboard for the title race.</p><a class="open" data-page href="scoreboard/taste.html">Open the page</a></div></article>
+        <article class="frame"><a class="shot" href="scoreboard/impeccable.html"><img src="thumbs/scoreboard-impeccable.jpg" width="1000" height="625" alt="Scoreboard, Impeccable: a housing with amber home and red away seven-segment percentages and a control panel" loading="lazy"></a>
+          <div class="meta"><span class="tag imp">Impeccable skill</span><p>A rigid LED mask: setting a team blinks the unset digits, and PREDICT ignites the real numbers with a segment scramble.</p><a class="open" data-page href="scoreboard/impeccable.html">Open the page</a></div></article>
+      </div>
+    </section>
+
+    <section class="world" aria-labelledby="w-sw">
+      <header><h2 id="w-sw">Swiss poster</h2><p>Modernist sports poster: one grotesk, a strict grid, and the two teams' own colors as flat fields.</p></header>
+      <div class="pair">
+        <article class="frame"><a class="shot" href="swiss/taste.html"><img src="thumbs/swiss-taste.jpg" width="1000" height="625" alt="Swiss poster, Taste: huge black headline beside stacked grey and blue fields reading 72.1 and 27.9" loading="lazy"></a>
+          <div class="meta"><span class="tag taste">Taste skill</span><p>Team colors as flat fields where area equals odds, with one proportional strip drawing the whole title race.</p><a class="open" data-page href="swiss/taste.html">Open the page</a></div></article>
+        <article class="frame"><a class="shot" href="swiss/impeccable.html"><img src="thumbs/swiss-impeccable.jpg" width="1000" height="625" alt="Swiss poster, Impeccable: a sentence-style matchup picker above full-bleed grey and blue fields split at 72.1 and 27.9" loading="lazy"></a>
+          <div class="meta"><span class="tag imp">Impeccable skill</span><p>A full-bleed poster split at the win chance, a sentence-style picker, authored pictograms and a treemap of the title odds.</p><a class="open" data-page href="swiss/impeccable.html">Open the page</a></div></article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>The data file behind every page is generated by <code>tools/build_demo_data.py</code> from the production engine's own tool layer, so nothing on these pages is mock data. The what-if pairs the Warriors and Spurs, and states its own confidence: low.</p>
+    <p>Picking a matchup on one page does not carry over to another. Open a pair side by side at the same window width to compare them.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var box = document.getElementById("slots");
+  var links = document.querySelectorAll("a[href$='.html']");
+  function sync() {
+    var on = box.checked;
+    links.forEach(function (a) {
+      var base = a.getAttribute("href").split("#")[0];
+      a.setAttribute("href", on ? base + "#slots" : base);
+    });
+  }
+  box.addEventListener("change", sync);
+})();
+</script>
+</body>
+</html>

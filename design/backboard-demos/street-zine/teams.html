@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teams | Backboard Street Zine</title>
+<meta name="description" content="Team explorer: record, recent form, Elo, preseason projection against what happened, playoff odds, offseason moves and all-time head-to-head for every NBA franchise.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo:wght@400;600;800&family=Courier+Prime:wght@400;700&family=Reenie+Beanie&display=swap">
+<link rel="stylesheet" href="zine.css">
+<style>
+  .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem 1.6rem; margin-top: 2rem; }
+  .controls .field { width: min(100%, 230px); }
+  .controls .chips { margin: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 1rem; margin-top: 2rem; }
+  .tilebtn { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; min-height: 92px; padding: 0.55rem 0.7rem 0.5rem; border: 0; cursor: pointer; text-align: left; background: var(--face); color: var(--k); transform: rotate(var(--r, 0deg)); transition: transform 0.18s var(--ease);
+    clip-path: polygon(0 4%, 3% 0, 97% 3%, 100% 0, 100% 96%, 97% 100%, 3% 97%, 0 100%); }
+  .tilebtn:hover { transform: translateY(-4px) rotate(calc(var(--r, 0deg) * -1)); }
+  .tilebtn[aria-pressed="true"] { outline: 4px solid var(--yellow); outline-offset: -4px; }
+  .tilebtn .ab { font: 400 2rem/0.9 var(--f-head); }
+  .tilebtn .rec { font: 700 0.75rem var(--f-type); text-transform: uppercase; }
+  .tilebtn .elo { font: 700 0.7rem var(--f-type); text-transform: uppercase; opacity: 0.85; }
+
+  .file { margin-top: 3rem; }
+  .filehead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1.4rem; }
+  .filehead h3 { font: 400 clamp(3.2rem, 9vw, 8rem)/0.88 var(--f-head); text-transform: uppercase; }
+  .filehead .rec { font: 400 clamp(3rem, 6vw, 5rem)/0.9 var(--f-head); font-variant-numeric: tabular-nums; }
+  .filehead .rec small { display: block; font: 700 0.9rem var(--f-type); text-transform: uppercase; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.2rem; margin-top: 2.2rem; }
+  .stat { --face: #fbfaf6; --pad: 1.1rem 1.2rem 1.2rem; }
+  .stat span { display: block; font: 700 0.78rem var(--f-type); text-transform: uppercase; }
+  .stat b { display: block; margin-top: 0.3rem; font: 400 clamp(2.2rem, 3.6vw, 3.2rem)/0.9 var(--f-head); font-variant-numeric: tabular-nums; }
+  .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1.4rem, 3.4vw, 3rem); margin-top: 3rem; align-items: start; }
+  .card { --face: #fbfaf6; --pad: 1.6rem 1.6rem 1.8rem; }
+  .card h4 { font: 400 1.7rem/1 var(--f-head); text-transform: uppercase; margin-bottom: 1rem; }
+  .card p, .card li { font: 700 0.9rem/1.5 var(--f-type); text-transform: uppercase; }
+  .card .fine { margin-top: 0.8rem; font: 400 0.85rem/1.45 var(--f-body); text-transform: none; color: rgb(16 16 16 / 0.75); }
+  .range svg { display: block; width: 100%; height: auto; overflow: visible; } .range text { font-family: var(--f-type); font-weight: 700; fill: var(--ink); }
+  .moves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; }
+  .moves ul { list-style: none; padding: 0; display: grid; gap: 0.3rem; }
+  .moves h5 { font: 800 0.8rem var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem; }
+  .moves li small { display: block; font: 400 0.78rem var(--f-type); opacity: 0.75; }
+  .vs { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 0.5rem; }
+  .vs a { display: flex; flex-direction: column; padding: 0.4rem 0.6rem; text-decoration: none; background: var(--paper-2); font: 700 0.78rem/1.3 var(--f-type); text-transform: uppercase; }
+  .vs a b { font: 400 1.1rem/1 var(--f-head); } .vs a.up { background: var(--yellow); } .vs a:hover { background: var(--red); }
+  @media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } .moves { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body data-page="teams">
+
+<header class="page dark phead" id="top">
+  <div class="wrap">
+    <p class="kicker">Page 3 of 6 · Teams</p>
+    <h1 class="h2">Team <span class="hl">explorer</span></h1>
+    <p class="lede">Every franchise's file: record, form, Elo, what the model expected before the season, the playoff odds and who moved this summer.</p>
+  </div>
+</header>
+
+<section class="page dark tight" id="pick" aria-labelledby="p-h" style="padding-top:0">
+  <div class="wrap">
+    <h2 class="h2 m" id="p-h">Pick a <span class="hl">franchise</span></h2>
+    <div class="controls">
+      <div class="chips" role="group" aria-label="Conference"><button class="chip" type="button" data-conf="all" aria-pressed="true">All 30</button><button class="chip" type="button" data-conf="East" aria-pressed="false">East</button><button class="chip" type="button" data-conf="West" aria-pressed="false">West</button></div>
+      <div class="field"><label for="sort">Sort by</label><select id="sort"><option value="elo">Elo, best first</option><option value="wins">2025-26 wins</option><option value="name">City A to Z</option></select></div>
+    </div>
+    <div class="grid" id="grid" role="group" aria-label="Franchises"></div>
+
+    <div class="file" id="file" aria-live="polite"></div>
+  </div>
+</section>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/zine-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="zine.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { $, $$, inkOn, ratio, esc, h2h, countTo, reduce } = Z;
+  const { fmt } = BB;
+  const ZD = window.BACKBOARD_ZINE || { moves: {}, strength: { teams: {} }, h2h: { games: {} } };
+  const eloRank = BB.teams.slice().sort((a, b) => b.elo - a.elo).map((t) => t.abbr);
+  let conf = "all", sort = "elo";
+  const params = new URLSearchParams(location.search);
+  let sel = BB.byAbbr[(params.get("t") || "").toUpperCase()] ?? BB.byAbbr.SAS ?? 0;
+
+  function grid() {
+    let list = BB.teams.map((t, i) => ({ t, i })).filter(({ t }) => conf === "all" || t.conf === conf);
+    list.sort((a, b) => sort === "elo" ? b.t.elo - a.t.elo : sort === "wins" ? Z.wins(b.t) - Z.wins(a.t) : a.t.city.localeCompare(b.t.city));
+    $("#grid").innerHTML = list.map(({ t, i }, n) => `<button class="tilebtn" type="button" data-i="${i}" aria-pressed="${i === sel}" style="--face:${t.c1};--k:${inkOn(t.c1)};--r:${((n * 7) % 5 - 2) * 0.5}deg" aria-label="${esc(fmt.fullName(t))}"><span class="ab">${t.abbr}</span><span><span class="rec">${Z.wl(t)}</span><br><span class="elo">Elo ${Math.round(t.elo)}</span></span></button>`).join("");
+  }
+
+  function range(t) {
+    const lo = 10, hi = 70, W = 520, H = 92, x = (v) => 20 + (v - lo) / (hi - lo) * (W - 40);
+    const ticks = [10, 20, 30, 40, 50, 60, 70].map((v) => `<path d="M${x(v)} 54v6" stroke="#101010" stroke-width="2"/><text x="${x(v)}" y="78" text-anchor="middle" font-size="12">${v}</text>`).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Preseason projection ${t.pre.wins} wins, range ${t.pre.p5} to ${t.pre.p95}, actual ${Z.wins(t)}">
+      <path d="M${x(t.pre.p5)} 40H${x(t.pre.p95)}" stroke="#101010" stroke-width="12" stroke-linecap="butt"/>
+      <path d="M${x(t.pre.p5)} 30v20M${x(t.pre.p95)} 30v20" stroke="#101010" stroke-width="3"/>
+      <path d="M${x(t.pre.wins)} 22v36" stroke="#ee3a1f" stroke-width="5"/>
+      <path d="M${x(Z.wins(t))} 8l9 9-9 9-9-9z" fill="#f3e32a" stroke="#101010" stroke-width="3"/>
+      <path d="M10 54H${W - 10}" stroke="#101010" stroke-width="2"/>${ticks}</svg>`;
+  }
+
+  function bars(t) {
+    if (!t.po) return `<p>Did not make the playoffs.</p>`;
+    const rows = [["Made it", t.po.made], ["Round 1", t.po.r1], ["Semis", t.po.r2], ["Conf finals", t.po.cf], ["Title", t.po.title]];
+    return `<ul class="bars" style="grid-template-columns:1fr">${rows.map(([l, v]) => `<li style="grid-template-columns:7rem minmax(0,1fr) 4.4rem"><span>${l}</span><span class="tk"><i style="--w:${(v * 100).toFixed(1)};--c:var(--ink)"></i></span><b>${fmt.pct(v, v < 0.1 ? 1 : 0)}%</b></li>`).join("")}</ul>`;
+  }
+
+  function movesBlock(t) {
+    const m = ZD.moves[t.id]; if (!m) return "<p>No roster-move data.</p>";
+    const known = (arr) => arr.filter((p) => p.nba);
+    const rookies = (arr) => arr.length - known(arr).length;
+    const list = (arr) => known(arr).length ? `<ul>${known(arr).map((p) => `<li>${esc(p.name)}<small>${p.min} min, ${p.pts} pts last 10</small></li>`).join("")}</ul>` : "<p class='fine'>Nobody with NBA minutes.</p>";
+    const s = ZD.strength.teams && ZD.strength.teams[t.id];
+    const strength = s && s.vsAvgAdj != null ? `<p class="fine">Win chance against an average team, adjusted for the roster: ${fmt.pct(s.vsAvg)}% before the moves, ${fmt.pct(s.vsAvgAdj)}% after (${fmt.signed((s.vsAvgAdj - s.vsAvg) * 100)} points).</p>` : "";
+    return `<div class="moves"><div><h5>Arrived</h5>${list(m.arrived)}${rookies(m.arrived) ? `<p class="fine">Plus ${rookies(m.arrived)} new to the NBA with no minutes to measure.</p>` : ""}</div><div><h5>Departed</h5>${list(m.departed)}</div></div>${strength}`;
+  }
+
+  function vsGrid(t) {
+    return `<div class="vs">${BB.teams.filter((o) => o !== t).map((o) => {
+      const r = h2h(t.id, o.id); if (!r) return "";
+      return `<a class="${r.a > r.b ? "up" : ""}" href="matchups.html?h=${t.abbr}&a=${o.abbr}#h2h" aria-label="${esc(fmt.fullName(t))} against ${esc(fmt.fullName(o))}, ${r.a} to ${r.b}"><b>${o.abbr}</b>${r.a}-${r.b}</a>`;
+    }).join("")}</div>`;
+  }
+
+  const rival = (t) => BB.teams.slice().sort((a, b) => b.elo - a.elo).find((o) => o !== t);
+
+  function file() {
+    const t = BB.teams[sel];
+    const c = Z.colorOn(t, "#101010");
+    const wins = Z.wins(t), pre = t.pre.wins;
+    const diff = wins - pre;
+    $("#file").innerHTML = `
+      <div class="filehead"><h3 style="color:${c}">${esc(t.city)}<br>${esc(t.nick)}</h3><div class="rec"><span id="recn">${Z.wl(t)}</span><small>${t.conf}, 2025-26 regular season</small></div></div>
+      <div class="stats">
+        <div class="scrap t2 stat"><span>Last 10</span><b>${fmt.wins10(t)}</b></div>
+        <div class="scrap t3 stat"><span>Elo, rank ${eloRank.indexOf(t.abbr) + 1} of 30</span><b>${Math.round(t.elo)}</b></div>
+        <div class="scrap t1 stat"><span>Point margin, last 10</span><b>${fmt.signed(t.form.pm10)}</b></div>
+        <div class="scrap t2 stat"><span>Points for / against</span><b>${t.form.pts10.toFixed(0)} / ${t.form.opp10.toFixed(0)}</b></div>
+        <div class="scrap t3 stat"><span>Rest days</span><b>${t.form.rest.toFixed(1)}</b></div>
+      </div>
+      <div class="cols">
+        <div class="scrap t2 card range"><h4>Before the season</h4>${range(t)}
+          <p>The model expected ${pre.toFixed(1)} wins (${t.pre.p5.toFixed(0)} to ${t.pre.p95.toFixed(0)}). They won ${wins}.</p>
+          <p class="fine">Black bar is the 5th to 95th percentile of 1,000 simulated seasons, the red mark is the expected wins, the yellow diamond is what happened (${diff >= 0 ? "+" : ""}${diff.toFixed(1)} against expectation). Playoff chance before opening night: ${fmt.pct0(t.pre.playoff)}%.</p></div>
+        <div class="scrap t3 card"><h4>${t.po ? "Playoff odds, then reality" : "The playoffs"}</h4>${bars(t)}${t.po ? `<p style="margin-top:1rem">${esc(BB.RESULT_LABEL[t.po.actual] || t.po.actual)}. Seeded ${t.po.seed}.</p><p class="fine">Odds use the real seeded bracket with team strength frozen at the end of the regular season.</p>` : `<p class="fine">Playoff odds are priced for the teams in the real postseason field. This team was not in it.</p>`}</div>
+        <div class="scrap t1 card"><h4>Summer moves</h4>${movesBlock(t)}<p class="fine">From box scores plus timestamped transactions, as of ${esc(ZD.strength.asOf || "")}. Counts only players on the roster in the last 10 games.</p></div>
+        <div class="scrap t2 card"><h4>All-time record against</h4>${vsGrid(t)}<p class="fine">${esc(t.nick)} wins to losses in regular-season games. Yellow means a winning record. Tap one to open that matchup.</p></div>
+      </div>
+      <div class="go"><a class="btn" href="matchups.html?h=${t.abbr}&a=${rival(t).abbr}">Run a ${esc(t.abbr)} matchup <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h15M12 5l7 7-7 7"/></svg></a><a class="link" href="season.html#strength">Where they rank</a></div>`;
+  }
+
+  $("#grid").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-i]"); if (!b) return;
+    sel = Number(b.dataset.i);
+    $$("#grid .tilebtn").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    file();
+    try { history.replaceState(null, "", "?t=" + BB.teams[sel].abbr); } catch (err) { /* ignore */ }
+    if (window.innerWidth < 900) $("#file").scrollIntoView({ block: "start", behavior: reduce() ? "auto" : "smooth" });
+  });
+  $$(".chips [data-conf]").forEach((b) => b.addEventListener("click", () => {
+    conf = b.dataset.conf; $$(".chips [data-conf]").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); grid();
+  }));
+  $("#sort").addEventListener("change", (e) => { sort = e.target.value; grid(); });
+
+  grid(); file();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backboard | Broadcast, Taste</title>
+<meta name="description" content="Backboard landing page in a Finals-broadcast graphics language: lower-third pick, keys to the game, team-color data plates, with real model output.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,700;1,800;1,900&family=Barlow:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../shared/slots.css">
+<style>
+  :root {
+    --stage: #0a0f1c;
+    --stage-2: #101830;
+    --panel: #141d36;
+    --line: rgb(255 255 255 / 0.14);
+    --text: #f1f3f8;
+    --text-dim: #a8b2c7;
+    --gold: #f2b230;          /* the one accent */
+    --ink: #0a0f1c;
+    --home: #8a8d8f; --away: #1d428a;
+    --f-disp: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+    --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --nav-h: 64px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; scrollbar-color: #33405f var(--stage); }
+  body { background: var(--stage); color: var(--text); font: 400 1.0625rem/1.55 var(--f-body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  ::selection { background: var(--gold); color: var(--ink); }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
+  .disp { font-family: var(--f-disp); font-style: italic; font-weight: 900; text-transform: uppercase; letter-spacing: 0.005em; line-height: 0.9; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* nav: one line, scorebug-height */
+  .nav { position: sticky; top: 0; z-index: 30; height: var(--nav-h); background: rgb(10 15 28 / 0.92); border-bottom: 1px solid var(--line); }
+  .nav .wrap { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; }
+  .brand svg { width: 34px; height: 34px; }
+  .brand span { font: italic 900 1.5rem/1 var(--f-disp); letter-spacing: 0.04em; text-transform: uppercase; }
+  .nav ul { display: flex; gap: clamp(0.8rem, 2vw, 2rem); list-style: none; padding: 0; }
+  .nav ul a { text-decoration: none; font: 600 0.95rem var(--f-body); color: var(--text-dim); padding: 0.4rem 0.1rem; border-bottom: 2px solid transparent; }
+  .nav ul a:hover { color: var(--text); border-color: var(--gold); }
+  .btn { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 48px; padding: 0.7rem 1.4rem; background: var(--gold); color: var(--ink); border: 0; font: italic 800 1.1rem/1 var(--f-disp); letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; cursor: pointer; white-space: nowrap; transform: skewX(-10deg); transition: transform 0.25s var(--ease); }
+  .btn > * { transform: skewX(10deg); }
+  .btn:hover { transform: skewX(-10deg) translateY(-2px); }
+  .btn:active { transform: skewX(-10deg) translateY(1px) scale(0.98); }
+  .btn.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 2px var(--line); }
+  .btn.ghost:hover { box-shadow: inset 0 0 0 2px var(--gold); }
+  .btn svg { width: 20px; height: 20px; }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; min-height: min(calc(100dvh - var(--nav-h)), 860px); display: grid; align-items: center; overflow: hidden; isolation: isolate; }
+  .hero .stage-art { position: absolute; inset: 0; z-index: -1; }
+  .hero > .wrap { width: 100%; }
+  /* stand-in for the arena photo: solid team-color floor band under three light cones */
+  .stage-art .img { position: absolute; inset: 0 0 0 44%; background: linear-gradient(160deg, #1a2542, #0a0f1c 70%);
+    clip-path: polygon(16% 0, 100% 0, 100% 100%, 0 100%); }
+  .stage-art .img::before { content: ""; position: absolute; inset: auto 0 0 0; height: 36%; background: var(--away); opacity: 0.5; clip-path: polygon(30% 0, 100% 0, 100% 100%, 0 100%); }
+  .stage-art .img::after { content: ""; position: absolute; inset: 0; background: conic-gradient(from 200deg at 70% -10%, transparent 0 6deg, rgb(255 255 255 / 0.09) 6deg 10deg, transparent 10deg 21deg, rgb(255 255 255 / 0.07) 21deg 24deg, transparent 24deg 34deg, rgb(255 255 255 / 0.09) 34deg 38deg, transparent 38deg); }
+  .stage-art .wipe { position: absolute; top: 0; bottom: 0; left: 57%; width: 13%; background: var(--away); transform: skewX(-14deg); opacity: 0.92; }
+  .stage-art .wipe.b { left: 53.5%; width: 4%; background: var(--home); }
+  .hero-copy { position: relative; padding-block: clamp(2rem, 6vh, 5rem) clamp(9rem, 22vh, 13rem); max-width: 660px; }
+  .hero h1 { font-size: clamp(4.4rem, 11vw, 9.6rem); }
+  .hero h1 span { display: block; }
+  .hero h1 .l2 { color: var(--gold); margin-left: 0.5em; }
+  .hero p { margin-top: 1.4rem; max-width: 30ch; font-size: clamp(1.1rem, 1.5vw, 1.35rem); color: var(--text); }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.8rem; }
+
+  /* the lower-third: real pick, real numbers */
+  .lower { position: absolute; left: 0; right: 0; bottom: clamp(1.4rem, 5vh, 3.2rem); }
+  .lower .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; }
+  .plate { display: flex; align-items: center; gap: 1rem; padding: 0.7rem 1.6rem; background: var(--c); color: var(--k); transform: skewX(-12deg); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3); }
+  .plate > * { transform: skewX(12deg); }
+  .plate.away { justify-content: flex-end; }
+  .plate .abbr { font: italic 900 clamp(1.8rem, 3.6vw, 3.2rem)/1 var(--f-disp); }
+  .plate .p { font: italic 900 clamp(2.6rem, 6vw, 5.2rem)/0.9 var(--f-disp); font-variant-numeric: tabular-nums; }
+  .plate .p small { font-size: 0.5em; }
+  .mid { display: grid; place-items: center; padding: 0.4rem 1.6rem; background: var(--stage-2); border-block: 3px solid var(--gold); text-align: center; }
+  .mid b { font: italic 900 1.1rem/1 var(--f-disp); letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase; }
+  .mid span { font: italic 700 clamp(1.2rem, 2.2vw, 1.8rem)/1.1 var(--f-disp); font-variant-numeric: tabular-nums; }
+  .mid small { font-size: 0.74rem; color: var(--text-dim); }
+
+  /* ---------- sections ---------- */
+  section.blk { padding-block: clamp(4rem, 9vw, 8rem); }
+  .h2 { font-size: clamp(2.8rem, 6.4vw, 5.6rem); }
+  .lede { margin-top: 1rem; max-width: 46ch; color: var(--text-dim); font-size: 1.15rem; }
+
+  /* keys to the game */
+  .keys { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: start; margin-top: 2.5rem; }
+  .picker { position: sticky; top: calc(var(--nav-h) + 24px); display: grid; gap: 0.9rem; }
+  .pick { position: relative; padding: 0.9rem 1.2rem 1rem; background: var(--c); color: var(--k); transform: skewX(-6deg); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3); }
+  .pick > * { transform: skewX(6deg); }
+  .pick label { display: block; font: 700 0.78rem/1 var(--f-body); letter-spacing: 0.16em; text-transform: uppercase; }
+  .pick select { appearance: none; width: 100%; margin-top: 0.4rem; min-height: 44px; padding: 0.3rem 1.8rem 0.3rem 0; background: transparent; border: 0; color: inherit; font: italic 900 clamp(1.5rem, 2.3vw, 2.1rem)/1.1 var(--f-disp); text-transform: uppercase; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3Cpath d='M1 1l7 7 7-7' fill='none' stroke='currentColor' stroke-width='3'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.2rem center; }
+  .pick select option { color: #111; font: 500 1rem var(--f-body); text-transform: none; }
+  .swap { justify-self: start; display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0.4rem 1rem; background: transparent; color: var(--text); border: 2px solid var(--line); font: 600 0.9rem var(--f-body); cursor: pointer; }
+  .swap:hover { border-color: var(--gold); }
+  .swap svg { width: 18px; height: 18px; }
+  .quick { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .quick button { min-height: 44px; padding: 0.3rem 0.9rem; background: transparent; color: var(--text-dim); border: 1px solid var(--line); font: 600 0.9rem var(--f-body); cursor: pointer; }
+  .quick button:hover { color: var(--text); border-color: var(--text-dim); }
+  .quick button[aria-pressed="true"] { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+
+  .sum { padding-bottom: 1.6rem; border-bottom: 1px solid var(--line); }
+  .sum h3 { font-size: clamp(2.2rem, 4.6vw, 4rem); }
+  .tag { display: inline-block; margin-top: 0.8rem; padding: 0.3rem 0.8rem; border: 2px solid var(--gold); color: var(--gold); font: italic 800 1rem/1 var(--f-disp); letter-spacing: 0.12em; text-transform: uppercase; }
+  .split { display: flex; margin-top: 1.2rem; height: 84px; }
+  .split .seg { display: flex; align-items: center; padding: 0 1.2rem; background: var(--c); color: var(--k); min-width: 22%; transition: flex-grow 0.7s var(--ease); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3); }
+  .split .seg:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%); }
+  .split .seg:last-child { clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%); justify-content: flex-end; margin-left: -6px; }
+  .split .n { font: italic 900 clamp(2.2rem, 4vw, 3.4rem)/1 var(--f-disp); font-variant-numeric: tabular-nums; }
+  .split .a { font: italic 800 1.1rem/1 var(--f-disp); margin: 0 0.7rem; letter-spacing: 0.06em; }
+  .proj { margin-top: 1.1rem; color: var(--text-dim); font-size: 0.98rem; }
+  .proj b { color: var(--text); font: italic 800 1.5rem/1.1 var(--f-disp); margin-right: 0.6rem; font-variant-numeric: tabular-nums; }
+  .key { display: grid; grid-template-columns: minmax(10rem, 30%) minmax(0, 1fr) 4.6rem; align-items: center; gap: 1rem; padding: 1.05rem 0; border-bottom: 1px solid var(--line); }
+  .key .k { font: italic 800 1.35rem/1.05 var(--f-disp); text-transform: uppercase; letter-spacing: 0.03em; }
+  .key .diverge { position: relative; height: 26px; }
+  .key .diverge::before { content: ""; position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; background: var(--text-dim); }
+  .key .diverge i { position: absolute; top: 4px; bottom: 4px; background: var(--c); transform-origin: var(--o); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3); }
+  .key .val { text-align: right; font: italic 800 1.3rem/1 var(--f-disp); font-variant-numeric: tabular-nums; }
+  .key .val small { display: block; font: 500 0.7rem var(--f-body); color: var(--text-dim); letter-spacing: 0.06em; font-style: normal; }
+  .keys-note { margin-top: 1rem; font-size: 0.92rem; color: var(--text-dim); max-width: 60ch; }
+  .tape { width: 100%; border-collapse: collapse; margin-top: 1.4rem; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .tape th, .tape td { padding: 0.5rem 0.4rem; text-align: right; border-bottom: 1px solid var(--line); }
+  .tape th:first-child, .tape td:first-child { text-align: left; }
+  .tape th { color: var(--text-dim); font-weight: 600; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* receipts */
+  .report { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: center; margin-top: 2.5rem; }
+  .big { font: italic 900 clamp(6rem, 13vw, 11rem)/0.85 var(--f-disp); color: var(--gold); font-variant-numeric: tabular-nums; }
+  .facts { display: flex; flex-wrap: wrap; gap: 1.2rem 2.4rem; margin-top: 1.4rem; }
+  .facts div { display: flex; flex-direction: column; }
+  .facts b { font: italic 800 2rem/1 var(--f-disp); font-variant-numeric: tabular-nums; }
+  .facts span { font-size: 0.86rem; color: var(--text-dim); }
+  .board { background: var(--stage-2); padding: 1rem; border: 1px solid var(--line); }
+  .board svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .board text { fill: var(--text-dim); font-family: var(--f-body); }
+  .board .cap { margin: 0.6rem 0.4rem 0; color: var(--text-dim); font-size: 0.95rem; }
+
+  /* title odds */
+  .odds-list { margin-top: 2.5rem; display: grid; gap: 0.7rem; }
+  .row { display: grid; grid-template-columns: 4.4rem minmax(0, 1fr) minmax(9rem, 14rem); align-items: center; gap: 1rem; }
+  .row .ab { font: italic 900 1.7rem/1 var(--f-disp); }
+  .row .bar { position: relative; height: 40px; }
+  .row .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); transform-origin: left; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3); clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+  .row .bar b { position: absolute; top: 50%; transform: translateY(-50%); margin-left: 0.8rem; font: italic 900 1.5rem/1 var(--f-disp); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .row .res { font-size: 0.95rem; color: var(--text-dim); }
+  .row.champ .res { color: var(--gold); font-weight: 700; }
+  .row.champ .ab { color: var(--gold); }
+
+  /* what-if */
+  .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-top: 2.5rem; }
+  .side { padding: clamp(1.4rem, 3vw, 2.6rem); background: var(--c); color: var(--k); }
+  .side:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - 28px) 100%, 0 100%); padding-right: 3.4rem; }
+  .side:last-child { clip-path: polygon(28px 0, 100% 0, 100% 100%, 0 100%); margin-left: -1px; padding-left: 3.4rem; text-align: right; }
+  .side .t { font: 700 0.86rem var(--f-body); letter-spacing: 0.14em; text-transform: uppercase; }
+  .side .chg { display: block; font: italic 900 clamp(4rem, 9vw, 7.4rem)/0.9 var(--f-disp); font-variant-numeric: tabular-nums; }
+  .side p { font-size: 0.98rem; }
+  .conf { margin-top: 1.6rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem 1.4rem; }
+  .conf .tag { margin-top: 0; }
+  .conf p { max-width: 62ch; color: var(--text-dim); }
+
+  .closer { text-align: left; }
+  .closer .h2 { font-size: clamp(3.2rem, 9vw, 8rem); }
+  footer { padding: 2rem 0 3.5rem; color: var(--text-dim); font-size: 0.9rem; border-top: 1px solid var(--line); }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.8rem; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .in-hero { animation: rise 0.9s var(--ease) both; }
+    .in-hero.d1 { animation-delay: 0.1s; } .in-hero.d2 { animation-delay: 0.22s; } .in-hero.d3 { animation-delay: 0.36s; }
+    .lower { animation: wipe 0.9s var(--ease) 0.4s both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: none; } }
+    @keyframes wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+    .rv { opacity: 0; transform: translateX(-36px); transition: opacity 0.6s ease-out, transform 0.8s var(--ease); }
+    .rv.in { opacity: 1; transform: none; }
+    .grow i { transform: scaleX(0); transition: transform 0.9s var(--ease) 0.15s; }
+    .grow.in i { transform: scaleX(1); }
+  }
+
+  @media (max-width: 900px) {
+    .nav ul { display: none; }
+    .hero { min-height: auto; }
+    .stage-art .img { inset: 0 0 0 10%; opacity: 0.6; }
+    .stage-art .wipe { display: none; }
+    .hero-copy { padding-bottom: 12rem; }
+    .lower .wrap { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .mid { grid-column: 1 / -1; order: 3; padding: 0.5rem 1rem; }
+    .plate { padding: 0.5rem 1rem; }
+    .keys, .report, .duo { grid-template-columns: minmax(0, 1fr); }
+    .picker { position: static; }
+    .key { grid-template-columns: minmax(0, 1fr) 4.4rem; }
+    .key .diverge { grid-column: 1 / -1; grid-row: 2; }
+    .row { grid-template-columns: 3.6rem minmax(0, 1fr); }
+    .row .res { grid-column: 2; margin-top: -0.4rem; }
+    .side:first-child, .side:last-child { clip-path: none; padding: 1.4rem; text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Backboard home">
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <rect x="4" y="3" width="40" height="26" fill="none" stroke="#f1f3f8" stroke-width="2.6"/>
+        <rect x="16" y="12" width="16" height="11" fill="none" stroke="#f2b230" stroke-width="2.6"/>
+        <ellipse cx="24" cy="33.2" rx="10.2" ry="2.8" fill="none" stroke="#f2b230" stroke-width="2.8"/>
+        <path d="M15 34 18.5 46M33 34 29.5 46M24 36v10M20 35 21.8 46M28 35 26.2 46" fill="none" stroke="#f1f3f8" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>Backboard</span>
+    </a>
+    <ul>
+      <li><a href="#predict">Predictor</a></li>
+      <li><a href="#receipts">Report card</a></li>
+      <li><a href="#odds">Title odds</a></li>
+      <li><a href="#whatif">What if</a></li>
+    </ul>
+    <a class="btn" href="#predict"><span>Predict a matchup</span></a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="stage-art" aria-hidden="true">
+      <div class="img hf-slot" data-hf="Cinematic wide photo from behind a basket at a packed arena during a finals game, blurred motion, camera flashes in the crowd, team-color light spill on the floor, shallow depth of field, no logos, no readable text, no recognizable faces" data-hf-size="2400x1350"></div>
+      <div class="wipe" id="wipe-a"></div><div class="wipe b" id="wipe-b"></div>
+    </div>
+    <div class="wrap">
+      <div class="hero-copy">
+        <h1 class="disp" id="hero-h"><span class="l1 in-hero d1">Know who</span><span class="l2 in-hero d2">wins.</span></h1>
+        <p class="in-hero d3">Win probabilities for any NBA matchup, from a model that shows its work.</p>
+        <div class="cta-row in-hero d3">
+          <a class="btn" href="#predict"><span>Predict a matchup</span></a>
+          <a class="btn ghost" href="#receipts"><span>See the receipts</span></a>
+        </div>
+      </div>
+    </div>
+    <div class="lower" id="lower" aria-live="polite"></div>
+  </section>
+
+  <section class="blk" id="predict" aria-labelledby="keys-h">
+    <div class="wrap">
+      <h2 class="h2 disp" id="keys-h">The keys to the game</h2>
+      <p class="lede">Pick two teams. See what moves the odds, and by how much.</p>
+      <div class="keys">
+        <form class="picker" onsubmit="return false" aria-label="Choose a matchup">
+          <div class="pick" id="pick-home"><label for="home">Home</label><select id="home"></select></div>
+          <div class="pick" id="pick-away"><label for="away">Away</label><select id="away"></select></div>
+          <button class="swap" id="swap" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg>Swap sides</button>
+          <div class="quick" id="quick" aria-label="Quick picks"></div>
+        </form>
+        <div id="keys" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" id="receipts" aria-labelledby="rc-h">
+    <div class="wrap">
+      <h2 class="h2 disp" id="rc-h">The report card</h2>
+      <p class="lede">How the model did on games it never saw while learning.</p>
+      <div class="report">
+        <div>
+          <div class="big" id="acc"></div>
+          <p style="margin-top:0.6rem;font-size:1.2rem">of held-out games picked right.</p>
+          <div class="facts" id="facts"></div>
+        </div>
+        <div class="board" id="board"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" id="odds" aria-labelledby="od-h">
+    <div class="wrap">
+      <h2 class="h2 disp" id="od-h">Championship odds, graded</h2>
+      <p class="lede">Title odds from the end of the 2025-26 regular season, next to what happened.</p>
+      <div class="odds-list" id="oddslist"></div>
+      <p class="keys-note" style="margin-top:1.4rem">Odds use the real seeded bracket with team strength frozen at the end of the regular season. Results come from the games database.</p>
+    </div>
+  </section>
+
+  <section class="blk" id="whatif" aria-labelledby="wi-h">
+    <div class="wrap">
+      <h2 class="h2 disp" id="wi-h">What if Curry played for the Spurs?</h2>
+      <p class="lede">The what-if tool re-runs the season with one player moved, and grades its own confidence.</p>
+      <div class="duo" id="duo"></div>
+      <div class="conf" id="conf"></div>
+    </div>
+  </section>
+
+  <section class="blk closer" aria-labelledby="cl-h">
+    <div class="wrap">
+      <h2 class="h2 disp" id="cl-h">Pick a game. <span style="color:var(--gold)">Then argue with it.</span></h2>
+      <div class="cta-row"><a class="btn" href="#predict"><span>Predict a matchup</span></a></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap"><p id="fine"></p><p>Probabilities are not guarantees.</p></div>
+</footer>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="../shared/slots.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { fmt } = BB;
+  const $ = (s, r = document) => r.querySelector(s);
+
+  /* readable text on any team color, by computed contrast */
+  const lum = (hex) => {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const inkOn = (hex) => (ratio(hex, "#0a0f1c") >= ratio(hex, "#ffffff") ? "#0a0f1c" : "#ffffff");
+  /* a team's stage color: its primary unless that vanishes on the stage, then its secondary */
+  const vis = (t) => (ratio(t.c1, "#0a0f1c") >= 2 || ratio(t.c2, "#0a0f1c") < 2 ? t.c1 : t.c2);
+  /* two teams with look-alike colors: the away team switches to its other color */
+  const teamColors = (p) => {
+    const a = vis(p.home); let b = vis(p.away);
+    if (ratio(a, b) < 1.35) b = b === p.away.c1 ? p.away.c2 : p.away.c1;
+    return [a, b];
+  };
+  const plateStyle = (c) => `--c:${c};--k:${inkOn(c)}`;
+
+  function paintLower(p) {
+    const [c1, c2] = teamColors(p);
+    document.documentElement.style.setProperty("--home", c1);
+    document.documentElement.style.setProperty("--away", c2);
+    $("#lower").innerHTML = `<div class="wrap">
+      <div class="plate" style="${plateStyle(c1)}"><span class="abbr">${p.home.abbr}</span><span class="p">${fmt.pct(p.pHome)}<small>%</small></span></div>
+      <div class="mid"><b>Model pick</b><span>${p.favTeam.abbr} ${Math.round(Math.max(p.pts.home, p.pts.away))}, ${p.dogTeam.abbr} ${Math.round(Math.min(p.pts.home, p.pts.away))}</span><small>projected score, ${p.home.abbr} at home</small></div>
+      <div class="plate away" style="${plateStyle(c2)}"><span class="p">${fmt.pct(p.pAway)}<small>%</small></span><span class="abbr">${p.away.abbr}</span></div></div>`;
+  }
+
+  function paintKeys(p) {
+    const [c1, c2] = teamColors(p);
+    const max = 0.12;
+    const rows = p.sorted.map((g) => {
+      const w = Math.min(Math.abs(g.value) / max, 1) * 50;
+      const home = g.value >= 0;
+      const c = home ? c1 : c2;
+      const style = home ? `left:50%;width:${w}%;--o:left` : `right:50%;width:${w}%;--o:right`;
+      return `<div class="key rv"><span class="k">${g.label}</span>
+        <span class="diverge" aria-hidden="true"><i style="${style};--c:${c}"></i></span>
+        <span class="val">${fmt.signed(Math.abs(g.value) * 100)}<small>${home ? p.home.abbr : p.away.abbr}</small></span></div>`;
+    }).join("");
+    const tale = (t) => `<td>${fmt.wins10(t)}</td><td>${Math.round(t.elo)}</td><td>${fmt.signed(t.form.pm10)}</td>`;
+    $("#keys").innerHTML = `
+      <div class="sum">
+        <h3 class="disp">${p.favTeam.nick} over ${p.dogTeam.nick}</h3>
+        <span class="tag">${p.verdict.label}</span>
+        <div class="split" role="img" aria-label="${p.home.abbr} ${fmt.pct(p.pHome)} percent, ${p.away.abbr} ${fmt.pct(p.pAway)} percent">
+          <div class="seg" style="${plateStyle(c1)};flex-grow:${p.pHome * 100}"><span class="n">${fmt.pct(p.pHome)}%</span><span class="a">${p.home.abbr}</span></div>
+          <div class="seg" style="${plateStyle(c2)};flex-grow:${p.pAway * 100}"><span class="a">${p.away.abbr}</span><span class="n">${fmt.pct(p.pAway)}%</span></div>
+        </div>
+        <p class="proj"><b>${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}</b>Projected score. The 80% range for the home margin is ${Math.round(p.margin.lo)} to ${fmt.signed(p.margin.hi, 0)}, and the typical miss is ${BB.meta.marginMae} points, so read it as a lean. Even teams at home start ${p.home.abbr} near ${fmt.pct0(p.homeCourtOnly)}%.</p>
+      </div>
+      ${rows}
+      <p class="keys-note">Each bar is the change in ${p.home.abbr}'s win chance, in percentage points, if the two teams were even on that input. It shows what the model responds to, not what causes wins.</p>
+      <table class="tape"><thead><tr><th>Tale of the tape</th><th>Last 10</th><th>Elo</th><th>Margin</th></tr></thead><tbody><tr><td>${p.home.abbr}</td>${tale(p.home)}</tr><tr><td>${p.away.abbr}</td>${tale(p.away)}</tr></tbody></table>`;
+    document.querySelectorAll("#keys .rv").forEach((el) => observe(el));
+    $("#pick-home").style.cssText = plateStyle(c1);
+    $("#pick-away").style.cssText = plateStyle(c2);
+  }
+
+  function paintQuick() {
+    $("#quick").innerHTML = BB.featured.map((pair, i) => `<button type="button" data-i="${i}" aria-pressed="false">${i === 0 ? "The Finals" : BB.teams[pair[0]].abbr + " v " + BB.teams[pair[1]].abbr}</button>`).join("");
+    $("#quick").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      const pair = BB.featured[Number(b.dataset.i)];
+      BB.state.set(pair[0], pair[1]); repaintSelects();
+    });
+  }
+  const syncQuick = () => document.querySelectorAll("#quick button").forEach((b) => {
+    const pair = BB.featured[Number(b.dataset.i)];
+    b.setAttribute("aria-pressed", String(pair[0] === BB.state.hi && pair[1] === BB.state.ai));
+  });
+  let repaintSelects = () => {};
+
+  function paintReport() {
+    const h = BB.meta.holdout;
+    $("#acc").textContent = (h.accuracy * 100).toFixed(1) + "%";
+    $("#facts").innerHTML = `<div><b>${h.games.toLocaleString("en-US")}</b><span>games it never saw</span></div><div><b>${h.logLoss.toFixed(4)}</b><span>log loss</span></div><div><b>${h.ece.toFixed(3)}</b><span>calibration error</span></div>`;
+    const bins = BB.calibration;
+    const W = 640, H = 460, m = { l: 58, r: 20, t: 20, b: 58 };
+    const x = (v) => m.l + v * (W - m.l - m.r), y = (v) => H - m.b - v * (H - m.t - m.b);
+    const hi = bins[6];
+    const table = bins.map((b) => `<tr><td>${fmt.pct0(b.lo)} to ${fmt.pct0(b.hi)}%</td><td>${b.games}</td><td>${fmt.pct(b.pred)}%</td><td>${fmt.pct(b.obs)}%</td></tr>`).join("");
+    $("#board").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="ct cd"><title id="ct">Calibration chart</title>
+      <desc id="cd">The home win chance the model gave, against how often the home team won, in nine groups. Dots fall just under the diagonal at the high end: the model runs a little confident.</desc>
+      ${[0, 0.25, 0.5, 0.75, 1].map((t) => `<path d="M${x(t)} ${y(0)} V ${y(1)}" stroke="rgb(255 255 255 / 0.08)"/><path d="M${x(0)} ${y(t)} H ${x(1)}" stroke="rgb(255 255 255 / 0.08)"/><text x="${x(t)}" y="${H - m.b + 24}" text-anchor="middle" font-size="13">${t * 100}%</text><text x="${m.l - 10}" y="${y(t) + 5}" text-anchor="end" font-size="13">${t * 100}%</text>`).join("")}
+      <path d="M${x(0)} ${y(0)} L ${x(1)} ${y(1)}" stroke="#f1f3f8" stroke-width="1.6" stroke-dasharray="6 6" fill="none" opacity="0.7"/>
+      ${bins.map((b) => `<path d="M${x(b.pred)} ${y(b.ciLo)} V ${y(b.ciHi)}" stroke="#f2b230" stroke-width="2" opacity="0.7"/>`).join("")}
+      <path d="M${bins.map((b) => `${x(b.pred)} ${y(b.obs)}`).join(" L")}" fill="none" stroke="#f2b230" stroke-width="3" stroke-linejoin="round"/>
+      ${bins.map((b) => `<circle cx="${x(b.pred)}" cy="${y(b.obs)}" r="6.5" fill="#f2b230" stroke="#0a0f1c" stroke-width="2.5"/>`).join("")}
+      <text x="${(m.l + W - m.r) / 2}" y="${H - 8}" text-anchor="middle" font-size="14" style="fill:#f1f3f8">what the model said (home team wins)</text>
+      <text transform="translate(15 ${(m.t + H - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="14" style="fill:#f1f3f8">how often it happened</text></svg>
+      <p class="cap">It runs a little confident. When it said about ${fmt.pct0(hi.pred)}%, the home team won ${fmt.pct0(hi.obs)}%. Bars show the 90% range.</p>
+      <table class="sr-only"><caption>Calibration groups</caption><thead><tr><th>Group</th><th>Games</th><th>Model said</th><th>Home won</th></tr></thead><tbody>${table}</tbody></table>`;
+  }
+
+  function paintOdds() {
+    const board = BB.titleBoard();
+    const champ = board.find((t) => t.po.actual === "won the title");
+    let rows = board.slice(0, 7);
+    if (!rows.includes(champ)) rows = rows.slice(0, 6).concat(champ);
+    const max = rows[0].po.title;
+    $("#oddslist").innerHTML = rows.map((t) => {
+      const c = vis(t);
+      return `<div class="row rv grow${t === champ ? " champ" : ""}"><span class="ab">${t.abbr}</span>
+        <span class="bar"><i style="width:${Math.max(t.po.title / max * 82, 4)}%;--c:${c}"></i><b style="left:calc(${Math.max(t.po.title / max * 82, 4)}% + 0px)">${fmt.pct(t.po.title)}%</b></span>
+        <span class="res">${BB.RESULT_LABEL[t.po.actual]}</span></div>`;
+    }).join("");
+    document.querySelectorAll("#oddslist .rv").forEach(observe);
+  }
+
+  function paintWhatIf() {
+    const w = BB.whatIf();
+    const a = w.effects.find((e) => e.id === w.fromId), b = w.effects.find((e) => e.id === w.toId);
+    const bt = w.backtest;
+    const side = (e) => `<div class="side" style="${plateStyle(vis(e.team))}"><span class="t">${e.team.city} ${e.team.nick}</span><span class="chg">${fmt.signed(e.change)}</span><p>wins, ${e.winsBefore} to ${e.winsAfter}. Direct playoff odds ${fmt.pct0(e.playoffBefore)}% to ${fmt.pct0(e.playoffAfter)}%.</p></div>`;
+    $("#duo").innerHTML = side(a) + side(b);
+    $("#conf").innerHTML = `<span class="tag">Confidence: ${w.confidence}</span><p>${w.sims.toLocaleString("en-US")} simulated seasons, ${w.player} moved before opening night. Tested on real moves from ${bt.seasons}, ${Math.round(bt.largeEffectsRight * bt.largeEffectsCount)} of ${bt.largeEffectsCount} big effects pointed the right way, but overall win error did not shrink (${bt.maeWithout} to ${bt.maeWith}). Fit, injuries and the cap are not modeled.</p>`;
+  }
+
+  const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.2 });
+  function observe(el) { io.observe(el); }
+
+  paintQuick();
+  repaintSelects = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
+  BB.state.subscribe((p) => { paintLower(p); paintKeys(p); syncQuick(); });
+  paintReport(); paintOdds(); paintWhatIf();
+  $("#fine").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed.`;
+})();
+</script>
+</body>
+</html>

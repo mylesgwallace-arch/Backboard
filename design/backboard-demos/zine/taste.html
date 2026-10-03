@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backboard | Xerox Zine, Taste</title>
+<meta name="description" content="Backboard landing page as a photocopied fan zine: tape, torn scraps, ransom cutouts and typewriter captions, with real model output.">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Bowlby+One&family=Courier+Prime:wght@400;700&family=Reenie+Beanie&display=swap">
+<link rel="stylesheet" href="../shared/slots.css">
+<style>
+  :root {
+    --ground: #dcdedb;      /* photocopy grey */
+    --paper: #f3f4f1;       /* clean copy paper */
+    --scrap: #cbcdc8;       /* grey newsprint scrap */
+    --toner: #141210;
+    --toner-soft: #46484a;
+    --accent: #ff5b14;      /* the one spot color: a second drum, fluoro orange */
+    --tape: rgb(240 242 240 / 0.66);
+    --f-cut1: "Anton", Impact, "Arial Narrow", sans-serif;
+    --f-cut2: "Abril Fatface", "Didot", Georgia, serif;
+    --f-cut3: "Bowlby One", "Arial Black", sans-serif;
+    --f-type: "Courier Prime", "Courier New", monospace;
+    --f-hand: "Reenie Beanie", "Segoe Print", cursive;
+    --nav-h: 68px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; scrollbar-color: var(--toner) var(--scrap); }
+  body {
+    background: var(--ground);
+    color: var(--toner);
+    font: 400 1rem/1.6 var(--f-type);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--accent); color: var(--toner); }
+  a { color: inherit; text-underline-offset: 0.22em; text-decoration-thickness: 2px; }
+  :focus-visible { outline: 3px solid var(--toner); outline-offset: 3px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* the copier: grain over everything, and a faint lid shadow at the edges */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0.15; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .7 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; z-index: 59; pointer-events: none;
+    background: linear-gradient(90deg, rgb(0 0 0 / 0.16), transparent 3.5%, transparent 96.5%, rgb(0 0 0 / 0.2));
+  }
+
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
+
+  /* paper pieces: the wrapper carries the shadow, the scrap carries the torn clip */
+  .piece { position: relative; transform: rotate(var(--r, 0deg)); filter: drop-shadow(0 1px 0 rgb(0 0 0 / 0.22)) drop-shadow(0 14px 12px rgb(0 0 0 / 0.22)); }
+  .scrap { background: var(--paper); }
+  .scrap.grey { background: var(--scrap); }
+  .scrap.black { background: var(--toner); color: var(--paper); }
+  .tape {
+    position: absolute; z-index: 3; width: 104px; height: 28px; background: var(--tape);
+    background-image: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.05) 0 2px, transparent 2px 6px);
+    transform: rotate(var(--tr, -4deg));
+    clip-path: polygon(2% 0, 98% 0, 100% 12%, 97% 25%, 100% 38%, 97% 50%, 100% 62%, 97% 75%, 100% 88%, 98% 100%, 2% 100%, 0 88%, 3% 75%, 0 62%, 3% 50%, 0 38%, 3% 25%, 0 12%);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+  }
+
+  /* ransom letters, each cut from a different magazine */
+  .ransom { display: inline-flex; flex-wrap: wrap; align-items: flex-end; gap: 0.05em 0.03em; }
+  .ransom .r {
+    display: inline-block; line-height: 1; padding: 0.07em 0.13em 0.03em;
+    transform: translateY(var(--y, 0)) rotate(var(--rot, 0deg));
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.4), 0 4px 6px -3px rgb(0 0 0 / 0.4);
+  }
+  .ransom .sp { width: 0.32em; }
+  .r.f1 { font-family: var(--f-cut1); }
+  .r.f2 { font-family: var(--f-cut2); }
+  .r.f3 { font-family: var(--f-cut3); }
+  .r.b0 { background: var(--paper); color: var(--toner); }
+  .r.b1 { background: var(--toner); color: var(--paper); }
+  .r.b2 { background: var(--accent); color: var(--toner); }
+  .r.b3 { background: var(--scrap); color: var(--toner); }
+
+  /* label-maker strip */
+  .dymo { display: inline-block; background: var(--toner); color: var(--paper); font: 700 0.8rem/1 var(--f-type); letter-spacing: 0.16em; text-transform: uppercase; padding: 0.55rem 0.7rem; }
+
+  /* ---------- nav ---------- */
+  .nav { height: var(--nav-h); position: relative; z-index: 5; }
+  .nav .wrap { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; font: 700 1.05rem/1 var(--f-type); letter-spacing: 0.14em; text-transform: uppercase; }
+  .brand svg { width: 34px; height: 34px; }
+  .nav-links { display: flex; align-items: center; gap: 0.5rem; }
+  .nav-links a { text-decoration: none; }
+  .nav-links .dymo { transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+  .nav-links a:hover .dymo, .nav-links a:focus-visible .dymo { transform: translateY(-2px) rotate(-1.2deg); }
+  .nav-links a:nth-child(odd) .dymo { transform: rotate(-0.7deg); }
+  .nav-links a:nth-child(even) .dymo { transform: rotate(0.6deg); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.6rem; min-height: 48px; padding: 0.7rem 1.3rem;
+    background: var(--accent); color: var(--toner); border: 2px solid var(--toner);
+    font: 700 0.95rem/1 var(--f-type); letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; cursor: pointer;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .btn:hover { transform: translateY(-3px) rotate(-1.2deg); }
+  .btn:active { transform: translateY(1px) scale(0.98); }
+  .btn-sm { min-height: 44px; padding: 0.55rem 1rem; font-size: 0.82rem; }
+  .link-typed { font-weight: 700; letter-spacing: 0.06em; }
+
+  /* ---------- hero ---------- */
+  .hero { min-height: min(calc(100dvh - var(--nav-h)), 860px); display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: center; gap: clamp(1.5rem, 4vw, 4rem); padding-block: clamp(1rem, 3vh, 2.5rem) clamp(2rem, 5vh, 4rem); }
+  .hero h1 { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; font-weight: 400; }
+  .hero h1 .l1 { font-size: clamp(2.4rem, 5.6vw, 5.4rem); }
+  .hero h1 .l2 { flex-wrap: nowrap; font-size: clamp(3.4rem, 9.2vw, 9rem); margin-left: clamp(0px, 2vw, 2rem); transform: rotate(-1.5deg); }
+  .hero-sub { max-width: 34ch; margin-top: 1.6rem; font-size: clamp(1.05rem, 1.5vw, 1.3rem); line-height: 1.45; }
+  .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1.4rem; margin-top: 1.8rem; }
+  .collage { position: relative; padding: 1.4rem 1rem 3.4rem 2rem; }
+  .photo { width: min(100%, 420px); margin-inline: auto; padding: 0.9rem 0.9rem 2.6rem; background: var(--paper); }
+  .photo .frame { aspect-ratio: 4 / 5; background: var(--toner); position: relative; overflow: hidden; }
+  .halftone {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 50% 42%, transparent 0 22%, rgb(0 0 0 / 0.0) 22% 100%),
+      radial-gradient(circle, #f3f2ec 1.6px, transparent 2.2px) 0 0 / 9px 9px,
+      var(--toner);
+    -webkit-mask: radial-gradient(ellipse 80% 70% at 62% 38%, #000 10%, transparent 78%);
+            mask: radial-gradient(ellipse 80% 70% at 62% 38%, #000 10%, transparent 78%);
+  }
+  .halftone.b { background: radial-gradient(circle, var(--toner) 2px, transparent 2.6px) 4px 4px / 9px 9px, #f3f2ec; opacity: 0.9; -webkit-mask: radial-gradient(ellipse 70% 60% at 28% 78%, #000 8%, transparent 76%); mask: radial-gradient(ellipse 70% 60% at 28% 78%, #000 8%, transparent 76%); }
+  .frame .mark { position: absolute; inset: 14% 12% auto 12%; width: 76%; height: auto; }
+  .photo figcaption { position: absolute; left: 1.1rem; bottom: 0.7rem; font: 400 0.8rem var(--f-type); color: var(--toner-soft); }
+  .chit { position: absolute; left: -0.4rem; bottom: 0.4rem; width: 210px; padding: 0.9rem 1rem 1rem; font-family: var(--f-type); }
+  .chit .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .chit .row span { font-weight: 700; letter-spacing: 0.1em; }
+  .chit .row b { font: 400 2.5rem/1 var(--f-cut1); font-variant-numeric: tabular-nums; }
+  .chit small { display: block; margin-top: 0.5rem; font-size: 0.78rem; line-height: 1.35; color: var(--toner-soft); }
+
+  /* ---------- sections ---------- */
+  section.block { padding-block: clamp(3.5rem, 9vw, 8rem); }
+  .h2 { display: inline-block; font: 400 clamp(2rem, 4.6vw, 4rem)/1.02 var(--f-cut1); text-transform: uppercase; letter-spacing: 0.005em; }
+  .h2 mark { background: linear-gradient(transparent 58%, var(--accent) 58% 92%, transparent 92%); color: inherit; padding: 0 0.1em; }
+  .lede { max-width: 52ch; margin-top: 1rem; font-size: 1.05rem; }
+  .strip { display: inline-block; background: var(--toner); color: var(--paper); padding: 0.35em 0.6em 0.2em; transform: rotate(-1deg); }
+
+  /* predictor */
+  .predict { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(1.5rem, 4vw, 3.5rem); align-items: start; margin-top: 2.5rem; }
+  .sheet { padding: 2rem 1.6rem 1.8rem 3.4rem; background-color: var(--paper);
+    background-image: linear-gradient(90deg, transparent 2.55rem, rgb(20 18 16 / 0.35) 2.55rem calc(2.55rem + 2px), transparent calc(2.55rem + 2px)), repeating-linear-gradient(transparent 0 1.9rem, rgb(20 18 16 / 0.16) 1.9rem calc(1.9rem + 1px)); }
+  .sheet::before, .sheet::after { content: ""; position: absolute; left: 0.9rem; width: 16px; height: 16px; border-radius: 50%; background: var(--ground); box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.5); }
+  .sheet::before { top: 22%; } .sheet::after { top: 68%; }
+  .field { display: block; margin-bottom: 1.3rem; }
+  .field span { display: block; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; }
+  select {
+    appearance: none; width: 100%; min-height: 48px; padding: 0.55rem 2.2rem 0.4rem 0.1rem; color: var(--toner);
+    font: 700 1.15rem/1.2 var(--f-type); background: transparent; border: 0; border-bottom: 3px solid var(--toner); border-radius: 0; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10' viewBox='0 0 16 10'%3E%3Cpath d='M1 1l7 7 7-7' fill='none' stroke='%23141210' stroke-width='3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.3rem center;
+  }
+  select:hover { background-color: rgb(255 91 20 / 0.14); }
+  select option { font-weight: 400; }
+  .swap { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0.4rem 0.9rem; background: var(--scrap); border: 2px solid var(--toner); font: 700 0.8rem var(--f-type); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
+  .swap:hover { background: var(--accent); }
+  .swap svg { width: 18px; height: 18px; }
+  .picks { margin-top: 1.4rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .picks button { min-height: 44px; padding: 0.4rem 0.75rem; border: 0; background: var(--tape); background-image: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.06) 0 2px, transparent 2px 6px); color: var(--toner); font: 700 0.85rem var(--f-type); cursor: pointer; box-shadow: 0 1px 2px rgb(0 0 0 / 0.35); transform: rotate(var(--r, 0deg)); }
+  .picks button[aria-pressed="true"] { background: var(--toner); color: var(--paper); }
+  .picks button:hover { transform: translateY(-2px) rotate(var(--r, 0deg)); }
+  .picks-label { display: block; margin-top: 1.4rem; font: 700 0.8rem var(--f-type); letter-spacing: 0.16em; text-transform: uppercase; }
+
+  .out { position: relative; padding: 1.8rem clamp(1rem, 2.4vw, 2rem) 1.6rem; overflow: hidden; }
+  .out::after { content: ""; position: absolute; inset: 0 0 auto 0; height: 46%; transform: translateY(-120%); background: linear-gradient(180deg, transparent, rgb(255 255 255 / 0.95) 65%, transparent); pointer-events: none; }
+  .out.flash::after { animation: sweep 0.75s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes sweep { from { transform: translateY(-120%); } to { transform: translateY(260%); } }
+  .out-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.8rem; }
+  .out-head h3 { font: 400 clamp(1.4rem, 2.6vw, 2rem)/1.05 var(--f-cut1); text-transform: uppercase; }
+  .stamp { display: inline-block; padding: 0.35rem 0.7rem; border: 3px double var(--toner); font: 700 0.85rem/1 var(--f-type); letter-spacing: 0.14em; text-transform: uppercase; transform: rotate(-3deg); mix-blend-mode: multiply; }
+  .stamp.strong { background: var(--accent); }
+  .odds { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.2rem; }
+  .odds div { display: flex; flex-direction: column; }
+  .odds .who { font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.85rem; }
+  .odds .num { font: 400 clamp(3rem, 6.5vw, 5.4rem)/0.95 var(--f-cut1); font-variant-numeric: tabular-nums; }
+  .odds div:last-child { text-align: right; align-items: flex-end; }
+  .odds .lose .num { color: var(--toner-soft); }
+  .penline { position: relative; height: 22px; margin-top: 0.7rem; }
+  .penline svg { width: 100%; height: 22px; display: block; overflow: visible; }
+  .proj { margin-top: 1.4rem; padding-top: 1rem; border-top: 2px dashed var(--toner); display: grid; gap: 0.2rem; }
+  .proj b { font: 400 1.7rem/1.1 var(--f-cut1); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+  .proj small, .note { font-size: 0.84rem; line-height: 1.45; color: var(--toner-soft); }
+  .why { margin-top: 1.4rem; padding-top: 1rem; border-top: 2px dashed var(--toner); }
+  .why h4, .tape-h { font: 700 0.82rem/1.2 var(--f-type); letter-spacing: 0.16em; text-transform: uppercase; }
+  .why-axis { display: flex; justify-content: space-between; margin: 0.6rem 0 0.2rem; font-size: 0.78rem; font-weight: 700; }
+  .why ul { list-style: none; padding: 0; }
+  .why li { display: grid; grid-template-columns: minmax(9.5rem, 40%) 1fr; align-items: center; gap: 0.6rem; padding: 0.28rem 0; font-size: 0.86rem; }
+  .why .bar { position: relative; height: 16px; }
+  .why .bar::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: var(--toner); }
+  .why .bar i { position: absolute; top: 2px; bottom: 2px; background: var(--toner); }
+  .why .bar i.away { background: var(--accent); box-shadow: inset 0 0 0 2px var(--toner); }
+  .why .bar em { position: absolute; top: -2px; font: 700 0.75rem var(--f-type); font-style: normal; font-variant-numeric: tabular-nums; }
+  .tape-t { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+  .tape-t th, .tape-t td { padding: 0.28rem 0.4rem; text-align: right; border-bottom: 1px solid rgb(20 18 16 / 0.35); }
+  .tape-t th:first-child, .tape-t td:first-child { text-align: left; }
+  .tape-t thead th { border-bottom: 2px solid var(--toner); }
+
+  /* receipts */
+  .receipts { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: start; margin-top: 2.5rem; }
+  .receipt { padding: 1.6rem 1.4rem 2.2rem; font-size: 0.9rem; line-height: 1.7; }
+  .receipt pre { font: inherit; white-space: pre-wrap; }
+  .receipt .big { display: block; margin: 0.4rem 0; font: 400 3.6rem/1 var(--f-cut1); }
+  .graph { padding: 1rem; background-color: var(--paper);
+    background-image: linear-gradient(rgb(20 18 16 / 0.11) 1px, transparent 1px), linear-gradient(90deg, rgb(20 18 16 / 0.11) 1px, transparent 1px);
+    background-size: 24px 24px; }
+  .graph svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .graph text { font-family: var(--f-type); fill: var(--toner); }
+  .hand { font: 400 1.9rem/1.05 var(--f-hand); }
+  .graph-note { position: absolute; right: 7%; bottom: 20%; max-width: 13ch; transform: rotate(-4deg); }
+
+  /* title odds */
+  .odds-board { position: relative; display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: clamp(1rem, 3vw, 3rem); margin-top: 2.5rem; align-items: start; }
+  .callouts { position: relative; min-height: 540px; }
+  .callouts .piece { position: absolute; }
+  .call-a { left: 0; top: 30px; width: min(60%, 320px); --r: -2deg; }
+  .call-b { left: 10%; bottom: 0; width: min(58%, 300px); --r: 2.5deg; }
+  .callouts b.n { display: block; font: 400 clamp(4rem, 8vw, 6.4rem)/0.95 var(--f-cut1); font-variant-numeric: tabular-nums; }
+  .callouts p { font-size: 0.95rem; line-height: 1.4; }
+  .callouts .photo-slot { position: absolute; right: 0; top: 0; width: 38%; aspect-ratio: 3 / 4; }
+  .callouts .photo-slot .frame { width: 100%; height: 100%; background: var(--toner); position: relative; overflow: hidden; }
+  .ledger { padding: 1.5rem 1.4rem 1.7rem; }
+  .ledger table { width: 100%; border-collapse: collapse; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+  .ledger th { text-align: left; padding: 0.3rem 0.4rem; border-bottom: 2px solid var(--toner); font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; }
+  .ledger td { padding: 0.5rem 0.4rem; border-bottom: 1px solid rgb(20 18 16 / 0.3); }
+  .ledger td.n { text-align: right; font-weight: 700; }
+  .ledger tr.champ td { background: rgb(255 91 20 / 0.28); font-weight: 700; }
+  .circle { position: absolute; pointer-events: none; overflow: visible; }
+
+  /* what-if */
+  .whatif { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: center; margin-top: 2.5rem; }
+  .index-card { padding: 2.6rem 2rem 2rem; background-color: var(--paper); background-image: linear-gradient(transparent 2.3rem, rgb(255 91 20 / 0.7) 2.3rem calc(2.3rem + 2px), transparent calc(2.3rem + 2px)), repeating-linear-gradient(transparent 0 1.85rem, rgb(20 18 16 / 0.16) 1.85rem calc(1.85rem + 1px)); background-position: 0 0, 0 2.6rem; }
+  .index-card h3 { font: 700 1rem/1.4 var(--f-type); letter-spacing: 0.1em; text-transform: uppercase; margin-top: -0.4rem; }
+  .moves { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; margin-top: 1.8rem; }
+  .moves .team { font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.85rem; }
+  .moves .chg { display: block; font: 400 clamp(3rem, 6vw, 4.8rem)/1 var(--f-cut1); font-variant-numeric: tabular-nums; }
+  .moves .chg.up { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 6px; text-underline-offset: 6px; }
+  .moves small { display: block; font-size: 0.84rem; line-height: 1.45; }
+  .piece > .stamp { position: absolute; right: 1.2rem; top: -1.1rem; font-size: 1rem; background: var(--paper); z-index: 4; }
+  .back-note { position: relative; padding-left: 0.4rem; }
+  .back-note p.hand { margin-bottom: 0.8rem; font-size: 2.1rem; transform: rotate(-2deg); }
+  .back-note p { font-size: 0.92rem; max-width: 40ch; }
+  .hand-note { display: block; margin-top: 0.6rem; font: 400 1.7rem/1 var(--f-hand); transform: rotate(-1.5deg); }
+
+  /* close */
+  .closer { text-align: left; }
+  .closer .h2 { font-size: clamp(2.6rem, 8vw, 7rem); }
+  .closer .cta-row { margin-top: 2rem; }
+  footer { padding: 2.5rem 0 4rem; font-size: 0.84rem; color: var(--toner-soft); }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
+
+  /* reveal: scraps settle onto the page */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity: 0; transform: translateY(26px) rotate(calc(var(--r, 0deg) + 2.5deg)); transition: opacity 0.6s ease-out, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal.in { opacity: 1; transform: rotate(var(--r, 0deg)); }
+    .pen path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 0.9s ease-out 0.25s; }
+    .in .pen path, .pen.in path { stroke-dashoffset: 0; }
+  }
+
+  .btn { white-space: nowrap; }
+  @media (max-width: 900px) {
+    .nav-links a:not(.keep) { display: none; }
+    .btn-sm { font-size: 0.72rem; padding: 0.5rem 0.75rem; letter-spacing: 0.05em; }
+    .brand { font-size: 0.9rem; letter-spacing: 0.1em; }
+    .hero { grid-template-columns: minmax(0, 1fr); min-height: auto; }
+    .collage { padding: 1rem 0.5rem 3.6rem 1rem; }
+    .predict, .receipts, .odds-board, .whatif { grid-template-columns: minmax(0, 1fr); }
+    /* tall panels swing sideways when tilted, so they sit straight on phones */
+    .predict .piece, .receipts .piece, .odds-board .piece, .whatif .piece { --r: 0deg !important; }
+    .predict .piece.reveal:not(.in), .receipts .piece.reveal:not(.in), .odds-board .piece.reveal:not(.in), .whatif .piece.reveal:not(.in) { transform: translateY(26px); }
+    .callouts { min-height: 460px; }
+    .callouts .photo-slot { display: none; }
+    .why li { grid-template-columns: 1fr; gap: 0.15rem; }
+    .whatif .stamp { top: -1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Backboard home">
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <rect x="4" y="3" width="40" height="26" fill="none" stroke="#141210" stroke-width="3"/>
+        <rect x="16" y="12" width="16" height="11" fill="none" stroke="#141210" stroke-width="3"/>
+        <ellipse cx="24" cy="33.2" rx="10.2" ry="2.9" fill="none" stroke="#ff5b14" stroke-width="3.4"/>
+        <path d="M15 34 18.5 46M33 34 29.5 46M24 36v10M20 35 21.8 46M28 35 26.2 46" fill="none" stroke="#141210" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      Backboard
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#predict"><span class="dymo">Predictor</span></a>
+      <a href="#receipts"><span class="dymo">Receipts</span></a>
+      <a href="#odds"><span class="dymo">Title odds</span></a>
+      <a href="#whatif"><span class="dymo">What if</span></a>
+      <a class="btn btn-sm keep" href="#predict">Predict a matchup</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <h1 id="hero-title" aria-label="Know who wins.">
+          <span class="ransom l1" data-ransom="KNOW WHO" data-seed="3" aria-hidden="true"></span>
+          <span class="ransom l2" data-ransom="WINS." data-seed="11" data-bold aria-hidden="true"></span>
+        </h1>
+        <p class="hero-sub">Win probabilities for any NBA matchup, from a model that shows its work.</p>
+        <div class="cta-row">
+          <a class="btn" href="#predict">Predict a matchup</a>
+          <a class="link-typed" href="#receipts">See the receipts</a>
+        </div>
+      </div>
+
+      <div class="collage">
+        <div class="piece reveal" style="--r: 2.2deg">
+          <div class="scrap photo">
+            <i class="tape" style="left: 18%; top: -14px; --tr: -6deg"></i>
+            <i class="tape" style="right: 14%; top: -12px; --tr: 5deg"></i>
+            <div class="frame" data-hf="Black and white photocopied halftone photo, high contrast toner grain, low angle of a basketball going through a chain net under a glass backboard in an arena, harsh flash, no players' faces, no logos, no text" data-hf-size="1200x1500">
+              <div class="halftone"></div><div class="halftone b"></div>
+              <svg class="mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                <rect x="4" y="3" width="40" height="26" fill="none" stroke="#f3f2ec" stroke-width="2.4"/>
+                <rect x="16" y="12" width="16" height="11" fill="none" stroke="#ff5b14" stroke-width="2.4"/>
+                <ellipse cx="24" cy="33.2" rx="10.2" ry="2.9" fill="none" stroke="#ff5b14" stroke-width="3"/>
+              </svg>
+            </div>
+            <figcaption>the hoop, photocopied twice</figcaption>
+          </div>
+        </div>
+        <div class="piece chit reveal" style="--r: -3deg" id="chit" aria-live="polite">
+          <div class="scrap" data-tear="1" style="padding: 0.9rem 1rem 1rem"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="block" id="predict" aria-labelledby="predict-h">
+    <div class="wrap">
+      <h2 class="h2" id="predict-h">Pick a game. <mark>Get the odds.</mark></h2>
+      <p class="lede">Choose a home team and a visitor. Every matchup here is scored by the production model, not made up for this page.</p>
+      <div class="predict">
+        <form class="piece reveal" style="--r: -1deg" onsubmit="return false" aria-label="Choose a matchup">
+          <div class="scrap sheet" data-tear="2">
+            <i class="tape" style="left: 38%; top: -12px; --tr: 3deg"></i>
+            <label class="field"><span>Home team</span><select id="home"></select></label>
+            <label class="field"><span>Away team</span><select id="away"></select></label>
+            <button class="swap" id="swap" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg>
+              Swap sides
+            </button>
+            <span class="picks-label">Quick picks</span>
+            <div class="picks" id="picks"></div>
+          </div>
+        </form>
+        <div class="piece reveal" style="--r: 0.6deg">
+          <div class="scrap out" id="out" data-tear="3" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="receipts" aria-labelledby="rec-h">
+    <div class="wrap">
+      <h2 class="h2" id="rec-h">Here is the <mark>paperwork.</mark></h2>
+      <p class="lede">How the model did on games it never saw while learning.</p>
+      <div class="receipts">
+        <div class="piece reveal" style="--r: -1.6deg">
+          <div class="scrap receipt" id="receipt" data-tear="4"></div>
+        </div>
+        <div class="piece reveal" style="--r: 0.8deg">
+          <div class="scrap graph" id="graph" data-tear="5" style="position: relative"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="odds" aria-labelledby="odds-h">
+    <div class="wrap">
+      <h2 class="h2" id="odds-h">Odds are <mark>not promises.</mark></h2>
+      <p class="lede">Title odds from the end of the 2025-26 regular season, next to what actually happened.</p>
+      <div class="odds-board">
+        <div class="callouts" id="callouts"></div>
+        <div class="piece reveal" style="--r: 1.1deg">
+          <div class="scrap ledger" id="ledger" data-tear="6" style="position: relative"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="whatif" aria-labelledby="wi-h">
+    <div class="wrap">
+      <h2 class="h2" id="wi-h">What if <mark>Curry</mark> played for the Spurs?</h2>
+      <p class="lede">The what-if tool re-runs the season with one player moved. It also grades its own confidence.</p>
+      <div class="whatif">
+        <div class="piece reveal" style="--r: -1.2deg; position: relative">
+          <span class="stamp" id="wi-stamp"></span>
+          <div class="scrap index-card" id="index-card" data-tear="7"></div>
+        </div>
+        <div class="back-note reveal" id="back-note"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block closer" aria-labelledby="close-h">
+    <div class="wrap">
+      <h2 class="h2" id="close-h">Pick a game. <span class="strip">Then argue with it.</span></h2>
+      <div class="cta-row">
+        <a class="btn" href="#predict">Predict a matchup</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p id="fine"></p>
+    <p>Probabilities are not guarantees. Made with a photocopier and a model.</p>
+  </div>
+</footer>
+
+<script src="../shared/demo-data.js"></script>
+<script src="../shared/bb.js"></script>
+<script src="../shared/slots.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { fmt } = BB;
+  const $ = (s, r = document) => r.querySelector(s);
+  const rng = BB.rng;
+
+  /* ---- cut-and-paste headline: every letter from a different magazine ---- */
+  function ransom(el) {
+    const rand = rng(Number(el.dataset.seed) || 1);
+    const text = el.dataset.ransom;
+    const bold = "bold" in el.dataset;
+    let html = "";
+    [...text].forEach((ch, i) => {
+      if (ch === " ") { html += '<span class="sp"></span>'; return; }
+      const font = ["f1", "f2", "f3", "f1"][Math.floor(rand() * 4)];
+      let bg = ["b0", "b1", "b3", "b0", "b2"][Math.floor(rand() * 5)];
+      if (bold) bg = ["b1", "b1", "b1", "b1", "b2"][i % 5];
+      const rot = (rand() - 0.5) * 9;
+      const y = (rand() - 0.5) * 0.14;
+      const scale = 0.92 + rand() * 0.2;
+      html += `<span class="r ${font} ${bg}" style="--rot:${rot.toFixed(1)}deg;--y:${y.toFixed(2)}em;font-size:${scale.toFixed(2)}em">${ch}</span>`;
+    });
+    el.innerHTML = html;
+  }
+
+  /* ---- torn edges: a jagged clip-path per scrap, seeded so it never jitters ---- */
+  function tear(el, seed) {
+    const r = rng(seed * 977);
+    const pts = [];
+    const jag = (a, b, fixed, axis, amp) => {
+      for (let t = a; t < b; t += 3 + r() * 5) pts.push(axis === "x" ? [t, fixed + r() * amp] : [fixed - r() * amp, t]);
+    };
+    jag(0, 100, 0, "x", 1.4);
+    jag(0, 100, 100, "y", 1.1);
+    for (let t = 100; t > 0; t -= 3 + r() * 5) pts.push([t, 100 - r() * 1.4]);
+    for (let t = 100; t > 0; t -= 3 + r() * 5) pts.push([r() * 1.1, t]);
+    el.style.clipPath = "polygon(" + pts.map(([x, y]) => `${x.toFixed(2)}% ${y.toFixed(2)}%`).join(",") + ")";
+  }
+
+  /* ---- hero chit ---- */
+  function paintChit(p) {
+    $("#chit .scrap").innerHTML =
+      `<div class="row"><span>${p.home.abbr}</span><b>${fmt.pct0(p.pHome)}%</b></div>` +
+      `<div class="row"><span>${p.away.abbr}</span><b>${fmt.pct0(p.pAway)}%</b></div>` +
+      `<small>One game, model view. ${p.home.abbr} at home.</small>`;
+  }
+
+  /* ---- predictor ---- */
+  const why = (p) => {
+    const max = 0.12;
+    const rows = p.sorted.map((g) => {
+      const w = Math.min(Math.abs(g.value) / max, 1) * 50;
+      const side = g.value >= 0 ? "home" : "away";
+      const style = side === "home" ? `left:50%;width:${w}%` : `right:50%;width:${w}%`;
+      const lab = `<em style="${side === "home" ? "left:calc(50% + " + (w + 1) + "%)" : "right:calc(50% + " + (w + 1) + "%)"}">${fmt.signed(Math.abs(g.value) * 100)}</em>`;
+      return `<li><span>${g.label}</span><span class="bar" aria-hidden="true"><i class="${side}" style="${style}"></i>${lab}</span></li>`;
+    }).join("");
+    return rows;
+  };
+
+  function paintOut(p) {
+    const out = $("#out");
+    const lead = p.favTeam, dog = p.dogTeam;
+    const m = p.margin;
+    const homeMargin = Math.round(m.mid);
+    const stampCls = p.verdict.key === "strong" ? "stamp strong" : "stamp";
+    const tale = (t) => `<td>${fmt.wins10(t)}</td><td>${Math.round(t.elo)}</td><td>${fmt.signed(t.form.pm10)}</td>`;
+    out.innerHTML = `
+      <div class="out-head">
+        <h3>${fmt.fullName(lead)} over ${dog.nick}</h3>
+        <span class="${stampCls}">${p.verdict.label}</span>
+      </div>
+      <div class="odds">
+        <div class="${p.fav === "home" ? "" : "lose"}"><span class="who">${p.home.abbr} home</span><span class="num">${fmt.pct(p.pHome)}%</span></div>
+        <div class="${p.fav === "away" ? "" : "lose"}"><span class="who">${p.away.abbr} away</span><span class="num">${fmt.pct(p.pAway)}%</span></div>
+      </div>
+      <div class="penline" aria-hidden="true">
+        <svg viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M1 12 C 20 9, 40 15, 60 11 S 92 12, 99 11" fill="none" stroke="#141210" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linecap="round"/>
+        <path d="M${(p.pHome * 98 + 1).toFixed(1)} 2 V 21" stroke="#ff5b14" stroke-width="6" vector-effect="non-scaling-stroke" stroke-linecap="butt"/></svg>
+      </div>
+      <span class="hand-note">even teams? home court alone starts ${p.home.abbr} at ${fmt.pct0(p.homeCourtOnly)}%.</span>
+      <div class="proj">
+        <b>${p.home.abbr} ${Math.round(p.pts.home)}, ${p.away.abbr} ${Math.round(p.pts.away)}</b>
+        <small>Projected score. The 80% range for the home margin runs from ${Math.round(m.lo)} to ${fmt.signed(m.hi, 0)}, so treat it as a lean, not a call. Typical miss on the margin: ${BB.meta.marginMae} points.</small>
+      </div>
+      <div class="why">
+        <h4>Why it leans this way</h4>
+        <div class="why-axis" aria-hidden="true"><span>favors ${p.away.abbr}</span><span>favors ${p.home.abbr}</span></div>
+        <ul>${why(p)}</ul>
+        <p class="note">Each bar is the change in ${p.home.abbr}'s win chance, in percentage points, if the two teams were even on that input. It shows what the model responds to, not what causes wins.</p>
+      </div>
+      <table class="tape-t">
+        <thead><tr><th>Tale of the tape</th><th>Last 10</th><th>Elo</th><th>Margin</th></tr></thead>
+        <tbody><tr><td>${p.home.abbr}</td>${tale(p.home)}</tr><tr><td>${p.away.abbr}</td>${tale(p.away)}</tr></tbody>
+      </table>`;
+    if (!BB.reduced.matches) {
+      out.classList.remove("flash");
+      void out.offsetWidth;
+      out.classList.add("flash");
+    }
+  }
+
+  function paintPicks() {
+    const box = $("#picks");
+    const label = (pair) => `${BB.teams[pair[0]].abbr} v ${BB.teams[pair[1]].abbr}`;
+    box.innerHTML = BB.featured.map((pair, i) =>
+      `<button type="button" data-i="${i}" style="--r:${(i % 2 ? 1 : -1) * (0.6 + i * 0.35)}deg" aria-pressed="false">${i === 0 ? "The Finals" : label(pair)}</button>`).join("");
+    box.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      const pair = BB.featured[Number(b.dataset.i)];
+      BB.state.set(pair[0], pair[1]);
+      repaintSelects();
+    });
+  }
+  function syncPicks() {
+    document.querySelectorAll("#picks button").forEach((b) => {
+      const pair = BB.featured[Number(b.dataset.i)];
+      b.setAttribute("aria-pressed", String(pair[0] === BB.state.hi && pair[1] === BB.state.ai));
+    });
+  }
+
+  let repaintSelects = () => {};
+
+  /* ---- receipts ---- */
+  function paintReceipt() {
+    const h = BB.meta.holdout;
+    $("#receipt").innerHTML = `<pre>BACKBOARD
+${BB.meta.model.toUpperCase()}
+------------------------
+GAMES IT NEVER SAW   ${h.games.toLocaleString("en-US")}
+PICKED THE WINNER
+<span class="big">${(h.accuracy * 100).toFixed(1)}%</span>LOG LOSS            ${h.logLoss.toFixed(4)}
+CALIBRATION ERROR   ${h.ece.toFixed(3)}
+HOLDOUT STARTS      ${h.start}
+------------------------
+THANK YOU. COME AGAIN.
+PROBABILITIES ARE NOT
+GUARANTEES.</pre>`;
+  }
+
+  function paintGraph() {
+    const bins = BB.calibration;
+    const W = 560, H = 440, m = { l: 62, r: 20, t: 20, b: 60 };
+    const x = (v) => m.l + v * (W - m.l - m.r);
+    const y = (v) => H - m.b - v * (H - m.t - m.b);
+    const ticks = [0, 0.25, 0.5, 0.75, 1];
+    const pts = bins.map((b) => [x(b.pred), y(b.obs)]);
+    const hi = bins[6];
+    const ci = bins.map((b) => `<path d="M${x(b.pred)} ${y(b.ciLo)} V ${y(b.ciHi)}" stroke="#141210" stroke-width="2"/>`).join("");
+    const dots = bins.map((b) => `<circle cx="${x(b.pred)}" cy="${y(b.obs)}" r="7" fill="#ff5b14" stroke="#141210" stroke-width="2.5"/>`).join("");
+    const table = bins.map((b) => `<tr><td>${fmt.pct0(b.lo)} to ${fmt.pct0(b.hi)}%</td><td>${b.games}</td><td>${fmt.pct(b.pred)}%</td><td>${fmt.pct(b.obs)}%</td></tr>`).join("");
+    $("#graph").innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="gt gd">
+        <title id="gt">Calibration chart</title>
+        <desc id="gd">Home win probability the model gave, against how often the home team actually won, in nine groups. Points sit just under the diagonal at the high end: the model runs a little confident.</desc>
+        ${ticks.map((t) => `<text x="${x(t)}" y="${H - m.b + 24}" text-anchor="middle" font-size="13">${t * 100}%</text><text x="${m.l - 12}" y="${y(t) + 5}" text-anchor="end" font-size="13">${t * 100}%</text>`).join("")}
+        <path d="M${x(0)} ${y(0)} L ${x(1)} ${y(1)}" stroke="#141210" stroke-width="2" stroke-dasharray="7 7" fill="none"/>
+        <path d="M${pts.map((p) => p.join(" ")).join(" L")}" fill="none" stroke="#141210" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        ${ci}${dots}
+        <text x="${(m.l + W - m.r) / 2}" y="${H - 10}" text-anchor="middle" font-size="14" font-weight="700">what the model said (home team wins)</text>
+        <text transform="translate(16 ${(m.t + H - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="14" font-weight="700">how often it happened</text>
+        <g class="pen"><path pathLength="1" d="M${x(hi.pred) - 20} ${y(hi.obs) - 4} C ${x(hi.pred) - 22} ${y(hi.obs) - 26}, ${x(hi.pred) + 24} ${y(hi.obs) - 26}, ${x(hi.pred) + 22} ${y(hi.obs) + 6} C ${x(hi.pred) + 20} ${y(hi.obs) + 26}, ${x(hi.pred) - 24} ${y(hi.obs) + 24}, ${x(hi.pred) - 20} ${y(hi.obs) - 4}" fill="none" stroke="#141210" stroke-width="3" stroke-linecap="round"/></g>
+      </svg>
+      <p class="hand graph-note">said ${fmt.pct0(hi.pred)}%, got ${fmt.pct0(hi.obs)}%. a little cocky.</p>
+      <table class="sr-only"><caption>Calibration bins</caption><thead><tr><th>Bin</th><th>Games</th><th>Model said</th><th>Home won</th></tr></thead><tbody>${table}</tbody></table>`;
+  }
+
+  /* ---- title odds ---- */
+  function paintOdds() {
+    const board = BB.titleBoard();
+    const champ = board.find((t) => t.po.actual === "won the title");
+    const top = board[0];
+    let rows = board.slice(0, 6);
+    if (!rows.includes(champ)) rows = rows.slice(0, 5).concat(champ);
+    $("#callouts").innerHTML = `
+      <div class="piece call-a reveal"><div class="scrap" data-tear="8" style="padding:1.4rem 1.4rem 1.6rem"><b class="n">${fmt.pct0(top.po.title)}%</b><p>${fmt.fullName(top)} were the favorites. Result: ${BB.RESULT_LABEL[top.po.actual].toLowerCase()}.</p></div></div>
+      <div class="piece call-b reveal"><div class="scrap black" data-tear="9" style="padding:1.2rem 1.3rem 1.4rem"><b class="n">${fmt.pct0(champ.po.title)}%</b><p>${fmt.fullName(champ)}. ${BB.RESULT_LABEL[champ.po.actual]}.</p></div></div>
+      <div class="piece photo-slot reveal" style="--r:3deg"><div class="scrap" data-tear="10" style="padding:0.5rem 0.5rem 1.4rem;height:100%"><div class="frame" data-hf="Black and white photocopied halftone photo, confetti falling in an arena at night, crowd hands up, heavy toner grain, high contrast, no readable text or logos" data-hf-size="900x1200"><div class="halftone"></div></div></div></div>`;
+    $("#ledger").innerHTML = `
+      <table><thead><tr><th>Team</th><th style="text-align:right">Title odds</th><th>What happened</th></tr></thead>
+      <tbody>${rows.map((t) => `<tr class="${t === champ ? "champ" : ""}"><td>${t.abbr}</td><td class="n">${fmt.pct(t.po.title)}%</td><td>${BB.RESULT_LABEL[t.po.actual]}</td></tr>`).join("")}</tbody></table>
+      <p class="note" style="margin-top:0.9rem">Odds use the real seeded bracket with team strength frozen at the end of the regular season. Result comes from the games database.</p>`;
+  }
+
+  /* ---- what-if ---- */
+  function paintWhatIf() {
+    const w = BB.whatIf();
+    const [a, b] = [w.effects.find((e) => e.id === w.fromId), w.effects.find((e) => e.id === w.toId)];
+    const bt = w.backtest;
+    $("#wi-stamp").textContent = `Confidence: ${w.confidence}`;
+    $("#index-card").innerHTML = `
+      <h3>${w.player} to ${w.to.city}, before opening night</h3>
+      <div class="moves">
+        <div><span class="team">${a.team.city} ${a.team.nick}</span><span class="chg">${fmt.signed(a.change)}</span><small>wins, ${a.winsBefore} to ${a.winsAfter}. Direct playoff odds ${fmt.pct0(a.playoffBefore)}% to ${fmt.pct0(a.playoffAfter)}%.</small></div>
+        <div><span class="team">${b.team.city} ${b.team.nick}</span><span class="chg up">${fmt.signed(b.change)}</span><small>wins, ${b.winsBefore} to ${b.winsAfter}. Direct playoff odds ${fmt.pct0(b.playoffBefore)}% to ${fmt.pct0(b.playoffAfter)}%.</small></div>
+      </div>
+      <p class="note" style="margin-top:1.2rem">${w.sims.toLocaleString("en-US")} simulated seasons, same seed with and without the move.</p>`;
+    $("#back-note").innerHTML = `
+      <p class="hand">so, is it right? honestly, low confidence.</p>
+      <p>Tested on real offseason moves from ${bt.seasons}, ${Math.round(bt.largeEffectsRight * bt.largeEffectsCount)} of ${bt.largeEffectsCount} big effects pointed the right way. But it did not cut overall win error (${bt.maeWithout} to ${bt.maeWith}). Fit, injuries and the salary cap are not modeled.</p>`;
+  }
+
+  /* ---- boot ---- */
+  document.querySelectorAll("[data-ransom]").forEach(ransom);
+  document.querySelectorAll("[data-tear]").forEach((el) => tear(el, Number(el.dataset.tear)));
+  paintPicks();
+  repaintSelects = BB.bindPicker({ homeEl: $("#home"), awayEl: $("#away"), swapEl: $("#swap") });
+  BB.state.subscribe((p) => { paintChit(p); paintOut(p); syncPicks(); });
+  paintReceipt(); paintGraph(); paintOdds(); paintWhatIf();
+  document.querySelectorAll("#callouts [data-tear]").forEach((el) => tear(el, Number(el.dataset.tear)));
+  $("#fine").textContent = `Historical NBA data through ${BB.meta.latestGame}. Team strength frozen ${BB.meta.strengthFrozen}. No live feed.`;
+
+  /* scraps settle onto the page as they scroll into view */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  document.querySelectorAll(".reveal, .pen").forEach((el) => io.observe(el));
+})();
+</script>
+</body>
+</html>
