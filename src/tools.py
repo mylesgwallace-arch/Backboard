@@ -695,21 +695,26 @@ def _execute_team_season_roster(parameters):
     """Who played for a team in a regular season, with games, minutes and points (factual)."""
     team_id = _team_id_or_name(parameters, "team_id", "team")
     season = parameters["season"]
+    # Rows without a playerteamId (most of 2021-22) take the team from the game;
+    # the IN list keeps the scan to this team's games.
     with sqlite3.connect(TEAM_DB_PATH) as connection:
         rows = connection.execute(
-            """
+            f"""
             SELECT ps.personId, MAX(ps.firstName), MAX(ps.lastName), COUNT(*),
                    SUM(CAST(ps.numMinutes AS REAL)), SUM(COALESCE(ps.points, 0))
             FROM player_statistics ps
             LEFT JOIN games g ON g.gameId = ps.gameId
-            WHERE ps.playerteamId = ?
+            WHERE ps.gameId IN (SELECT gameId FROM player_statistics WHERE playerteamId = ?
+                                UNION SELECT gameId FROM games
+                                      WHERE hometeamId = ? OR awayteamId = ?)
+              AND ({era_swap.PLAYER_TEAM_SQL}) = ?
               AND COALESCE(ps.gameType, g.gameType) = 'Regular Season'
               AND ps.gameDateTimeEst >= ? AND ps.gameDateTimeEst < ?
               AND CAST(ps.numMinutes AS REAL) > 0
             GROUP BY ps.personId
-            ORDER BY SUM(CAST(ps.numMinutes AS REAL)) DESC
+            ORDER BY SUM(CAST(ps.numMinutes AS REAL)) DESC, ps.personId
             """,
-            (team_id, f"{season}-09-01", f"{season + 1}-07-01"),
+            (team_id, team_id, team_id, team_id, f"{season}-09-01", f"{season + 1}-07-01"),
         ).fetchall()
     if not rows:
         raise ToolUnavailable(f"No regular-season box scores for teamId {team_id} in {season}.")
@@ -1490,7 +1495,7 @@ TOOLS = {
             "produces their translated per-100 line; everyone else is unchanged.",
             "Era translation keeps each rate the same number of league standard "
             "deviations from the league mean (players with 500+ minutes).",
-            "Only about a fifth of a box-score-valued change is assumed to show up "
+            "Less than a fifth of a box-score-valued change is assumed to show up "
             "in real net rating (realization factor fit on real roster changes, "
             "1986-2009); the unscaled 'full transfer' figure is reported as an "
             "unvalidated upper scenario.",
@@ -1498,7 +1503,7 @@ TOOLS = {
         "limitations": [
             "Confidence is Low: cross-era translation has no ground truth; within "
             "adjacent seasons box-score-valued roster changes cut the error in "
-            "predicting a team's rating change only from 3.10 to 2.87 points "
+            "predicting a team's rating change only from 3.07 to 2.85 points "
             "(2010-2025 held out).",
             "Both seasons must be 1985-86 or later (complete team box scores).",
             "Box scores capture offense far better than defense; no fit, usage or "

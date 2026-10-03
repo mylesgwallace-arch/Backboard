@@ -7,7 +7,8 @@ measured wherever the data allows it.
 Pipeline
 --------
 1. **Player-season rates** (``build_player_seasons``). Regular-season box
-   scores are summed per player, team and season, and turned into per-100-
+   scores are summed per player, team and season (rows missing a team id
+   take it from the game), and turned into per-100-
    possession rates using that team's pace. Pace is estimated from team box
    scores as ``FGA - OREB + TOV + 0.44 FTA``, averaged over the team and its
    opponents. Team box scores are complete only from 1985-86, so both the
@@ -85,6 +86,20 @@ SEASON_SQL = (
     "(CAST(substr({col},1,4) AS INTEGER) - (CAST(substr({col},6,2) AS INTEGER) < 9))"
 )
 
+# A box-score row's team, for ``player_statistics ps`` joined to ``games g``.
+# About 38,000 regular-season rows with minutes have no playerteamId (almost
+# all of 2021-22, about half of 2000-01, a few dozen elsewhere); their team
+# comes from the game: the player's team name matched against the home and
+# away teams, then the row's home flag. On every row that does carry an id,
+# each rule alone gives that id.
+PLAYER_TEAM_SQL = """
+    CASE WHEN ps.playerteamId IS NOT NULL THEN ps.playerteamId
+         WHEN ps.playerteamName = g.hometeamName THEN g.hometeamId
+         WHEN ps.playerteamName = g.awayteamName THEN g.awayteamId
+         WHEN ps.home = 1 THEN g.hometeamId
+         WHEN ps.home = 0 THEN g.awayteamId END
+"""
+
 
 def build_team_seasons(db_path=TEAM_DB_PATH):
     """Team-season totals, pace (possessions per 48 min) and net rating per 100."""
@@ -123,12 +138,15 @@ def build_team_seasons(db_path=TEAM_DB_PATH):
 
 
 def build_player_seasons(db_path=TEAM_DB_PATH, team_seasons=None):
-    """Player-team-season box totals with per-100-possession rates."""
+    """Player-team-season box totals with per-100-possession rates.
+
+    Rows without a playerteamId get their team from the game (``PLAYER_TEAM_SQL``).
+    """
     season = SEASON_SQL.format(col="ps.gameDateTimeEst")
     with sqlite3.connect(db_path) as connection:
         frame = pd.read_sql_query(
             f"""
-            SELECT ps.personId AS personId, ps.playerteamId AS teamId, {season} AS season,
+            SELECT ps.personId AS personId, {PLAYER_TEAM_SQL} AS teamId, {season} AS season,
                    MAX(ps.firstName) AS firstName, MAX(ps.lastName) AS lastName,
                    COUNT(*) AS games, SUM(CAST(ps.numMinutes AS REAL)) AS minutes,
                    SUM(COALESCE(ps.points, 0)) AS pts,
@@ -149,9 +167,9 @@ def build_player_seasons(db_path=TEAM_DB_PATH, team_seasons=None):
             LEFT JOIN games g ON g.gameId = ps.gameId
             WHERE COALESCE(ps.gameType, g.gameType) = 'Regular Season'
               AND CAST(ps.numMinutes AS REAL) > 0
-              AND ps.playerteamId IS NOT NULL
+              AND ({PLAYER_TEAM_SQL}) IS NOT NULL
               AND ps.gameDateTimeEst >= '{FIRST_SEASON}-09-01'
-            GROUP BY ps.personId, ps.playerteamId, season
+            GROUP BY ps.personId, teamId, season
             """,
             connection,
         )
