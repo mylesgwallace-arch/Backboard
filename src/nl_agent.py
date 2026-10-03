@@ -945,13 +945,16 @@ Rules:
 
 def tool_schemas():
     """JSON-schema tool definitions generated from the registry."""
-    type_map = {"int": "integer", "str": "string", "bool": "boolean"}
+    type_map = {"int": "integer", "str": "string", "bool": "boolean", "list": "array"}
     schemas = []
     for spec in TOOLS.values():
         properties = {
             p["name"]: {"type": type_map.get(p["type"], "string"), "description": p["description"]}
             for p in spec["parameters"]
         }
+        for prop in properties.values():
+            if prop["type"] == "array":
+                prop["items"] = {"type": "object"}
         description = spec["description"]
         if spec["limitations"]:
             description += " Limitations: " + " ".join(spec["limitations"][:2])
