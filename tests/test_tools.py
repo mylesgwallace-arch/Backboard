@@ -765,6 +765,16 @@ def test_era_swap_tool_is_registered_as_a_what_if():
     assert required == {"season", "in_season"}
 
 
+def test_team_season_roster_includes_rows_without_a_team_id(tmp_path, monkeypatch):
+    from tests.test_era_swap import OTHER, TEAM, missing_team_id_db
+
+    monkeypatch.setattr("src.tools.TEAM_DB_PATH", missing_team_id_db(tmp_path / "nba.db"))
+    for team_id, person_id in ((TEAM, 1), (OTHER, 2)):
+        result = execute_tool("team_season_roster", {"team_id": team_id, "season": 2021})
+        assert result["status"] == "success"
+        assert [(p["person_id"], p["games"]) for p in result["data"]["players"]] == [(person_id, 2)]
+
+
 def test_era_swap_requires_both_players(monkeypatch):
     result = execute_tool("simulate_era_swap", {"team_id": 1610612741, "season": 1992,
                                                 "in_season": 2015, "in_person_id": 201939})

@@ -7,6 +7,8 @@ from src.player_impact import (
     _add_team_participation_controls,
     _select_external_roster_change_appearances,
     estimate_player_impact,
+    load_player_history,
+    load_validation_data,
     main,
     validate_player_impact,
 )
@@ -208,10 +210,10 @@ def test_main_person_id_mode_returns_descriptive_player_impact_summary(monkeypat
     connection = sqlite3.connect(db_path)
     try:
         connection.execute(
-            "CREATE TABLE games (gameId INTEGER PRIMARY KEY, gameDateTimeEst TEXT, gameType TEXT)"
+            "CREATE TABLE games (gameId INTEGER PRIMARY KEY, gameDateTimeEst TEXT, gameType TEXT, hometeamId INTEGER, hometeamName TEXT, awayteamId INTEGER, awayteamName TEXT)"
         )
         connection.execute(
-            "CREATE TABLE player_statistics_extended (personId INTEGER, gameId INTEGER, gameDateTimeEst TEXT, playerteamId INTEGER, numMinutes REAL, netRating REAL, gameType TEXT)"
+            "CREATE TABLE player_statistics_extended (personId INTEGER, gameId INTEGER, gameDateTimeEst TEXT, playerteamId INTEGER, playerteamName TEXT, home INTEGER, numMinutes REAL, netRating REAL, gameType TEXT)"
         )
         player_rows = [
             (1, 1, "2024-01-01 00:00:00", 7, 20.0, 10.0),
@@ -239,6 +241,109 @@ def test_main_person_id_mode_returns_descriptive_player_impact_summary(monkeypat
     assert '"person_id": 1' in captured.out
     assert '"prior_games": 3' in captured.out
     assert '"estimated_net_rating_change"' in captured.out
+
+
+def _team_gap_db(path):
+    """Three games of team 7 (home) vs 8; player 1 plays for 7, player 2 for 8."""
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "CREATE TABLE games (gameId INTEGER, gameDateTimeEst TEXT, gameType TEXT, "
+            "hometeamId INTEGER, hometeamName TEXT, awayteamId INTEGER, awayteamName TEXT)"
+        )
+        connection.execute(
+            "CREATE TABLE player_statistics_extended (personId INTEGER, gameId INTEGER, "
+            "gameDateTimeEst TEXT, playerteamId INTEGER, playerteamName TEXT, home INTEGER, "
+            "numMinutes REAL, netRating REAL, points REAL, possessions REAL, gameType TEXT)"
+        )
+        connection.execute(
+            "CREATE TABLE team_statistics_extended (teamId INTEGER, opponentTeamId INTEGER, "
+            "gameId INTEGER, gameDateTimeEst TEXT, home INTEGER, netRating REAL, "
+            "teamScore REAL, opponentScore REAL, possessions REAL, gameType TEXT)"
+        )
+        for game in (1, 2, 3):
+            date = f"2024-01-0{game} 19:00:00"
+            connection.execute(
+                "INSERT INTO games VALUES (?, ?, 'Regular Season', 7, 'Sevens', 8, 'Eights')",
+                (game, date),
+            )
+            for person, team, name, home in ((1, 7, "Sevens", 1), (2, 8, "Eights", 0)):
+                connection.execute(
+                    "INSERT INTO player_statistics_extended VALUES "
+                    "(?, ?, ?, ?, ?, ?, 30.0, 5.0, 12.0, 60.0, 'Regular Season')",
+                    (person, game, date, team, name, home),
+                )
+            for team, opponent, home in ((7, 8, 1), (8, 7, 0)):
+                connection.execute(
+                    "INSERT INTO team_statistics_extended VALUES "
+                    "(?, ?, ?, ?, ?, 2.0, 100.0, 98.0, 99.0, 'Regular Season')",
+                    (team, opponent, game, date, home),
+                )
+        connection.commit()
+
+
+def test_rows_without_a_team_id_take_the_team_from_the_game(tmp_path):
+    db_path = tmp_path / "gap.db"
+    _team_gap_db(db_path)
+    with sqlite3.connect(db_path) as connection:
+        expected_history = load_player_history(connection, 2)
+        expected_players, expected_teams = load_validation_data(connection)
+        # 2021-22 style gap: no playerteamId (team from the name, else the home
+        # flag) and no gameType on the team rows (taken from the game).
+        connection.execute(
+            "UPDATE player_statistics_extended SET playerteamId = NULL WHERE gameId >= 2"
+        )
+        connection.execute(
+            "UPDATE player_statistics_extended SET playerteamName = 'Old name' WHERE gameId = 3"
+        )
+        connection.execute("UPDATE team_statistics_extended SET gameType = NULL WHERE gameId >= 2")
+        history = load_player_history(connection, 2)
+        players, teams = load_validation_data(connection)
+
+    assert history["teamId"].tolist() == [8, 8, 8]
+    pd.testing.assert_frame_equal(history, expected_history)
+    for actual, expected, key in (
+        (players, expected_players, ["gameId", "personId"]),
+        (teams, expected_teams, ["gameId", "teamId"]),
+    ):
+        assert len(actual) == 6
+        pd.testing.assert_frame_equal(
+            actual.sort_values(key).reset_index(drop=True),
+            expected.sort_values(key).reset_index(drop=True),
+        )
+
+
+def test_player_rows_without_a_team_row_do_not_shift_other_rows_history():
+    player_games = pd.DataFrame(
+        [
+            {"personId": 2, "gameId": i, "teamId": 10,
+             "gameDateTimeEst": f"2020-01-{i:02d}", "minutes": 24,
+             "netRating": 8, "points": 10 + i, "player_possessions": 20}
+            for i in range(1, 16)
+        ]
+    )
+    team_games = pd.DataFrame(
+        [
+            {"gameId": i, "teamId": 10, "gameDateTimeEst": f"2020-01-{i:02d}",
+             "netRating": (i % 5) * 3, "team_points": 100 + i, "opponent_points": 100,
+             "team_possessions": 100}
+            for i in range(1, 16)
+        ]
+    )
+    expected = validate_player_impact(player_games, team_games)
+    # Sorts first and has no team row, so the inner join drops it.
+    orphan = pd.DataFrame(
+        [{"personId": 1, "gameId": 99, "teamId": 99, "gameDateTimeEst": "2019-12-01",
+          "minutes": 30, "netRating": 0, "points": 50, "player_possessions": 25}]
+    )
+    result = validate_player_impact(pd.concat([orphan, player_games]), team_games)
+
+    assert result["evaluated_player_games"] == expected["evaluated_player_games"] == 5
+    assert result["association_diagnostic_mae"] == pytest.approx(
+        expected["association_diagnostic_mae"]
+    )
+    assert result["prediction_target_correlation"] == pytest.approx(
+        expected["prediction_target_correlation"]
+    )
 
 
 def test_team_participation_controls_use_only_the_prior_team_game():

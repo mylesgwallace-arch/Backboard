@@ -5,6 +5,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+try:
+    from src.era_swap import PLAYER_TEAM_SQL
+except ImportError:  # pragma: no cover - direct-script support
+    from era_swap import PLAYER_TEAM_SQL
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "data" / "database" / "nba.db"
@@ -64,16 +69,17 @@ def load_team_games(connection):
 
 
 def load_player_activity(connection):
+    # Rows without a playerteamId (most of 2021-22, about half of 2000-01) take
+    # their team from the game; see PLAYER_TEAM_SQL.
     return pd.read_sql_query(
-        """
-        SELECT DISTINCT player_statistics.gameId,
-               player_statistics.playerteamId AS teamId,
-               player_statistics.personId
-        FROM player_statistics
-        JOIN games ON games.gameId = player_statistics.gameId
-        WHERE COALESCE(player_statistics.gameType, games.gameType) =
-              'Regular Season'
-          AND CAST(player_statistics.numMinutes AS REAL) > 0
+        f"""
+        SELECT DISTINCT ps.gameId,
+               {PLAYER_TEAM_SQL} AS teamId,
+               ps.personId
+        FROM player_statistics ps
+        JOIN games g ON g.gameId = ps.gameId
+        WHERE COALESCE(ps.gameType, g.gameType) = 'Regular Season'
+          AND CAST(ps.numMinutes AS REAL) > 0
         """,
         connection,
     )
@@ -81,27 +87,25 @@ def load_player_activity(connection):
 
 def load_player_history(connection):
     return pd.read_sql_query(
-        """
-        SELECT player_statistics.gameId,
-               player_statistics.playerteamId AS teamId,
-               player_statistics.personId,
-               SUM(COALESCE(CAST(player_statistics.numMinutes AS REAL), 0)) AS minutes,
-               SUM(COALESCE(player_statistics.points, 0)) AS points,
+        f"""
+        SELECT ps.gameId,
+               {PLAYER_TEAM_SQL} AS teamId,
+               ps.personId,
+               SUM(COALESCE(CAST(ps.numMinutes AS REAL), 0)) AS minutes,
+               SUM(COALESCE(ps.points, 0)) AS points,
                CASE
-                   WHEN SUM(COALESCE(CAST(player_statistics.numMinutes AS REAL), 0)) > 0
-                   THEN SUM(COALESCE(player_statistics.points, 0)) /
-                        SUM(COALESCE(CAST(player_statistics.numMinutes AS REAL), 0))
+                   WHEN SUM(COALESCE(CAST(ps.numMinutes AS REAL), 0)) > 0
+                   THEN SUM(COALESCE(ps.points, 0)) /
+                        SUM(COALESCE(CAST(ps.numMinutes AS REAL), 0))
                    ELSE NULL
                END AS points_per_minute,
-               SUM(COALESCE(player_statistics.assists, 0)) AS assists,
-               SUM(COALESCE(player_statistics.reboundsTotal, 0)) AS rebounds
-        FROM player_statistics
-        JOIN games ON games.gameId = player_statistics.gameId
-        WHERE COALESCE(player_statistics.gameType, games.gameType) =
-              'Regular Season'
-          AND player_statistics.playerteamId IS NOT NULL
-        GROUP BY player_statistics.gameId, player_statistics.playerteamId,
-                player_statistics.personId
+               SUM(COALESCE(ps.assists, 0)) AS assists,
+               SUM(COALESCE(ps.reboundsTotal, 0)) AS rebounds
+        FROM player_statistics ps
+        JOIN games g ON g.gameId = ps.gameId
+        WHERE COALESCE(ps.gameType, g.gameType) = 'Regular Season'
+          AND ({PLAYER_TEAM_SQL}) IS NOT NULL
+        GROUP BY ps.gameId, teamId, ps.personId
         """,
         connection,
     )

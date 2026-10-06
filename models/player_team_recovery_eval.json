@@ -1,0 +1,417 @@
+{
+  "question": "Effect of recovering NULL playerteamId rows (PLAYER_TEAM_SQL) in the loaders behind the frozen production model, measured without changing it.",
+  "method": [
+    "Old = main @ 23b20408; new = this branch. Both source trees were run against the same nba.db with all outputs written to a scratch directory.",
+    "Reproducibility controls: the old code rebuilt data/processed/game_features.csv identically; retraining on it reproduced models/baseline_metrics.json (0 of 638 values differ); the roster-adjustment backtest (0 of 143) and player-impact metrics with the movement-events file (0 of 580) reproduced exactly.",
+    "Scenarios: A = published; B = recovered features, frozen model; C = recovered features, retrained by src/train_baseline_model.py (same grid, same 80/20 chronological split).",
+    "Paired bootstrap: 2,000 resamples of per-game log-loss differences vs A on the 13,332 held-out games."
+  ],
+  "recovery_coverage": {
+    "player_statistics_regular_season_null_id_rows": 46083,
+    "player_statistics_extended_loader_null_id_rows": 37820,
+    "unrecoverable": 0,
+    "name_and_home_flag_rules_disagree": 0,
+    "recovered_rows_duplicating_an_existing_player_game": 0
+  },
+  "game_features": {
+    "rows": 133348,
+    "rows_with_changed_player_features": 4955,
+    "non_player_columns_changed": 0,
+    "changed_rows_by_season": {
+      "1962": 20,
+      "1973": 81,
+      "1974": 10,
+      "1988": 20,
+      "1992": 20,
+      "1994": 20,
+      "1997": 9,
+      "1999": 10,
+      "2000": 1446,
+      "2004": 23,
+      "2005": 28,
+      "2006": 12,
+      "2007": 18,
+      "2008": 12,
+      "2021": 2415,
+      "2022": 300,
+      "2024": 278,
+      "2025": 233
+    },
+    "share_of_team_games_with_no_player_history": {
+      "2000": {
+        "before": 0.39046,
+        "after": 0.0
+      },
+      "2021": {
+        "before": 0.86953,
+        "after": 0.0
+      },
+      "2022": {
+        "before": 0.0122,
+        "after": 0.0
+      }
+    },
+    "mean_active_players_rolling_10": {
+      "1999": {
+        "before": 13.14,
+        "after": 13.14
+      },
+      "2000": {
+        "before": 7.52,
+        "after": 13.26
+      },
+      "2001": {
+        "before": 13.21,
+        "after": 13.21
+      },
+      "2020": {
+        "before": 15.63,
+        "after": 15.63
+      },
+      "2021": {
+        "before": 1.75,
+        "after": 15.92
+      },
+      "2022": {
+        "before": 14.49,
+        "after": 15.36
+      }
+    },
+    "mean_active_players_last_game": {
+      "2000": {
+        "before": 4.95,
+        "after": 9.98
+      },
+      "2021": {
+        "before": 0.13,
+        "after": 10.5
+      }
+    }
+  },
+  "game_model_holdout": {
+    "A_published": {
+      "all_13332_games": {
+        "accuracy": 0.65077,
+        "log_loss": 0.62277,
+        "brier_score": 0.21656
+      },
+      "season_2021_22_1215_games": {
+        "accuracy": 0.64609,
+        "log_loss": 0.64642,
+        "brier_score": 0.22619
+      }
+    },
+    "B_rebuild_features_keep_frozen_model": {
+      "all_13332_games": {
+        "accuracy": 0.65069,
+        "log_loss": 0.62267,
+        "brier_score": 0.21653
+      },
+      "season_2021_22_1215_games": {
+        "accuracy": 0.64609,
+        "log_loss": 0.64581,
+        "brier_score": 0.22598
+      }
+    },
+    "C_rebuild_features_and_retrain": {
+      "all_13332_games": {
+        "accuracy": 0.65009,
+        "log_loss": 0.62271,
+        "brier_score": 0.21654
+      },
+      "season_2021_22_1215_games": {
+        "accuracy": 0.64444,
+        "log_loss": 0.64567,
+        "brier_score": 0.22604
+      }
+    }
+  },
+  "game_model_paired_log_loss_vs_published": {
+    "B_rebuild_features_keep_frozen_model": {
+      "all_test": {
+        "mean_log_loss_delta": -0.0001,
+        "ci95": [
+          -0.0003,
+          0.00011
+        ],
+        "games_changed": 1628
+      },
+      "season_2021": {
+        "mean_log_loss_delta": -0.00062,
+        "ci95": [
+          -0.00249,
+          0.00123
+        ],
+        "games_changed": 1197
+      },
+      "excluding_2021": {
+        "mean_log_loss_delta": -5e-05,
+        "ci95": [
+          -0.00016,
+          5e-05
+        ],
+        "games_changed": 431
+      }
+    },
+    "C_rebuild_features_and_retrain": {
+      "all_test": {
+        "mean_log_loss_delta": -6e-05,
+        "ci95": [
+          -0.00043,
+          0.00032
+        ],
+        "games_changed": 13332
+      },
+      "season_2021": {
+        "mean_log_loss_delta": -0.00075,
+        "ci95": [
+          -0.00262,
+          0.00124
+        ],
+        "games_changed": 1215
+      },
+      "excluding_2021": {
+        "mean_log_loss_delta": 1e-05,
+        "ci95": [
+          -0.00034,
+          0.0004
+        ],
+        "games_changed": 12117
+      }
+    }
+  },
+  "retrained_model": {
+    "selected_boosted_parameters_unchanged": true,
+    "recommended_model": "elo_boosted_ensemble",
+    "passes_candidate_beats_production_gate_vs_A": false,
+    "passes_candidate_beats_production_gate_vs_B": false,
+    "gate_note": "C has lower log loss than A by 0.00006 but lower accuracy (0.65009 vs 0.65077); against the frozen model on the same recovered features (B) its log loss is higher (0.62271 vs 0.62267)."
+  },
+  "live_prediction_shift_if_features_rebuilt_frozen_model": {
+    "latest": {
+      "as_of": "2026-04-13",
+      "teams": 30,
+      "teams_with_changed_player_features": 6,
+      "matchups": 870,
+      "mean_abs_prob_change": 0.0012772590087497878,
+      "max_abs_prob_change": 0.05224818110811791,
+      "matchups_changed_over_1pt": 28
+    },
+    "2022-02-15": {
+      "as_of": "2022-02-15",
+      "teams": 30,
+      "teams_with_changed_player_features": 30,
+      "matchups": 870,
+      "mean_abs_prob_change": 0.013277106038816024,
+      "max_abs_prob_change": 0.1070778395633406,
+      "matchups_changed_over_1pt": 391
+    },
+    "2001-02-15": {
+      "as_of": "2001-02-15",
+      "teams": 29,
+      "teams_with_changed_player_features": 23,
+      "matchups": 812,
+      "mean_abs_prob_change": 0.002623446033158533,
+      "max_abs_prob_change": 0.02357169825926478,
+      "matchups_changed_over_1pt": 38
+    }
+  },
+  "roster_adjustment_backtest": {
+    "A_published": {
+      "mean_2015_2025": {
+        "production": {
+          "mae_wins": 7.7673,
+          "mean_crps_wins": 5.63427,
+          "game_log_loss": 0.67339,
+          "game_accuracy": 0.61106
+        },
+        "roster_adjusted": {
+          "mae_wins": 7.79569,
+          "mean_crps_wins": 5.65458,
+          "game_log_loss": 0.67436,
+          "game_accuracy": 0.60975
+        }
+      },
+      "season_2022": {
+        "production": {
+          "mae_wins": 7.61887,
+          "game_log_loss": 0.68596
+        },
+        "roster_adjusted": {
+          "mae_wins": 7.61647,
+          "game_log_loss": 0.68598
+        }
+      },
+      "roster_adjustment_improves_preseason_projection": false
+    },
+    "B_rebuild_features_keep_frozen_model": {
+      "mean_2015_2025": {
+        "production": {
+          "mae_wins": 7.75785,
+          "mean_crps_wins": 5.6334,
+          "game_log_loss": 0.67341,
+          "game_accuracy": 0.61113
+        },
+        "roster_adjusted": {
+          "mae_wins": 7.80816,
+          "mean_crps_wins": 5.66075,
+          "game_log_loss": 0.67442,
+          "game_accuracy": 0.60894
+        }
+      },
+      "season_2022": {
+        "production": {
+          "mae_wins": 7.51307,
+          "game_log_loss": 0.68619
+        },
+        "roster_adjusted": {
+          "mae_wins": 7.69033,
+          "game_log_loss": 0.68601
+        }
+      },
+      "roster_adjustment_improves_preseason_projection": false
+    },
+    "C_rebuild_features_and_retrain": {
+      "mean_2015_2025": {
+        "production": {
+          "mae_wins": 7.75798,
+          "mean_crps_wins": 5.62836,
+          "game_log_loss": 0.67348,
+          "game_accuracy": 0.61196
+        },
+        "roster_adjusted": {
+          "mae_wins": 7.81058,
+          "mean_crps_wins": 5.65453,
+          "game_log_loss": 0.67403,
+          "game_accuracy": 0.6098
+        }
+      },
+      "season_2022": {
+        "production": {
+          "mae_wins": 7.47373,
+          "game_log_loss": 0.6865
+        },
+        "roster_adjusted": {
+          "mae_wins": 7.6772,
+          "game_log_loss": 0.68627
+        }
+      },
+      "roster_adjustment_improves_preseason_projection": false
+    }
+  },
+  "player_impact_validation": {
+    "note": "Requires the companion fixes on this branch: team rows take a NULL gameType from games, and prior production is computed before the player/team merge. Without them the recovered rows have no team row and the label-aligned assignment pairs 685,789 of 690,105 rows with another player-game's history.",
+    "before": {
+      "evaluated_player_games": 663251,
+      "prediction_target_correlation": 0.43903,
+      "holdout_start": "2019-12-01T15:30:00",
+      "holdout_calibrated_mae": 30.86037,
+      "holdout_zero_change_baseline_mae": 36.06197,
+      "improves_zero_change_baseline_all_seasons": true,
+      "holdout_by_season_calibrated_vs_baseline_mae": {
+        "2019": [
+          28.97861,
+          34.47463,
+          15710
+        ],
+        "2020": [
+          30.43695,
+          35.46835,
+          21878
+        ],
+        "2021": [
+          31.74095,
+          37.75145,
+          19
+        ],
+        "2022": [
+          30.95826,
+          37.61921,
+          24233
+        ],
+        "2023": [
+          32.08925,
+          38.27055,
+          23728
+        ],
+        "2024": [
+          31.24006,
+          36.32396,
+          25190
+        ],
+        "2025": [
+          30.77119,
+          33.76712,
+          25644
+        ]
+      },
+      "independent_pregame_control_vs_candidate_mae": [
+        11.79552,
+        11.79408
+      ],
+      "later_team_game_control_vs_candidate_mae": [
+        11.58057,
+        11.54684
+      ],
+      "roster_change_control_vs_candidate_mae": [
+        12.74176,
+        12.76038
+      ],
+      "roster_change_evaluated_events": 2625
+    },
+    "after": {
+      "evaluated_player_games": 700767,
+      "prediction_target_correlation": 0.43905,
+      "holdout_start": "2021-01-03T20:00:00",
+      "holdout_calibrated_mae": 30.97828,
+      "holdout_zero_change_baseline_mae": 36.25563,
+      "improves_zero_change_baseline_all_seasons": true,
+      "holdout_by_season_calibrated_vs_baseline_mae": {
+        "2020": [
+          30.18243,
+          35.66879,
+          20159
+        ],
+        "2021": [
+          31.26236,
+          36.5044,
+          24827
+        ],
+        "2022": [
+          30.51773,
+          37.13225,
+          24904
+        ],
+        "2023": [
+          31.96592,
+          38.19922,
+          23781
+        ],
+        "2024": [
+          31.15789,
+          36.32244,
+          25193
+        ],
+        "2025": [
+          30.68392,
+          33.75791,
+          25656
+        ]
+      },
+      "independent_pregame_control_vs_candidate_mae": [
+        11.90973,
+        11.90834
+      ],
+      "later_team_game_control_vs_candidate_mae": [
+        11.57856,
+        11.54422
+      ],
+      "roster_change_control_vs_candidate_mae": [
+        12.69827,
+        12.73346
+      ],
+      "roster_change_evaluated_events": 2918
+    }
+  },
+  "recommendation": "Do not retrain. Held-out changes are within noise and the retrained candidate fails the project's gate. Keep the frozen model, pickle and metrics."
+}
