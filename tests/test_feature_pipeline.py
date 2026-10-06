@@ -8,6 +8,8 @@ from src.build_features import (
     add_opponent_adjusted_margin,
     add_opponent_adjusted_win_rate,
     add_pregame_player_features,
+    load_player_activity,
+    load_player_history,
 )
 
 
@@ -137,6 +139,54 @@ def test_generated_features_match_source_and_rolling_history():
         rtol=1e-12,
         atol=1e-12,
     )
+
+
+def test_player_rows_without_a_team_id_take_the_team_from_the_game(tmp_path):
+    db_path = tmp_path / "gap.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "CREATE TABLE games (gameId INTEGER, gameType TEXT, hometeamId INTEGER, "
+            "hometeamName TEXT, awayteamId INTEGER, awayteamName TEXT)"
+        )
+        connection.execute(
+            "CREATE TABLE player_statistics (gameId INTEGER, personId INTEGER, "
+            "playerteamId INTEGER, playerteamName TEXT, home INTEGER, numMinutes TEXT, "
+            "points INTEGER, assists INTEGER, reboundsTotal INTEGER, gameType TEXT)"
+        )
+        for game in (1, 2, 3):
+            connection.execute(
+                "INSERT INTO games VALUES (?, 'Regular Season', 10, 'Tens', 20, 'Twenties')",
+                (game,),
+            )
+            for person, team, name, home, minutes in (
+                (100, 10, "Tens", 1, "30"),
+                (101, 10, "Tens", 1, "0"),
+                (200, 20, "Twenties", 0, "25"),
+            ):
+                connection.execute(
+                    "INSERT INTO player_statistics VALUES (?, ?, ?, ?, ?, ?, 10, 2, 5, NULL)",
+                    (game, person, team, name, home, minutes),
+                )
+        connection.commit()
+        expected_activity = load_player_activity(connection)
+        expected_history = load_player_history(connection)
+        # 2021-22 style gap: no playerteamId; team from the name, else the home flag.
+        connection.execute("UPDATE player_statistics SET playerteamId = NULL WHERE gameId >= 2")
+        connection.execute(
+            "UPDATE player_statistics SET playerteamName = 'Old name' WHERE gameId = 3"
+        )
+        activity = load_player_activity(connection)
+        history = load_player_history(connection)
+
+    for actual, expected in ((activity, expected_activity), (history, expected_history)):
+        key = ["gameId", "teamId", "personId"]
+        assert actual["teamId"].notna().all()
+        pd.testing.assert_frame_equal(
+            actual.sort_values(key).reset_index(drop=True),
+            expected.sort_values(key).reset_index(drop=True),
+        )
+    assert len(activity) == 6
+    assert len(history) == 9
 
 
 def test_pregame_player_feature_uses_only_previous_team_games():
