@@ -44,8 +44,8 @@
    scripted client but **never run live** (no `anthropic` package or key here).
 6. *Phase 5* -- cross-era what-if swaps (`simulate_era_swap`, What-if Lab page,
    natural-language support), e.g. 1992-93 Bulls + 2015-16 Curry for
-   B.J. Armstrong: +2.9 net rating, +5.1 wins, title 21% -> 48%, confidence
-   Low. Every step is tested or calibrated; the calibration shows only ~22% of a
+   B.J. Armstrong: +2.8 net rating, +5.0 wins, title 21% -> 47%, confidence
+   Low. Every step is tested or calibrated; the calibration shows only ~18% of a
    box-score-valued roster change materializes, and the output says so.
 
 **Guardrails kept:** the frozen `elo_boosted_ensemble`, its pickle and its
@@ -428,10 +428,19 @@ this autonomous session did not do without permission).
 Example (from `python src/era_swap.py --team-id 1610612741 --season 1992
 --out-person-id 769 --in-person-id 201939 --in-season 2015`, also via the
 tool, `/ask` and the What-if Lab page): **1992-93 Bulls with 2015-16 Stephen
-Curry in place of B.J. Armstrong -> net rating +2.94 per 100 (80% range +2.46
-to +3.45), +5.1 wins (80% range +4.3 to +6.0) vs the unchanged team's simulated
-59.5 (actual 57), title probability 21.4% -> 47.8%. Upper "full transfer"
-scenario (not validated): +13.55 net, +17.3 wins. Confidence: Low.**
+Curry in place of B.J. Armstrong -> net rating +2.84 per 100 (80% range +2.34
+to +3.35), +5.0 wins (80% range +4.1 to +5.8) vs the unchanged team's simulated
+59.5 (actual 57), title probability 21.4% -> 47.2%. Upper "full transfer"
+scenario (not validated): +15.72 net, +18.7 wins. Confidence: Low.**
+
+*Rebuilt 2026-10-02:* the player-season table used to drop box-score rows
+with no `playerteamId` (almost all of 2021-22, about half of 2000-01, a few
+dozen rows elsewhere), so 2021-22 had 470 player minutes in total. Those rows
+now take their team from the game (team name vs home/away, then the home
+flag; on rows that do carry an id this gives that id every time), and every
+number in this section is from the rebuilt tables. Before the fix: team-model
+R2 0.905 on 452 held-out team-seasons, realization factor 0.217 (80%
+0.18-0.25), example +2.94 net / +5.1 wins.
 
 * **`src/era_swap.py` -> tool `simulate_era_swap` + CLI.**
   1. *Per-100 rates.* Player-team-season box totals + team pace
@@ -450,21 +459,21 @@ scenario (not validated): +13.55 net, +17.3 wins. Confidence: Low.**
      points stay consistent with translated TS% x volume. Example: Curry's
      15.7 3PA/100 in 2015-16 (3.1 SD above the league) becomes 8.3 in 1992-93.
   3. *Box-score team model* (ridge on minutes-weighted league-relative
-     player features): held-out 2010-2025 R2 0.905, MAE 1.18 vs 3.92 for zero.
+     player features): held-out 2010-2025 R2 0.908, MAE 1.16 vs 3.93 for zero.
      Largely an accounting identity for offense; weak on defense.
   4. *Does player value transfer?* Predicting season-s team net rating from
      players' season s-1 values (translated, oracle season-s minutes):
-     alone it is **worse** than the team's own previous rating (MAE 4.50 vs
-     3.40, held-out 2010-2025); blended with persistence it helps (2.87 vs
-     3.08; high-turnover third 3.26 vs 3.56).
+     alone it is **worse** than the team's own previous rating (MAE 5.03 vs
+     3.39, held-out 2010-2025); blended with persistence it helps (2.85 vs
+     3.07; high-turnover third 3.38 vs 3.71).
   5. *Realization factor (the key calibration).* Regressing each team's actual
      season-to-season rating change on the box-score-valued change from its
-     roster moves (plus reversion to the mean): factor **0.217** (bootstrap 80%
-     0.18-0.25, fit 1986-2009); on held-out 2010-2025 it lowers the change
-     error from 3.10 to 2.87 points (corr 0.48, residual SD 3.6). The swap's
+     roster moves (plus reversion to the mean): factor **0.180** (bootstrap 80%
+     0.15-0.21, fit 1986-2009); on held-out 2010-2025 it lowers the change
+     error from 3.07 to 2.85 points (corr 0.47, residual SD 3.6). The swap's
      headline numbers are the box-score delta times this factor; the unscaled
      number is shown only as an unvalidated upper scenario. z-score and ratio
-     methods give the same factor (0.217 vs 0.218).
+     methods give the same factor (0.180 vs 0.181).
   6. *Wins and playoffs.* Delta net rating -> per-game margin at the host
      pace -> probit shift of every game's production-model probability, with
      sigma (12.6) set so an average team gains the empirically measured 2.52
