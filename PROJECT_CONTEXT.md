@@ -61,7 +61,9 @@ reported as such and not presented as improvements. Full suite: 294 tests.
   the Current Season page cannot yet show the real preseason projection.
 * Found, not fixed (touches the frozen model's training data):
   `player_points_per_minute_rolling_10` is 97.6% null due to NaN propagation
-  in `build_features.py`; player features missing for most of 2021-22.
+  in `build_features.py`. (Player features missing for most of 2021-22: the
+  loaders now recover the team; measured, frozen model not retrained -- see
+  "Findings recorded".)
 * Pull requests were not opened: the `gh` CLI is not installed. A force-push to
   tidy one branch was (correctly) blocked; see "Branches".
 
@@ -350,8 +352,35 @@ this autonomous session did not do without permission).
   so it is effectively a constant. Fixing it changes the training data and
   would require re-validating the production model under the
   candidate-beats-production gate.
-* Player-history features are missing for 87% of 2021-22 team-games (the
-  known null-gameType gap in that season's player box scores).
+* *Recovered 2026-10-05, model not retrained:* player features were empty for
+  87% of 2021-22 and 39% of 2000-01 team-games because those box-score rows
+  have no `playerteamId`. `build_features` (`load_player_activity`,
+  `load_player_history`), `roster_state._player_rows` (lockstep) and
+  `player_impact` now take the team from the game via `era_swap.PLAYER_TEAM_SQL`
+  (all 46,083 NULL rows recovered; name and home-flag rules never disagree).
+  Measured against the frozen model without changing it
+  (`models/player_team_recovery_eval.json`):
+
+  | Held-out 13,332 games | Accuracy | Log loss | Brier |
+  |---|---|---|---|
+  | Published (frozen model, old features) | 0.65077 | 0.62277 | 0.21656 |
+  | Frozen model, recovered features | 0.65069 | 0.62267 | 0.21653 |
+  | Retrained on recovered features | 0.65009 | 0.62271 | 0.21654 |
+
+  Paired log-loss deltas vs published have 95% intervals that include zero, and the
+  retrained candidate fails the candidate-beats-production gate (accuracy
+  down; log loss above the frozen model on the same features), so the frozen
+  model, pickle and metrics are kept. Roster-adjustment backtest conclusion
+  unchanged (still does not help). When this lands, rebuild
+  `game_features.csv` (`python src/build_features.py`) so the feature file,
+  `roster_state` and the frozen model's inputs agree; that moves current live
+  probabilities by 0.13 points on average (max 5.2, 28 of 870 matchups >1
+  point) because 130 zero-minute 2025-26 rows also lacked an id.
+  `player_impact` also needed two fixes to use the recovered rows: team rows
+  with a NULL `gameType` now take it from `games`, and prior production is
+  computed before the player/team merge (it was aligned by index label, which
+  scrambled every later row once a player row had no team row; no effect on
+  the previous data). Its conclusions are unchanged.
 
 ### To make the current season live (manual steps) -- see below
 

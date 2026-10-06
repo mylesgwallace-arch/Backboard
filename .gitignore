@@ -26,6 +26,7 @@ models/*
 !models/roster_adjustment_backtest.json
 !models/nl_eval_report.json
 !models/era_swap_model.json
+!models/player_team_recovery_eval.json
 
 # Environment variables
 .env
