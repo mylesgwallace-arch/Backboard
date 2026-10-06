@@ -705,6 +705,12 @@ def validate_player_impact(
     players["prior_minutes"] = player_groups["minutes"].transform(
         lambda values: values.shift(1).rolling(window, min_periods=window).sum()
     )
+    players["prior_points"] = player_groups["points"].transform(
+        lambda series: series.shift(1).rolling(window, min_periods=window).sum()
+    )
+    players["prior_player_possessions"] = player_groups["player_possessions"].transform(
+        lambda series: series.shift(1).rolling(window, min_periods=window).sum()
+    )
     team_groups = teams.groupby("teamId", sort=False)
     teams["prior_team_net_rating"] = team_groups["netRating"].transform(
         lambda values: values.shift(1).rolling(window, min_periods=window).mean()
@@ -751,13 +757,6 @@ def validate_player_impact(
     )
     values = values.dropna(
         subset=["prior_minutes", "prior_team_possessions"]
-    )
-    player_groups = players.groupby("personId", sort=False)
-    values["prior_points"] = player_groups["points"].transform(
-        lambda series: series.shift(1).rolling(window, min_periods=window).sum()
-    )
-    values["prior_player_possessions"] = player_groups["player_possessions"].transform(
-        lambda series: series.shift(1).rolling(window, min_periods=window).sum()
     )
     values["player_signal"] = (
         values["prior_points"] / values["prior_player_possessions"]
@@ -914,14 +913,18 @@ def load_validation_data(connection):
         """,
         connection,
     )
+    # Team rows with a NULL gameType (same seasons) take it from the game, as
+    # build_features.load_team_games does.
     team_games = pd.read_sql_query(
         """
-        SELECT teamId, opponentTeamId, gameId, gameDateTimeEst, home,
-               netRating AS teamNetRating, teamScore AS team_points,
-               opponentScore AS opponent_points,
-               CAST(possessions AS REAL) AS team_possessions
-        FROM team_statistics_extended
-        WHERE gameType = 'Regular Season' AND netRating IS NOT NULL
+        SELECT ts.teamId, ts.opponentTeamId, ts.gameId, ts.gameDateTimeEst, ts.home,
+               ts.netRating AS teamNetRating, ts.teamScore AS team_points,
+               ts.opponentScore AS opponent_points,
+               CAST(ts.possessions AS REAL) AS team_possessions
+        FROM team_statistics_extended ts
+        LEFT JOIN games g ON g.gameId = ts.gameId
+        WHERE COALESCE(ts.gameType, g.gameType) = 'Regular Season'
+          AND ts.netRating IS NOT NULL
         """,
         connection,
     ).rename(columns={"teamNetRating": "netRating"})
