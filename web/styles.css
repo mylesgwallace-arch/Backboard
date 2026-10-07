@@ -1326,7 +1326,7 @@ details.collapsible[open] summary { margin-bottom: 0.9rem; }
 }
 
 .prob-bar-segment { height: 100%; transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
-.prob-bar-segment + .prob-bar-segment { border-left: 4px solid var(--sheet); }
+.prob-bar-segment + .prob-bar-segment { margin-left: 4px; }
 .prob-bar-mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 0; pointer-events: none; }
 
 .prob-bar-mid::before,
@@ -2147,7 +2147,7 @@ pre.output-pane {
 
 .trade-roster { max-height: 340px; overflow-y: auto; margin: 0; padding: 0.3rem 0; list-style: none; }
 .trade-roster li { padding: 0 0.5rem; }
-.trade-roster li.is-picked { background: var(--yellow); box-shadow: inset 5px 0 0 var(--red); }
+.trade-roster li.is-picked { background: var(--yellow); }
 
 .trade-roster label {
   display: grid;
