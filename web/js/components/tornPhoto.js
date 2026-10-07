@@ -71,7 +71,7 @@ function escapeAttr(value) {
  * backdrop behind the cut-out photo. Call `wireTornPhoto(root)` after
  * inserting it so a missing image falls back to initials.
  */
-export function tornPhoto({ personId, name, teamColor = "#2b2e32", teamAlt = "#ff5b14", size = "lg" }) {
+export function tornPhoto({ personId, name, teamColor = "#2b2e32", teamAlt = "#ee3a1f", size = "lg" }) {
   const paper = tornPolygon(personId * 7 + 3, { inset: 0, depth: 2.2 });
   const photo = tornPolygon(personId * 13 + 5, { inset: 5.5, depth: 2.6 });
   return `

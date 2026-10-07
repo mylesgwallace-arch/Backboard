@@ -2,7 +2,7 @@
 // used by the Matchup Predictor result. Pure render helper: given two
 // probabilities (0..1) and two colors, returns an HTML string.
 //
-// Blacktop Tabloid: rendered as a thick painted "tug-of-war" strip with a
+// Street Zine: rendered as a thick inked "tug-of-war" strip with a
 // half-court marker at 50%. The numbers are printed beside the bar by the
 // caller (never on it); the aria-label carries them for screen readers.
 

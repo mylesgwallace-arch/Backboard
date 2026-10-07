@@ -2,26 +2,19 @@
 // Sandbox pages, following the dataviz rules: thin marks with 4px rounded
 // data ends, one baseline, hairline solid gridlines, selective direct labels,
 // a hover/focus tooltip on every mark, and text in text tokens (never the
-// series color). Colors are the design-system tokens; the two-series pair
-// (chalk gray vs spray orange) and the polarity pair (court green vs signal
-// red) were checked for color-vision-deficiency separation on asphalt-900.
+// series color). Marks take their colors from CSS classes (.c-grid, .c-base,
+// .c-accent, .c-pos, .c-neg, .c-ring in styles.css), so a chart reads ink on
+// a paper sheet and chalk on the black ground. The two-series pair (gray vs
+// red) and the polarity pair (green vs red) were checked for color-vision-
+// deficiency separation on both surfaces.
 //
 // Every chart is paired with a table or labeled values on the page, so the
 // tooltip enhances and never gates.
 
 import { escapeHtml } from "./format.js";
 
-const COLORS = {
-  grid: "rgba(244, 241, 234, 0.12)",
-  axis: "rgba(244, 241, 234, 0.32)",
-  text: "#c2bdb2",
-  muted: "#9d998f",
-  base: "#9d998f",
-  accent: "#ff5b14",
-  positive: "#4fd887",
-  negative: "#ff4b3e",
-  surface: "#18191b",
-};
+// Tooltip keys sit on the ink tooltip, so they use the chalk-side colors.
+const KEYS = { base: "#a5a49d", accent: "#ee3a1f" };
 
 let tooltipEl = null;
 
@@ -141,11 +134,10 @@ export function careerArcChart(seasons, { peakLabel } = {}) {
   const marks = seasons.map((s, i) => {
     const v = s.box_impact ?? 0;
     const x = pad.left + i * band + (band - barW) / 2;
-    const color = v >= 0 ? COLORS.positive : COLORS.negative;
     const labelled = s.season_label === peakLabel || i === last;
     const labelY = v >= 0 ? y(v) - 6 : y(v) + 14;
     return `
-      <path d="${columnPath(x, barW, y(0), y(v))}" fill="${color}" class="chart-mark"
+      <path d="${columnPath(x, barW, y(0), y(v))}" class="chart-mark ${v >= 0 ? "c-pos" : "c-neg"}"
         data-tip="${i}" tabindex="0" aria-label="${escapeHtml(s.season_label)}: box impact ${v.toFixed(2)}"></path>
       ${labelled ? `<text x="${x + barW / 2}" y="${labelY}" text-anchor="middle" class="chart-label">${v > 0 ? "+" : ""}${v.toFixed(1)}</text>` : ""}`;
   });
@@ -156,9 +148,9 @@ export function careerArcChart(seasons, { peakLabel } = {}) {
   return `
     <svg class="chart" viewBox="0 0 ${width} ${height}" role="img"
       aria-label="Box impact by season, ${escapeHtml(seasons[0].season_label)} to ${escapeHtml(seasons[last].season_label)}">
-      ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" stroke="${COLORS.grid}" />
+      ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" class="c-grid" />
         <text x="${pad.left - 6}" y="${y(t) + 4}" text-anchor="end" class="chart-axis-label">${t > 0 ? "+" : ""}${t}</text>`).join("")}
-      <line x1="${pad.left}" x2="${width - pad.right}" y1="${y(0)}" y2="${y(0)}" stroke="${COLORS.axis}" />
+      <line x1="${pad.left}" x2="${width - pad.right}" y1="${y(0)}" y2="${y(0)}" class="c-axis" />
       ${marks.join("")}
       ${xLabels}
     </svg>`;
@@ -200,19 +192,19 @@ export function gameTrendChart(games) {
     .map((g, i) => (g.rolling_10?.game_score != null ? [x(i), y(g.rolling_10.game_score)] : null))
     .filter(Boolean);
   const line = rolling.length > 1 ? `<path d="M${rolling.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(" L")}"
-      fill="none" stroke="${COLORS.accent}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` : "";
+      fill="none" class="c-accent-line" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` : "";
   const dots = games.map((g, i) => `
     <g class="chart-hit" data-tip="${i}" tabindex="0" aria-label="Game ${g.n}: game score ${g.game_score}">
       <rect x="${x(i) - Math.max(4, plotW / games.length / 2)}" y="${pad.top}" width="${Math.max(8, plotW / games.length)}" height="${plotH}" fill="transparent" />
-      <circle cx="${x(i)}" cy="${y(g.game_score ?? 0)}" r="4" fill="${COLORS.base}" stroke="${COLORS.surface}" stroke-width="2" class="chart-mark" />
+      <circle cx="${x(i)}" cy="${y(g.game_score ?? 0)}" r="4" stroke-width="2" class="chart-mark c-base c-ring" />
     </g>`).join("");
   return `
     <div class="chart-legend" aria-hidden="true">
-      <span><i class="legend-dot" style="background:${COLORS.base}"></i>Game score, each game</span>
-      <span><i class="legend-line" style="background:${COLORS.accent}"></i>10-game rolling average</span>
+      <span><i class="legend-dot" style="background:var(--chart-base)"></i>Game score, each game</span>
+      <span><i class="legend-line" style="background:var(--chart-accent)"></i>10-game rolling average</span>
     </div>
     <svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Game score by game with a 10-game rolling average">
-      ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" stroke="${COLORS.grid}" />
+      ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" class="c-grid" />
         <text x="${pad.left - 6}" y="${y(t) + 4}" text-anchor="end" class="chart-axis-label">${t}</text>`).join("")}
       ${line}
       ${dots}
@@ -226,10 +218,10 @@ export function gameTrendTooltip(games) {
     const g = games[Number(index)];
     if (!g) return null;
     const rows = [
-      { value: `${g.game_score}`, label: "game score", key: COLORS.base },
+      { value: `${g.game_score}`, label: "game score", key: KEYS.base },
       { value: `${g.pts} pts · ${g.trb ?? "—"} reb · ${g.ast} ast`, label: g.mp != null ? `in ${g.mp} min` : "" },
     ];
-    if (g.rolling_10?.game_score != null) rows.splice(1, 0, { value: `${g.rolling_10.game_score}`, label: "10-game average", key: COLORS.accent });
+    if (g.rolling_10?.game_score != null) rows.splice(1, 0, { value: `${g.rolling_10.game_score}`, label: "10-game average", key: KEYS.accent });
     return { title: `${g.date} · ${g.home ? "vs" : "@"} ${g.opponent} · ${g.win ? "W" : "L"} ${g.score || ""}`, rows };
   };
 }
@@ -260,13 +252,13 @@ export function agingCurveChart(curve, playerAge) {
   return `
     <svg class="chart" viewBox="0 0 ${width} ${height}" role="img"
       aria-label="League aging curve: box impact relative to the peak age (${peak.age})">
-      ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" stroke="${COLORS.grid}" />
+      ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" class="c-grid" />
         <text x="${pad.left - 6}" y="${y(t) + 4}" text-anchor="end" class="chart-axis-label">${t > 0 ? "+" : ""}${t}</text>`).join("")}
-      <path d="${path}" fill="none" stroke="${COLORS.base}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+      <path d="${path}" fill="none" class="c-base-line" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
       ${curve.map((c) => `<g class="chart-hit" data-tip="${c.age}" tabindex="0" aria-label="Age ${c.age}: ${c.relative_box_impact} vs peak">
           <rect x="${x(c.age) - plotW / curve.length / 2}" y="${pad.top}" width="${plotW / curve.length}" height="${plotH}" fill="transparent" /></g>`).join("")}
       <text x="${x(peak.age)}" y="${y(peak.relative_box_impact) - 8}" text-anchor="middle" class="chart-label">peak ${peak.age}</text>
-      ${here ? `<circle cx="${x(here.age)}" cy="${y(here.relative_box_impact)}" r="6" fill="${COLORS.accent}" stroke="${COLORS.surface}" stroke-width="2" />
+      ${here ? `<circle cx="${x(here.age)}" cy="${y(here.relative_box_impact)}" r="6" class="c-accent c-ring" stroke-width="2" />
         <text x="${x(here.age)}" y="${y(here.relative_box_impact) + 22}" text-anchor="middle" class="chart-label">now ${here.age}</text>` : ""}
       ${[minAge, Math.round((minAge + maxAge) / 2), maxAge].map((a) => `<text x="${x(a)}" y="${height - 10}" text-anchor="middle" class="chart-axis-label">age ${a}</text>`).join("")}
     </svg>`;
@@ -283,7 +275,7 @@ export function agingCurveTooltip(curve) {
 /**
  * Percentile profile: one horizontal bar per stat (0-100) with a tick at the
  * league median (50). Single series in the player's team color with a chalk
- * inset outline so dark team colors stay visible on asphalt.
+ * ink outline so light team colors stay visible on paper.
  */
 export function percentileBars(items, color) {
   return `<div class="pctl-list">
@@ -309,8 +301,8 @@ export function dumbbellRows(rows, { min, max, unit = "" }) {
   const pos = (v) => `${(((v - min) / span) * 100).toFixed(2)}%`;
   return `
     <div class="chart-legend" aria-hidden="true">
-      <span><i class="legend-dot" style="background:${COLORS.base}"></i>Unchanged league</span>
-      <span><i class="legend-dot" style="background:${COLORS.accent}"></i>Your scenario</span>
+      <span><i class="legend-dot" style="background:var(--chart-base)"></i>Unchanged league</span>
+      <span><i class="legend-dot" style="background:var(--chart-accent)"></i>Your scenario</span>
       <span><i class="legend-band"></i>10th–90th percentile</span>
     </div>
     <div class="dumbbell-list">

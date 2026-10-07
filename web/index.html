@@ -4,58 +4,53 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Backboard — NBA Analytics</title>
-  <meta name="description" content="Professional NBA analytics dashboard: matchup predictions, team analysis, and season simulation powered by a validated prediction engine.">
-  <meta name="theme-color" content="#0f1011">
-  <!-- Blacktop Tabloid type: Anton (headlines), Big Shoulders Stencil (stamps),
-       Permanent Marker (scrawls), Barlow / Barlow Condensed (data + labels).
-       Every family has a system fallback stack in styles.css, so the layout
-       holds if these never load. -->
+  <meta name="description" content="Backboard: NBA win probabilities, team and player analytics, season simulations and a what-if Sandbox, from a validated prediction engine that shows its work.">
+  <meta name="theme-color" content="#141414">
+  <meta name="color-scheme" content="dark">
+  <!-- Street Zine type: Anton (headlines), Archivo (body), Courier Prime
+       (typewriter labels and tables), Reenie Beanie (pen), Abril Fatface
+       (ransom letters). Every family has a fallback stack in styles.css. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800&family=Big+Shoulders+Stencil+Display:wght@900&family=Permanent+Marker&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo:wght@400;600;800&family=Courier+Prime:wght@400;700&family=Reenie+Beanie&display=swap">
   <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/hero.css">
 </head>
 <body>
-  <div id="app-shell">
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-mark">
-          <svg class="brand-hoop" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-            <rect x="4" y="3" width="40" height="26" fill="#18191b" stroke="#f4f1ea" stroke-width="2.6"/>
-            <rect x="16" y="12" width="16" height="11" fill="none" stroke="#ff5b14" stroke-width="2.6"/>
-            <rect x="21.5" y="29" width="5" height="3" fill="#b7bdc3"/>
-            <path d="M15 34 18.5 46M33 34 29.5 46M20 35 21.8 46M28 35 26.2 46M16.4 40h15.2M18 45.2h12" fill="none" stroke="#f4f1ea" stroke-width="1.5" stroke-linecap="round"/>
-            <ellipse cx="24" cy="33.2" rx="10.2" ry="2.7" fill="none" stroke="#ff5b14" stroke-width="2.8"/>
-          </svg>
-          <span class="brand-name">Backboard</span>
-        </div>
-        <p class="brand-tag">Analytics engine</p>
-      </div>
-      <nav class="sidebar-nav" id="sidebar-nav" aria-label="Main"></nav>
-      <div class="sidebar-footer">
-        <div class="status-pill" id="sidebar-status" role="status">
-          <span class="status-dot"></span> Checking API…
-        </div>
-      </div>
-    </aside>
+  <!-- Torn-paper edges: SVG filters used by pseudo-elements in styles.css. -->
+  <svg class="tear-defs" aria-hidden="true" focusable="false"><defs>
+    <filter id="tear-a" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.018 0.026" numOctaves="3" seed="4" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="17" xChannelSelector="R" yChannelSelector="G" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.4" numOctaves="2" seed="9" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="6" xChannelSelector="G" yChannelSelector="B"/></filter>
+    <filter id="tear-b" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.024 0.016" numOctaves="3" seed="21" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="14" xChannelSelector="G" yChannelSelector="R" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="2" seed="2" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="5" xChannelSelector="R" yChannelSelector="B"/></filter>
+    <filter id="tear-c" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.03 0.02" numOctaves="4" seed="33" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="20" xChannelSelector="R" yChannelSelector="B" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.45" numOctaves="2" seed="14" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="7" xChannelSelector="B" yChannelSelector="G"/></filter>
+    <filter id="tear-edge" x="0" y="-60%" width="100%" height="220%"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.06" numOctaves="4" seed="6" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="26" xChannelSelector="R" yChannelSelector="G" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="2" seed="11" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="7" xChannelSelector="G" yChannelSelector="B"/></filter>
+  </defs></svg>
 
-    <main class="app-main">
-      <!-- Pages that export renderHero() get a full-viewport hero here, and
-           the hero's own <h1> replaces the masthead below. -->
-      <div id="app-hero" hidden></div>
-      <header class="app-topbar">
-        <div class="masthead-kicker" aria-hidden="true">
-          <span class="kicker-tag">Backboard</span>
-          <span class="kicker-rule"></span>
-          <span>Analytics desk</span>
-        </div>
-        <h1 id="topbar-title">Loading…</h1>
-        <p id="topbar-subtitle"></p>
-      </header>
-      <div class="app-content" id="app-content"></div>
-    </main>
-  </div>
+  <header class="zhead">
+    <a class="zbrand" href="#/dashboard" aria-label="Backboard home">
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="3" width="40" height="26" fill="none" stroke="#ecebe5" stroke-width="3"/><rect x="16" y="12" width="16" height="11" fill="none" stroke="#ee3a1f" stroke-width="3"/><ellipse cx="24" cy="33.2" rx="10.2" ry="2.8" fill="none" stroke="#ee3a1f" stroke-width="3.2"/><path d="M15 34 18.5 46M33 34 29.5 46M24 36v10" fill="none" stroke="#ecebe5" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Backboard
+    </a>
+    <nav class="zn" id="zn" aria-label="Main"></nav>
+    <div class="zstatus" id="sidebar-status" role="status"><span class="status-dot"></span> Checking engine…</div>
+  </header>
+
+  <main class="app-main" id="app-main">
+    <!-- Pages that export renderHero() get a full-bleed cover here, and the
+         cover's own <h1> replaces the page head below. -->
+    <div id="app-hero" hidden></div>
+    <header class="phead" id="page-head">
+      <p class="kicker-line" id="topbar-kicker"></p>
+      <h1 id="topbar-title">Loading…</h1>
+      <p class="lede" id="topbar-subtitle"></p>
+    </header>
+    <div class="app-content" id="app-content"></div>
+  </main>
+
+  <footer class="zfoot">
+    <div class="wrap">
+      <p>Backboard · NBA analytics from historical data. Every number comes from the engine.</p>
+      <p>Probabilities are not guarantees.</p>
+    </div>
+  </footer>
 
   <script type="module" src="/js/main.js"></script>
 </body>
