@@ -99,7 +99,7 @@ Verified by running against the live repository, database, and artifacts:
 | Tool registry (`src/tools.py`, tracked in git) | At session start 11 tools; **end of session 26** (see phase notes) |
 | Natural-language layer | At session start `src/assistant.py` (single-tool, deterministic). **Now `src/nl_agent.py` behind `POST /ask`** (multi-tool plans, grounding check, optional Claude planner) |
 | HTTP API | `src/api.py` (stdlib only): `/health`, `/tools`, `/tools/{name}`, `/ask`, `/ingest` (dry-run default), static `web/` assets with byte-range support |
-| Web dashboard (`web/`, "Blacktop Tabloid" design system, see `web/DESIGN-BRIEF.md`) | At session start: Dashboard, Matchups, Teams, Head-to-Head, Season Simulator, League Predictions, Assistant; Player Impact a placeholder. **End of session: + Current Season, Playoffs, Player Impact (real), What-if Lab; Simulator project-from-date mode; Matchups predicted score; Assistant shows sections/grounding** |
+| Web dashboard (`web/`, "Street Zine" design system since 2026-10-06, previously "Blacktop Tabloid"; see `web/DESIGN-BRIEF.md`) | At session start: Dashboard, Matchups, Teams, Head-to-Head, Season Simulator, League Predictions, Assistant; Player Impact a placeholder. **End of session: + Current Season, Playoffs, Player Impact (real), What-if Lab; Simulator project-from-date mode; Matchups predicted score; Assistant shows sections/grounding** |
 | Product name | Backboard |
 
 Stale claims corrected in this pass (they appeared in older sections here or
@@ -2832,7 +2832,7 @@ Simulation engine:      ✅ Monte Carlo season simulator validated (2023-2025 re
 Tool/orchestration:     ✅ deterministic tool registry (11 tools as of 2026-09-24; see section 0) with structured envelopes in src/tools.py
 AI agent/tool layer:    ✅ deterministic natural-language interface (src/assistant.py) mapping questions to tool calls and rendering envelopes as plain-language answers (no LLM yet)
 Live data:              ⚠️ source-provenanced, leakage-safe schedule ingestion (src/live_data.py) exists, but no current-season schedule or roster feed is connected; the database ends at 2026-06-13
-Website / API:          ✅ HTTP API (src/api.py, stdlib-only, CORS-enabled) + multi-page web dashboard (web/index.html + web/js/pages/*, Blacktop Tabloid design system)
+Website / API:          ✅ HTTP API (src/api.py, stdlib-only, CORS-enabled) + multi-page web dashboard (web/index.html + web/js/pages/*, Street Zine design system)
 ```
 
 ## Diagnosed pipeline blocker

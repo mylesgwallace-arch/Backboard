@@ -788,8 +788,8 @@ function renderResults(mount) {
     const t = changed[Number(i)];
     if (!t) return null;
     return { title: t.team_name, rows: [
-      { value: `${fixed(t.baseline.mean_wins)} (${t.baseline.wins_10th_90th.join("–")})`, label: "unchanged", key: "#9d998f" },
-      { value: `${fixed(t.scenario.mean_wins)} (${t.scenario.wins_10th_90th.join("–")})`, label: "your scenario", key: "#ff5b14" },
+      { value: `${fixed(t.baseline.mean_wins)} (${t.baseline.wins_10th_90th.join("–")})`, label: "unchanged", key: "#a5a49d" },
+      { value: `${fixed(t.scenario.mean_wins)} (${t.scenario.wins_10th_90th.join("–")})`, label: "your scenario", key: "#ee3a1f" },
     ] };
   });
   if (data.postseason_simulated) renderStory(mount.querySelector("#sb-story-card"));

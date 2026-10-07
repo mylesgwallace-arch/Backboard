@@ -3,13 +3,13 @@
 // contrast rather than by eye. Pure helpers with no app state: pages and
 // components call these while building markup.
 //
-// INK and CHALK mirror the --ink and --chalk tokens in styles.css. The ladder
-// tries the brand's own warm ink/chalk first and falls back to pure black /
-// white; every primary and secondary color in teamColors.js reaches >= 4.5:1
-// on at least one rung (lowest: 4.55:1).
+// INK and CHALK mirror the --ink and --paper tokens in styles.css. The ladder
+// tries the zine's own ink/paper first and falls back to pure black / white;
+// every primary and secondary color in teamColors.js reaches >= 4.5:1 on at
+// least one rung.
 
-export const INK = "#141312";
-export const CHALK = "#f4f1ea";
+export const INK = "#101010";
+export const CHALK = "#f3f1ea";
 const LADDER = [INK, CHALK, "#000000", "#ffffff"];
 
 function channels(hex) {
