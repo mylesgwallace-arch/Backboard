@@ -13,6 +13,7 @@ export const meta = {
 
 // 2026 is the season in progress: use "Project from a date" (no bracket exists yet).
 const DEFAULT_SEASON = 2025;
+const IN_PROGRESS_SEASON = 2026;
 const SEASONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2018, 2017, 2016, 2015, 2014];
 const ROUND_COLUMNS = [
   { key: "made_playoffs", label: "Make R1" },
@@ -90,6 +91,14 @@ export function render(container) {
 
   const syncDate = () => {
     const season = Number(seasonSelect.value);
+    // A season in progress has no postseason yet, so only the projection works.
+    const bracketOption = modeSelect.querySelector('option[value="actual"]');
+    const inProgress = season >= IN_PROGRESS_SEASON;
+    bracketOption.disabled = inProgress;
+    bracketOption.textContent = inProgress
+      ? "Real bracket (not available: postseason not played yet)"
+      : "Real bracket (after the regular season)";
+    if (inProgress) modeSelect.value = "asof";
     // `.field` sets its own display, which beats the hidden attribute.
     dateField.style.display = modeSelect.value === "asof" ? "" : "none";
     if (!dateInput.value || !dateInput.value.startsWith(String(season + 1))) {
