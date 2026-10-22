@@ -14,6 +14,7 @@ from src.build_features import (
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "data" / "database" / "nba.db"
 FEATURES_PATH = ROOT / "data" / "processed" / "game_features.csv"
+FROZEN_END = pd.Timestamp("2026-09-01")  # live-refresh rows start after this
 PLAYER_FEATURE = "active_players_rolling_10"
 LAST_GAME_PLAYER_FEATURE = "active_players_last_game"
 WIN_RATE_FEATURE = "win_rate_rolling_10"
@@ -99,8 +100,12 @@ def load_expected_features():
 
 
 def test_generated_features_match_source_and_rolling_history():
+    # The daily refresh appends live-season rows to the feature file. These
+    # checks cover the historical dataset the production model was validated on.
     expected = load_expected_features()
+    expected = expected[expected["gameDateTimeEst"] < FROZEN_END].reset_index(drop=True)
     actual = pd.read_csv(FEATURES_PATH)
+    actual = actual[pd.to_datetime(actual["gameDateTimeEst"]) < FROZEN_END].reset_index(drop=True)
 
     assert len(expected) == 133_348
     assert len(actual) == len(expected)
