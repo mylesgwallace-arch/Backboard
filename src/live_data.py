@@ -291,13 +291,13 @@ def ingest_schedule(source: str, db_path=DB_PATH, dry_run: bool = False):
             f"ON CONFLICT(gameId) DO UPDATE SET {update_clause}"
         )
         try:
-            from src.live_results import drop_espn_placeholders
+            from src.live_results import replace_espn_placeholders
         except ImportError:  # pragma: no cover - direct-script support
-            from live_results import drop_espn_placeholders
-        placeholders_removed = drop_espn_placeholders(conn, rows)
+            from live_results import replace_espn_placeholders
         conn.executemany(
             sql, [[values[c] for c in insert_cols] for values in rows]
         )
+        placeholders_removed = replace_espn_placeholders(conn, rows)
         conn.execute(
             """
             INSERT INTO data_ingestion_log (

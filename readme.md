@@ -311,15 +311,17 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 .\.venv\Scripts\python -m src.live_data --history           # data_ingestion_log
 ```
 - **Source:** ESPN's public scoreboard JSON (`site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard`), one request per day. It is unofficial and undocumented, so the refresh fails loudly (database unchanged, exit code 1) rather than writing partial data if the feed changes or disappears.
-- **What it updates:** final scores and winners (only where no result is recorded yet; a disagreeing result is counted as a conflict and left alone) and scheduled games the database lacks (inserted with an ESPN placeholder id, replaced when a schedule file with the NBA id is ingested). Until the whole upcoming regular season (1,230 games) is on file, each run backfills the rest of the schedule; afterwards it looks 14 days ahead.
-- **What it does not update:** box scores. Team strength, Elo and the win-probability model read `team_statistics`, so they stay as of the last data export (`latest_feature_row` in `data_status`). The Dashboard, Current Season and Playoffs pages say how many played games are newer than that.
+- **What it updates:** final scores and winners (only where no result is recorded yet; a disagreeing result is counted as a conflict and left alone) and scheduled games the database lacks (inserted with an ESPN placeholder id, replaced when a schedule file with the NBA id is ingested). Until about the whole upcoming regular season (90% of 1,230 games) is on file, each run backfills the rest of the schedule; afterwards it looks 14 days ahead.
+- **Box scores and model inputs:** for every newly played game it also fetches ESPN's box score (team and player stats), writes it to `team_statistics` / `player_statistics`, and rebuilds `data/processed/game_features.csv` (about 4 minutes), so rolling form, Elo and win probabilities move forward with the season. The frozen production model itself is not retrained, and its published holdout metrics are unchanged. Players are matched to existing NBA ids by name; unmatched players (mostly rookies) get a stable negative id. A game whose box score fails validation (scores disagree with the schedule, points do not add up) is skipped and reported, never half-written. `--no-box-scores` skips this step.
+- **Not covered:** injuries, roster moves and the Players/Sandbox season tables (`player_team_seasons*.csv`) still come from the last data export.
 - **Stale notice:** during October to June the pages warn when no successful refresh has run in the last 2 days.
 - **Scheduling (Windows):** the database is local, untracked and about 1 GB, so this cannot run in GitHub Actions. Register the daily task once, from the repo root:
 
 ```
 schtasks /Create /SC DAILY /ST 06:00 /TN "Backboard live refresh" /TR "powershell -NoProfile -File <repo path>\scripts\refresh_live_data.ps1"
 ```
-  Output is appended to `dataefresh.log`. A restart of the API server is not needed for schedule and results, but the server caches model inputs, so restart it after a new data export.
+  Output is appended to `data
+efresh.log`. The running API server reloads the model inputs by itself when the feature file changes, so no restart is needed.
 
 **Multiple ways to simulate a season — the difference:** `src\simulate_season.py` prints readable tables and writes the metrics JSON; `src\main.py --simulate-season` prints the same projection as JSON without writing; `src\tools.py --tool simulate_season` returns a wrapped envelope (and caches probabilities per process). **Recommended:** `main.py --simulate-season` for machine output, `simulate_season.py` for human-readable + persisted artifact.
 
@@ -451,7 +453,7 @@ Each maps to a verified command (invoke from the repo root):
 
 **Missing and major**
 - **The natural-language AI layer** (the actual "ask a question in plain English" experience — `tools.py` is the ready-made substrate).
-- **Live data** — schedule and results now refresh daily from ESPN (see *Daily refresh*), but box scores, injuries and rosters do not, so team strength is still frozen at the last data export (2026-04-12).
+- **Live data** — schedule and results now refresh daily from ESPN (see *Daily refresh*), with box scores and model inputs; injuries, roster moves and the player season tables still come from the last data export.
 - **Causal roster/trade simulation** — the player-impact diagnostics are explicitly non-causal and cannot modify the model's feature matrix.
 - Website/UI; player and team pages; play-by-play / live win probability.
 

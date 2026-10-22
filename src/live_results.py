@@ -22,7 +22,8 @@ Rules (they mirror ``live_data.py``):
   Eastern date plus home and away team. A game that does not exist is inserted
   with ``ESPN_ID_OFFSET + espn_event_id`` so it can be recognised later; when a
   schedule file with the real NBA id arrives, ``live_data.ingest_schedule``
-  removes the placeholder (see ``drop_espn_placeholders``).
+  replaces the placeholder and keeps its result and box score (see
+  ``replace_espn_placeholders``).
 * This does not touch box scores. Team strength features and Elo come from
   ``team_statistics`` and stay as of the last box-score load; the data status
   tool reports how many played games they are missing.
@@ -47,6 +48,9 @@ except ImportError:  # pragma: no cover - direct-script support
 
 ESPN_SCOREBOARD_URL = (
     "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+)
+ESPN_SUMMARY_URL = (
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary"
 )
 LOG_ENTITY = "games_espn"
 EASTERN = ZoneInfo("America/New_York")
@@ -83,6 +87,10 @@ class RefreshError(Exception):
     """A refresh failed before or during the write; nothing was committed."""
 
 
+class FetchError(RefreshError):
+    """A request to the ESPN feed failed after retries."""
+
+
 # ---- fetching ----------------------------------------------------------
 
 def fetch_day(day, base_url=ESPN_SCOREBOARD_URL, session=None):
@@ -104,7 +112,7 @@ def fetch_day(day, base_url=ESPN_SCOREBOARD_URL, session=None):
         except (requests.RequestException, ValueError, RefreshError) as exc:
             last_error = exc
             time.sleep(0.5 * (attempt + 1))
-    raise RefreshError(f"could not fetch {day} from {base_url}: {last_error}")
+    raise FetchError(f"could not fetch {day} from {base_url}: {last_error}")
 
 
 def fetch_days(days, base_url=ESPN_SCOREBOARD_URL, pause=REQUEST_PAUSE_SECONDS,
@@ -203,25 +211,43 @@ def parse_payloads(payloads):
 
 # ---- database ----------------------------------------------------------
 
-def drop_espn_placeholders(conn, source_rows):
-    """Delete ESPN placeholder rows that a real NBA-id schedule row replaces.
+def _has_table(conn, name):
+    return bool(conn.execute(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone()[0])
 
-    ``source_rows`` are dicts with ``gameDateTimeEst``, ``hometeamId`` and
-    ``awayteamId``. Called by ``live_data.ingest_schedule`` inside its write
-    transaction. Returns the number of placeholders removed.
+
+def replace_espn_placeholders(conn, source_rows):
+    """Swap ESPN placeholder games for the real NBA-id rows that replace them.
+
+    Call after the schedule rows were upserted. For each source row, a
+    placeholder with the same Eastern date, home and away team hands over its
+    result (only where the real row has none), its box-score rows and its ESPN
+    id, then is deleted. Returns the number of placeholders replaced.
     """
-    removed = 0
+    replaced = 0
     for row in source_rows:
-        if int(row["gameId"]) >= ESPN_ID_OFFSET:
+        new_id = int(row["gameId"])
+        if new_id >= ESPN_ID_OFFSET:
             continue
-        cursor = conn.execute(
-            "DELETE FROM games WHERE gameId >= ? AND substr(gameDateTimeEst, 1, 10) = ? "
-            "AND hometeamId = ? AND awayteamId = ?",
+        for old_id, winner, home_score, away_score in conn.execute(
+            "SELECT gameId, winner, homeScore, awayScore FROM games WHERE gameId >= ? "
+            "AND substr(gameDateTimeEst, 1, 10) = ? AND hometeamId = ? AND awayteamId = ?",
             (ESPN_ID_OFFSET, str(row["gameDateTimeEst"])[:10],
              int(row["hometeamId"]), int(row["awayteamId"])),
-        )
-        removed += cursor.rowcount
-    return removed
+        ).fetchall():
+            if winner is not None:
+                conn.execute(
+                    "UPDATE games SET winner = ?, homeScore = ?, awayScore = ? "
+                    "WHERE gameId = ? AND winner IS NULL", (winner, home_score, away_score, new_id))
+            for table in ("team_statistics", "player_statistics"):
+                if _has_table(conn, table):
+                    conn.execute(f"UPDATE {table} SET gameId = ? WHERE gameId = ?", (new_id, old_id))
+            if _has_table(conn, "espn_game_map"):
+                conn.execute("DELETE FROM espn_game_map WHERE gameId = ?", (old_id,))
+                _remember(conn, new_id, old_id - ESPN_ID_OFFSET)
+            conn.execute("DELETE FROM games WHERE gameId = ?", (old_id,))
+            replaced += 1
+    return replaced
 
 
 def _team_names(conn):
@@ -233,6 +259,17 @@ def _team_names(conn):
     ):
         names[int(team_id)] = (city, name)  # latest era wins
     return names
+
+
+def ensure_map_schema(conn):
+    """ESPN event id for every game we have seen (needed to fetch box scores)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS espn_game_map (gameId INTEGER PRIMARY KEY, espnId INTEGER NOT NULL)"
+    )
+
+
+def _remember(conn, game_id, espn_id):
+    conn.execute("INSERT OR REPLACE INTO espn_game_map (gameId, espnId) VALUES (?, ?)", (game_id, espn_id))
 
 
 def apply_games(conn, games):
@@ -280,8 +317,10 @@ def apply_games(conn, games):
                  game["timestamp"]),
             )
             counts["inserted"] += 1
+            _remember(conn, ESPN_ID_OFFSET + game["espn_id"], game["espn_id"])
             continue
         game_id, stored_winner = existing[0]
+        _remember(conn, game_id, game["espn_id"])
         if not game["final"]:
             counts["unplayed_seen"] += 1
         elif stored_winner is None:
@@ -373,6 +412,7 @@ def refresh(db_path=DB_PATH, since=None, through=None, dry_run=False,
         }
         try:
             conn.execute("BEGIN")
+            ensure_map_schema(conn)
             counts = apply_games(conn, games)
             sanity_check(conn, before)
             status = "passed" if not counts["conflicts"] and not counts["ambiguous"] else "passed_with_skips"
@@ -475,19 +515,77 @@ def parse_args(argv=None):
                         help=f"Last day to fetch (default: today + {DEFAULT_LOOKAHEAD_DAYS} days).")
     parser.add_argument("--dry-run", action="store_true",
                         help="Fetch and validate, then roll back without writing.")
+    parser.add_argument("--no-box-scores", action="store_true",
+                        help="Skip box scores and the feature rebuild (schedule and results only).")
     return parser.parse_args(argv)
+
+
+def features_lag(db_path=DB_PATH, features_path=None):
+    """True when box scores exist for a regular-season day the feature file lacks."""
+    import csv
+    try:
+        from src.build_features import OUTPUT_PATH
+    except ImportError:  # pragma: no cover - direct-script support
+        from build_features import OUTPUT_PATH
+    features_path = Path(features_path or OUTPUT_PATH)
+    if not features_path.exists():
+        return True
+    with features_path.open("rb") as handle:
+        header = handle.readline().decode("utf8").strip().split(",")
+        handle.seek(0, 2)
+        handle.seek(max(0, handle.tell() - 8192))
+        last = handle.read().decode("utf8", "ignore").strip().splitlines()[-1]
+    row = next(csv.reader([last]))
+    latest_feature = row[header.index("gameDateTimeEst")][:10]
+    conn = sqlite3.connect(db_path)
+    try:
+        newest = conn.execute(
+            "SELECT MAX(substr(gameDateTimeEst, 1, 10)) FROM team_statistics WHERE gameType = 'Regular Season'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    return bool(newest) and newest > latest_feature
+
+
+def run_all(db_path=DB_PATH, since=None, through=None, dry_run=False, box_scores=True,
+            features_path=None):
+    """Refresh schedule + results, then box scores, then rebuild features if needed."""
+    manifest = refresh(db_path, since, through, dry_run)
+    report = {"results": manifest}
+    if dry_run or not box_scores:
+        return report
+    try:
+        from src.live_boxscores import ingest_box_scores
+        from src.build_features import build_features
+    except ImportError:  # pragma: no cover - direct-script support
+        from live_boxscores import ingest_box_scores
+        from build_features import build_features
+    box = ingest_box_scores(db_path)
+    report["box_scores"] = box
+    if box["games_loaded"] or features_lag(db_path, features_path):
+        build_features(db_path, features_path) if features_path else build_features(db_path)
+        report["features_rebuilt"] = True
+    else:
+        report["features_rebuilt"] = False
+    return report
 
 
 def main(argv=None):
     args = parse_args(argv)
     try:
-        manifest = refresh(args.db, args.since, args.through, args.dry_run)
+        report = run_all(args.db, args.since, args.through, args.dry_run, not args.no_box_scores)
     except RefreshError as exc:
         print(f"Refresh failed, database unchanged: {exc}")
         return 1
+    manifest = report["results"]
     print(f"Refresh {manifest['validation_status']}{' (dry run)' if manifest['dry_run'] else ''}")
     for key, value in manifest.items():
         print(f"  {key}: {value}")
+    if "box_scores" in report:
+        print("Box scores")
+        for key, value in report["box_scores"].items():
+            print(f"  {key}: {value}")
+        print(f"  features_rebuilt: {report['features_rebuilt']}")
     return 0
 
 

@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from collections import deque
 from pathlib import Path
@@ -262,8 +263,8 @@ def add_opponent_adjusted_margin(team_games):
     return merged
 
 
-def build_features():
-    with sqlite3.connect(DB_PATH) as connection:
+def build_features(db_path=DB_PATH, output_path=OUTPUT_PATH):
+    with sqlite3.connect(db_path) as connection:
         df = load_team_games(connection)
         activity = load_player_activity(connection)
         player_history = load_player_history(connection)
@@ -306,10 +307,14 @@ def build_features():
         + ["rest_days"]
     )
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(OUTPUT_PATH, index=False)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Write beside the target and swap in, so a crash never leaves a half file.
+    temp_path = output_path.with_name(output_path.name + ".tmp")
+    df.to_csv(temp_path, index=False)
+    os.replace(temp_path, output_path)
     print(f"Saved {len(df):,} rows")
-    print(f"Saved to: {OUTPUT_PATH}")
+    print(f"Saved to: {output_path}")
     print("\nColumns created:")
     print(df.columns.tolist())
 

@@ -192,10 +192,22 @@ def clear_probability_cache():
     MODEL_INPUTS_CACHE.clear()
 
 
+def _features_mtime():
+    try:
+        return Path(FEATURES_PATH).stat().st_mtime
+    except OSError:
+        return None
+
+
 def _cached_model_inputs():
+    """Model inputs, reloaded when the daily refresh rewrites the feature file."""
     with _MODEL_INPUTS_LOCK:
+        mtime = _features_mtime()
+        if MODEL_INPUTS_CACHE.get("inputs_mtime") != mtime:
+            MODEL_INPUTS_CACHE.pop("inputs", None)
         if "inputs" not in MODEL_INPUTS_CACHE:
             MODEL_INPUTS_CACHE["inputs"] = load_model_inputs()
+            MODEL_INPUTS_CACHE["inputs_mtime"] = mtime
     return MODEL_INPUTS_CACHE["inputs"]
 
 
@@ -922,8 +934,8 @@ def _execute_data_status(parameters):
             for row in log
         ],
         "how_to_update": {
-            "daily_refresh": "python -m src.live_data refresh (schedule + results from "
-                             "ESPN; add --dry-run first to validate)",
+            "daily_refresh": "python -m src.live_data refresh (schedule, results and box scores "
+                             "from ESPN, then rebuilds the model features; add --dry-run first)",
             "schedule": "python src/live_data.py --source <LeagueSchedule26_27.csv or URL> "
                         "(add --dry-run first to validate)",
             "results_and_box_scores": "replace data/raw/*.csv with an updated export, then "
@@ -1717,8 +1729,9 @@ TOOLS = {
         ],
         "limitations": [
             "Nothing is fetched while you browse; data changes only when the refresh "
-            "command runs (daily when scheduled; see how_to_update). Box scores, and so "
-            "team strength, only update from a new data export.",
+            "command runs (daily when scheduled; see how_to_update). It covers schedule, "
+            "results and box scores; injuries, roster moves and the player season tables "
+            "still come from a data export.",
         ],
         "execute": _execute_data_status,
     },

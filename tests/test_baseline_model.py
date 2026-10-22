@@ -31,6 +31,17 @@ from src.train_baseline_model import (
 from src.model_calibration import CalibratedProbabilityModel
 
 
+
+def _frozen_features():
+    """Feature file restricted to the data the production model was validated on.
+
+    The daily live-data refresh appends current-season rows; the chronological
+    holdout (and so the published metrics) must not move when it does.
+    """
+    features = pd.read_csv("data/processed/game_features.csv")
+    return features[pd.to_datetime(features["gameDateTimeEst"]) < "2026-09-01"].reset_index(drop=True)
+
+
 def test_game_dataset_pairs_home_and_away_rows_without_current_game_metrics():
     features = pd.DataFrame(
         [
@@ -359,7 +370,7 @@ def test_add_opponent_form_features_creates_relative_form_columns():
 
 
 def test_evaluate_opponent_form_experiment_reports_key_metrics():
-    features = pd.read_csv("data/processed/game_features.csv")
+    features = _frozen_features()
     metrics = evaluate_opponent_form_experiment(features)
 
     assert set(metrics) >= {"baseline", "with_opponent_form"}
@@ -368,7 +379,7 @@ def test_evaluate_opponent_form_experiment_reports_key_metrics():
 
 
 def test_evaluate_player_efficiency_experiment_reports_key_metrics():
-    features = pd.read_csv("data/processed/game_features.csv")
+    features = _frozen_features()
     metrics = evaluate_player_efficiency_experiment(features)
 
     assert set(metrics) >= {"baseline", "with_player_efficiency"}
@@ -406,7 +417,7 @@ def test_add_player_context_features_normalizes_player_volume_by_rotation_size()
 
 
 def test_evaluate_player_context_experiment_reports_key_metrics():
-    features = pd.read_csv("data/processed/game_features.csv")
+    features = _frozen_features()
     metrics = evaluate_player_context_experiment(features)
 
     assert set(metrics) >= {"baseline", "with_player_context"}
@@ -415,7 +426,7 @@ def test_evaluate_player_context_experiment_reports_key_metrics():
 
 
 def test_player_context_experiment_does_not_beat_production_holdout():
-    features = pd.read_csv("data/processed/game_features.csv")
+    features = _frozen_features()
     candidate = evaluate_player_context_experiment(features)
     with open("models/baseline_metrics.json", "r", encoding="utf-8") as handle:
         production = json.load(handle)["metrics"]["elo_boosted_ensemble"]
