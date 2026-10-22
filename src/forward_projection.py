@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 
 try:
+    from src.live_results import FULL_SEASON_GAMES, MIN_SCHEDULE_GAMES
     from src.main import FEATURES_PATH, METRICS_PATH, MODEL_PATH, load_elo_config
     from src.train_baseline_model import build_game_dataset, elo_win_probability
     from src.simulate_season import (
@@ -50,6 +51,7 @@ try:
         summarize_team_wins,
     )
 except ImportError:  # pragma: no cover - direct-script support
+    from live_results import FULL_SEASON_GAMES, MIN_SCHEDULE_GAMES
     from main import FEATURES_PATH, METRICS_PATH, MODEL_PATH, load_elo_config
     from train_baseline_model import build_game_dataset, elo_win_probability
     from simulate_season import (
@@ -241,7 +243,9 @@ def strength_table(inputs, as_of=None, team_ids=None, snapshots=None):
     return sorted(rows, key=lambda row: -row["win_probability_vs_average"])
 
 
-def season_schedule(inputs, season, db_path=None):
+
+
+def season_schedule(inputs, season, db_path=None, min_games=MIN_SCHEDULE_GAMES):
     """The regular-season schedule of ``season``.
 
     Completed seasons come from the model dataset (every game has features and
@@ -259,6 +263,12 @@ def season_schedule(inputs, season, db_path=None):
     # keeps every validated number unchanged).
     if schedule.empty or missing["target"].isna().any():
         schedule = database
+        if 0 < len(schedule) < min_games:
+            raise ValueError(
+                f"Only {len(schedule)} of {FULL_SEASON_GAMES} regular-season games of "
+                f"season {season} are loaded, so a projection would be wrong. Load the "
+                "full schedule: python -m src.live_data refresh (it backfills the season)."
+            )
     if schedule.empty:
         raise ValueError(
             f"No games found for season {season}. If this is an upcoming season, "

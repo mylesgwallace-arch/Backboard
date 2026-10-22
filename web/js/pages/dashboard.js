@@ -4,6 +4,7 @@
 // panel (the original web/index.html capability).
 
 import { getHealth, getTools, ask, runTool, ingest } from "../api.js";
+import { mountFreshness } from "../components/freshness.js";
 
 export const meta = {
   title: "Backboard",
@@ -176,7 +177,8 @@ export function render(container, { navigate } = {}) {
     <section class="home-band" aria-labelledby="status-title">
       <div class="wrap">
         <h2 class="h2" id="status-title">Under the <span class="hl">hood</span></h2>
-        <div id="dashboard-headline-mount" style="margin-top:2.4rem">${renderHeadlineSkeleton()}</div>
+        <div id="dashboard-freshness" style="margin-top:2.4rem"></div>
+        <div id="dashboard-headline-mount" style="margin-top:1.6rem">${renderHeadlineSkeleton()}</div>
         <div class="card fade-in" style="margin-top:2.6rem">
           <div class="card-header"><div><h2>Platform status</h2>
             <p class="card-subtitle">Live status of the analytics API and the production model.</p></div></div>
@@ -338,6 +340,7 @@ function statTileSkeleton(label) {
 
 async function loadHealth(container) {
   const mount = container.querySelector("#health-mount");
+  mountFreshness(container.querySelector("#dashboard-freshness"));
   const headlineMount = container.querySelector("#dashboard-headline-mount");
   try {
     const [healthRes, toolsRes] = await Promise.all([getHealth(), getTools()]);

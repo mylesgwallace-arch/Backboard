@@ -4,13 +4,16 @@
 // evidence card is the stored replay validation (`validation_report`).
 
 import { getTools, getPlayoffOdds, getValidationReport } from "../api.js";
+import { mountFreshness } from "../components/freshness.js";
 
 export const meta = {
   title: "Playoffs",
   subtitle: "Play-in, bracket and title odds built on the frozen production model.",
 };
 
-const SEASONS = [2025, 2024, 2023, 2022, 2021, 2020, 2018, 2017, 2016, 2015, 2014];
+// 2026 is the season in progress: use "Project from a date" (no bracket exists yet).
+const DEFAULT_SEASON = 2025;
+const SEASONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2018, 2017, 2016, 2015, 2014];
 const ROUND_COLUMNS = [
   { key: "made_playoffs", label: "Make R1" },
   { key: "won_first_round", label: "Win R1" },
@@ -42,7 +45,7 @@ export function render(container) {
           <label for="po-season">Season</label>
           <div class="select-wrap">
             <select class="select" id="po-season">
-              ${SEASONS.map((s) => `<option value="${s}">${s}-${String(s + 1).slice(-2)}</option>`).join("")}
+              ${SEASONS.map((s) => `<option value="${s}"${s === DEFAULT_SEASON ? " selected" : ""}>${s}-${String(s + 1).slice(-2)}</option>`).join("")}
             </select>
           </div>
         </div>
@@ -90,13 +93,16 @@ export function render(container) {
     // `.field` sets its own display, which beats the hidden attribute.
     dateField.style.display = modeSelect.value === "asof" ? "" : "none";
     if (!dateInput.value || !dateInput.value.startsWith(String(season + 1))) {
-      dateInput.value = `${season + 1}-02-01`;
+      const midSeason = `${season + 1}-02-01`;
+      const today = new Date().toISOString().slice(0, 10);
+      dateInput.value = midSeason > today ? today : midSeason;
     }
   };
   seasonSelect.addEventListener("change", syncDate);
   modeSelect.addEventListener("change", syncDate);
   syncDate();
 
+  mountFreshness(container);
   loadAbout(container.querySelector("#po-about"));
   loadEvidence(container.querySelector("#po-evidence"));
   wireRun(container, { seasonSelect, modeSelect, dateInput });
