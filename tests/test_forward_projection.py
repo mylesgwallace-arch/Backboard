@@ -179,7 +179,7 @@ def test_upcoming_season_schedule_comes_from_the_games_table(tmp_path):
     assert np.isnan(database["target"].tolist()[1])
 
     inputs = _synthetic_inputs()  # its games are all season 2024
-    schedule = season_schedule(inputs, 2026, db_path=db_path)
+    schedule = season_schedule(inputs, 2026, db_path=db_path, min_games=0)
     assert list(schedule["gameId"]) == [1, 2]
     freshness = strength_freshness(inputs, schedule, "2026-10-22")
     assert freshness["features_stale"] is True

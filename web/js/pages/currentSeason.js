@@ -13,6 +13,7 @@ import {
   projectRestOfSeason,
   getPlayoffOdds,
 } from "../api.js";
+import { mountFreshness } from "../components/freshness.js";
 
 export const meta = {
   title: "Current Season",
@@ -23,7 +24,7 @@ export function render(container) {
   container.innerHTML = `
     <div class="card fade-in">
       <div class="card-header"><div><h2>Data freshness</h2>
-        <p class="card-subtitle">Nothing is fetched automatically; this is what the database holds right now.</p></div></div>
+        <p class="card-subtitle">Data changes only when the refresh runs; this is what the database holds right now.</p></div></div>
       <div id="cs-status"><div class="skeleton" style="height:70px;"></div></div>
     </div>
     <div id="cs-projection"></div>
@@ -42,6 +43,7 @@ export function render(container) {
     </div>
     <div id="cs-roster"></div>
   `;
+  mountFreshness(container);
   loadStatus(container);
   loadStrength(container);
 }
@@ -54,20 +56,21 @@ async function loadStatus(container) {
     return;
   }
   const s = res.data.data;
-  const scheduleLoaded = s.upcoming_season_regular_season_games_in_database > 0;
+  const loadedGames = s.upcoming_season_regular_season_games_in_database;
+  const scheduleLoaded = s.upcoming_season_schedule_complete ?? loadedGames > 0;
   mount.innerHTML = `
     <div class="stat-grid">
       ${tile("Latest completed game", (s.latest_completed_game || "—").slice(0, 10))}
       ${tile("Latest model feature row", (s.latest_feature_row || "—").slice(0, 10))}
       ${tile("Latest roster transaction", s.latest_transaction || "—")}
       ${tile(`${s.upcoming_season}-${String(s.upcoming_season + 1).slice(-2)} schedule`,
-             scheduleLoaded ? `${s.upcoming_season_regular_season_games_in_database} games loaded` : "not loaded")}
+             scheduleLoaded ? `${loadedGames} games loaded` : loadedGames > 0 ? `${loadedGames} of 1,230 loaded` : "not loaded")}
     </div>
     ${scheduleLoaded ? "" : `
       <div class="info-banner scouting-note mt-2">
         <span class="note-label">To project the ${s.upcoming_season}-${String(s.upcoming_season + 1).slice(-2)} season</span>
-        <p class="model-insight">Ingest its schedule: <code>${escapeHtml(s.how_to_update.schedule)}</code>.
-        The page will then offer the preseason projection and title odds.</p>
+        <p class="model-insight">Load the full schedule: <code>${escapeHtml(s.how_to_update.daily_refresh || s.how_to_update.schedule)}</code>.
+        The page will then offer the projection and title odds.</p>
       </div>`}
   `;
   if (scheduleLoaded) renderProjectionCard(container, s.upcoming_season, s.today);

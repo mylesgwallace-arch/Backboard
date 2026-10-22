@@ -80,6 +80,7 @@ try:
     )
     from src.margin_model import load_margin_bundle, predict_margin
     from src import era_swap
+    from src import live_results
     from src import player_profile as profiles
     from src import sandbox
 except ImportError:  # pragma: no cover - direct-script support
@@ -130,6 +131,7 @@ except ImportError:  # pragma: no cover - direct-script support
     )
     from margin_model import load_margin_bundle, predict_margin
     import era_swap
+    import live_results
     import player_profile as profiles
     import sandbox
 
@@ -898,10 +900,15 @@ def _execute_data_status(parameters):
             "FROM data_ingestion_log ORDER BY id DESC LIMIT 5"
         ).fetchall() if has_log else []
     transactions = _cached_transactions()
+    latest_feature_row = str(inputs.features["gameDateTimeEst"].max())
+    freshness = live_results.freshness(
+        TEAM_DB_PATH, today.date(), latest_feature_row
+    )
     return {
         "today": str(today.date()),
         "latest_completed_game": latest_game,
-        "latest_feature_row": str(inputs.features["gameDateTimeEst"].max()),
+        "latest_feature_row": latest_feature_row,
+        "live_refresh": freshness,
         "latest_transaction": (
             None if transactions.empty else str(transactions["event_timestamp"].max().date())
         ),
@@ -909,11 +916,14 @@ def _execute_data_status(parameters):
         "upcoming_season": upcoming,
         "upcoming_season_regular_season_games_in_database": int(upcoming_games[0] or 0),
         "upcoming_season_games_with_results": int(upcoming_games[1] or 0),
+        "upcoming_season_schedule_complete": bool((upcoming_games[0] or 0) >= live_results.MIN_SCHEDULE_GAMES),
         "recent_ingestions": [
             {"fetched_at": row[0], "source": row[1], "rows_loaded": row[2], "status": row[3]}
             for row in log
         ],
         "how_to_update": {
+            "daily_refresh": "python -m src.live_data refresh (schedule + results from "
+                             "ESPN; add --dry-run first to validate)",
             "schedule": "python src/live_data.py --source <LeagueSchedule26_27.csv or URL> "
                         "(add --dry-run first to validate)",
             "results_and_box_scores": "replace data/raw/*.csv with an updated export, then "
@@ -1706,8 +1716,9 @@ TOOLS = {
             "July has begun.",
         ],
         "limitations": [
-            "Nothing is fetched from the internet; updates are manual commands "
-            "(listed in how_to_update).",
+            "Nothing is fetched while you browse; data changes only when the refresh "
+            "command runs (daily when scheduled; see how_to_update). Box scores, and so "
+            "team strength, only update from a new data export.",
         ],
         "execute": _execute_data_status,
     },

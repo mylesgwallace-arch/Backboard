@@ -290,6 +290,11 @@ def ingest_schedule(source: str, db_path=DB_PATH, dry_run: bool = False):
             f"INSERT INTO games ({col_list}) VALUES ({placeholders}) "
             f"ON CONFLICT(gameId) DO UPDATE SET {update_clause}"
         )
+        try:
+            from src.live_results import drop_espn_placeholders
+        except ImportError:  # pragma: no cover - direct-script support
+            from live_results import drop_espn_placeholders
+        placeholders_removed = drop_espn_placeholders(conn, rows)
         conn.executemany(
             sql, [[values[c] for c in insert_cols] for values in rows]
         )
@@ -309,7 +314,9 @@ def ingest_schedule(source: str, db_path=DB_PATH, dry_run: bool = False):
                 skipped,
                 validation_status,
                 checksum,
-                "Leakage-safe upsert: existing results preserved.",
+                "Leakage-safe upsert: existing results preserved."
+                + (f" Replaced {placeholders_removed} ESPN placeholder row(s)."
+                   if placeholders_removed else ""),
             ),
         )
         conn.commit()
@@ -362,7 +369,8 @@ def get_ingestion_log(db_path=DB_PATH, limit: int = 20):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="Source-provenanced schedule ingestion for nba.db."
+        description="Source-provenanced schedule ingestion for nba.db. "
+        "Run 'refresh' as the first argument for the daily ESPN schedule + results refresh."
     )
     parser.add_argument(
         "--source",
@@ -389,6 +397,14 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
+    import sys
+    raw_args = sys.argv[1:] if argv is None else list(argv)
+    if raw_args and raw_args[0] == "refresh":
+        try:
+            from src.live_results import main as refresh_main
+        except ImportError:  # pragma: no cover - direct-script support
+            from live_results import main as refresh_main
+        return refresh_main(raw_args[1:])
     args = parse_args(argv)
     if args.history:
         for row in get_ingestion_log(args.db):
