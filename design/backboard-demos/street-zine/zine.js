@@ -97,29 +97,83 @@
     }).join("");
   }
 
-  let fid = 0;
-  function uncrumple(el) {
-    if (reduce()) return;
-    const id = "crumple" + fid++;
-    const f = document.createElementNS(NS, "filter");
-    f.setAttribute("id", id); f.setAttribute("x", "-12%"); f.setAttribute("y", "-12%"); f.setAttribute("width", "124%"); f.setAttribute("height", "124%");
-    f.innerHTML = `<feTurbulence type="fractalNoise" baseFrequency="0.014 0.024" numOctaves="3" seed="${3 + fid}" result="n"/>
-      <feDisplacementMap in="SourceGraphic" in2="n" scale="60" xChannelSelector="R" yChannelSelector="G" result="w"/>
-      <feDiffuseLighting in="n" lighting-color="#fff" surfaceScale="8" diffuseConstant="1.1" result="l"><feDistantLight azimuth="235" elevation="50"/></feDiffuseLighting>
-      <feComponentTransfer in="l" result="l2"><feFuncR type="linear" slope="1" intercept="0"/><feFuncG type="linear" slope="1" intercept="0"/><feFuncB type="linear" slope="1" intercept="0"/></feComponentTransfer>
-      <feComposite in="l2" in2="w" operator="in" result="lc"/><feBlend in="lc" in2="w" mode="multiply"/>`;
-    $("svg defs").appendChild(f);
-    const disp = f.querySelector("feDisplacementMap"), funcs = f.querySelectorAll("feFuncR,feFuncG,feFuncB");
-    el.style.filter = `url(#${id})`;
-    let i = 0; const N = 9;
-    const tick = () => {
-      const p = 1 - i / N;
-      disp.setAttribute("scale", (60 * p).toFixed(1));
-      funcs.forEach((fn) => { fn.setAttribute("slope", p.toFixed(2)); fn.setAttribute("intercept", (1 - p).toFixed(2)); });
-      el.style.transform = `scale(${(0.8 + 0.2 * (1 - p)).toFixed(3)}) rotate(${(-6 * p).toFixed(2)}deg)`;
-      if (i++ < N) setTimeout(tick, 105); else { el.style.filter = ""; el.style.transform = ""; f.remove(); }
+  /* ---------- uncrumple: a wad of paper unfolds into the sheet ----------
+   * Same recipe as the live app (web/js/components/motion.js): the outline
+   * eases from a lumpy ball to the full rectangle (clip-path), the sheet
+   * tilts flat in 3D, and flat-shaded fold facets fade out. Web Animations
+   * only (transform, clip-path, opacity), so it runs at the display rate. */
+  function seeded(seed) {
+    let state = (Math.abs(Math.floor(seed)) % 2147483646) + 1;
+    return () => { state = (state * 16807) % 2147483647; return (state - 1) / 2147483646; };
+  }
+  function edge(lo, hi) {
+    const n = 8, span = hi - lo, pts = [];
+    for (let i = 0; i < n; i++) pts.push([lo + (span * i) / n, lo]);
+    for (let i = 0; i < n; i++) pts.push([hi, lo + (span * i) / n]);
+    for (let i = 0; i < n; i++) pts.push([hi - (span * i) / n, hi]);
+    for (let i = 0; i < n; i++) pts.push([lo, hi - (span * i) / n]);
+    return pts;
+  }
+  const poly = (pts) => `polygon(${pts.map(([x, y]) => `${x.toFixed(2)}% ${y.toFixed(2)}%`).join(", ")})`;
+  const jit = (pts, r, a) => pts.map(([x, y]) => [x + (r() - 0.5) * a, y + (r() - 0.5) * a]);
+  function facets(r) {
+    const cols = 7, rows = 5, g = [];
+    for (let y = 0; y <= rows; y++) {
+      const row = [];
+      for (let x = 0; x <= cols; x++) {
+        const ex = x === 0 || x === cols, ey = y === 0 || y === rows;
+        row.push([(x / cols) * 100 + (ex ? 0 : (r() - 0.5) * (70 / cols)), (y / rows) * 100 + (ey ? 0 : (r() - 0.5) * (70 / rows))]);
+      }
+      g.push(row);
+    }
+    let dark = "", light = "", lines = "";
+    const tri = (a, b, c) => {
+      const t = r() * 2 - 1, p = [a, b, c].map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
+      if (t < 0) dark += `<polygon points="${p}" fill="rgba(20,16,10,${(0.12 - t * 0.38).toFixed(3)})"/>`;
+      else light += `<polygon points="${p}" fill="rgba(255,255,255,${(0.1 + t * 0.45).toFixed(3)})"/>`;
+      lines += `<polygon points="${p}"/>`;
     };
-    tick();
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const a = g[y][x], b = g[y][x + 1], d = g[y + 1][x], e = g[y + 1][x + 1];
+      if (r() < 0.5) { tri(a, b, e); tri(a, e, d); } else { tri(a, b, d); tri(b, e, d); }
+    }
+    return { dark, light, lines };
+  }
+  function layer(blend, inner) {
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.style.cssText = `position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;mix-blend-mode:${blend}`;
+    svg.innerHTML = inner;
+    return svg;
+  }
+  function uncrumple(el, seed = Date.now()) {
+    if (reduce() || !el || typeof el.animate !== "function") return;
+    const r = seeded(seed);
+    const box = el.getBoundingClientRect();
+    const aspect = box.height ? box.width / box.height : 1;
+    const ball = poly(edge(0, 100).map(([x, y], i) => {
+      const ang = Math.atan2(y - 50, x - 50), rad = (17 + r() * 9) * (i % 2 ? 0.8 : 1);
+      return [50 + (Math.cos(ang) * rad) / Math.max(1, aspect * 0.6), 50 + Math.sin(ang) * rad];
+    }));
+    const f = facets(r);
+    const shade = layer("multiply", f.dark + `<g fill="none" stroke="rgba(30,24,14,.28)" stroke-width=".25" vector-effect="non-scaling-stroke">${f.lines}</g>`);
+    const shine = layer("screen", f.light);
+    if (getComputedStyle(el).position === "static") el.style.position = "relative";
+    el.append(shade, shine);
+    const s = r() < 0.5 ? -1 : 1;
+    const run = el.animate([
+      { offset: 0, clipPath: ball, opacity: 0, easing: "cubic-bezier(.3,1.6,.5,1)", transform: `perspective(1100px) translateY(26px) scale(.32) rotate(${s * 24}deg) rotateX(34deg) rotateY(${-s * 26}deg)` },
+      { offset: 0.14, clipPath: ball, opacity: 1, easing: "cubic-bezier(.55,0,.35,1)", transform: `perspective(1100px) translateY(10px) scale(.48) rotate(${s * 14}deg) rotateX(26deg) rotateY(${-s * 20}deg)` },
+      { offset: 0.5, clipPath: poly(jit(edge(-1, 101), r, 9)), easing: "cubic-bezier(.2,.7,.3,1)", transform: `perspective(1100px) translateY(-6px) scale(.95) rotate(${-s * 2.5}deg) rotateX(9deg) rotateY(${s * 6}deg)` },
+      { offset: 0.78, clipPath: poly(jit(edge(-2, 102), r, 2.5)), easing: "cubic-bezier(.25,.8,.3,1)", transform: `perspective(1100px) translateY(2px) scale(1.012) rotate(${s * 0.6}deg) rotateX(-1.5deg)` },
+      { offset: 1, clipPath: poly(edge(-3, 103)), opacity: 1, transform: "perspective(1100px) none" },
+    ], { duration: 1100, easing: "linear", fill: "backwards" });
+    const fold = [{ opacity: 1 }, { opacity: 0.85, offset: 0.5 }, { opacity: 0.3, offset: 0.78 }, { opacity: 0 }];
+    shade.animate(fold, { duration: 1100, easing: "linear", fill: "both" });
+    shine.animate(fold, { duration: 1100, easing: "linear", fill: "both" });
+    run.finished.catch(() => {}).then(() => { shade.remove(); shine.remove(); });
   }
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

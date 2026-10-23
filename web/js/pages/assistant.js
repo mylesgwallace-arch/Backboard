@@ -7,6 +7,16 @@
 // project's transparency requirement, nothing is summarized or softened.
 
 import { ask } from "../api.js";
+import { fetchTeams } from "../components/teamSelect.js";
+import { teamColor } from "../teamColors.js";
+import { clashingPair } from "../colorInk.js";
+
+// Team full names -> ids, for linking names in answers to their team pages.
+let teamIndex = [];
+fetchTeams().then((teams) => {
+  teamIndex = teams.map((t) => ({ id: t.team_id, name: t.full_name, abbreviation: t.abbreviation }))
+    .sort((a, b) => b.name.length - a.name.length);
+}).catch(() => {});
 
 export const meta = {
   title: "Assistant",
@@ -106,7 +116,8 @@ export function render(container) {
         envelopes: data.envelopes || (data.envelope ? [data.envelope] : []),
         grounding: data.grounding,
         mode: data.mode,
-        fallback: data.fallback_reason,
+        fallback: data.fallback_reason || data.notice,
+        context: data.context,
       });
     } catch (err) {
       state.messages.push({
@@ -160,6 +171,12 @@ function renderLog(log) {
     );
   }
 
+  log.querySelectorAll("[data-followup]").forEach((btn) => btn.addEventListener("click", () => {
+    const input = document.querySelector("#chat-input");
+    input.value = btn.dataset.followup;
+    input.form.requestSubmit();
+  }));
+
   log.querySelectorAll("[data-toggle-envelope]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const panel = log.querySelector(`#${btn.dataset.toggleEnvelope}`);
@@ -198,10 +215,16 @@ function renderMessage(message, index) {
       : `<span class="badge" title="These numbers were not found in any tool result.">Untraced numbers: ${escapeText(grounding.unsupported.join(", "))}</span>`
     : "";
 
+  const followups = index === state.messages.length - 1 ? followUps(message) : [];
+  const links = pageLinks(message);
   return `
     <div class="chat-bubble chat-bubble--assistant">
       ${renderAnswerText(message.text)}
+      ${envelopes.map(renderMiniChart).join("")}
       ${message.fallback ? `<p class="text-muted" style="font-size:0.8rem;">${escapeText(message.fallback)}</p>` : ""}
+      ${links.length ? `<p class="chat-links">${links.map((l) => `<a class="link-btn" href="${l.href}">${escapeText(l.label)} ▸</a>`).join("")}</p>` : ""}
+      ${followups.length ? `<div class="chat-followups" aria-label="Ask next">${followups.map((q) =>
+        `<button type="button" class="chip chip-btn" data-followup="${escapeAttr(q)}">${escapeText(q)}</button>`).join("")}</div>` : ""}
       <div class="chat-bubble-meta">
         ${(message.plan || []).map((step) => `<span class="chip"><strong>${escapeText(step.tool)}</strong></span>`).join("")}
         ${message.status ? `<span class="badge ${statusBadgeClass}">${escapeText(statusLabel)}</span>` : ""}
@@ -219,7 +242,9 @@ function renderMessage(message, index) {
 
 // Answers come as "Section title:\n- line\n- line" blocks; render each block
 // as a heading plus a list so facts, model output and uncertainty stay apart.
+// Team names become links to their team pages.
 function renderAnswerText(text) {
+  const linked = (value) => linkTeams(escapeText(value));
   return String(text)
     .split(/\n\s*\n/)
     .map((block) => {
@@ -227,11 +252,79 @@ function renderAnswerText(text) {
       const bullets = lines.filter((line) => line.startsWith("- "));
       if (bullets.length && lines[0].endsWith(":")) {
         return `<p><strong>${escapeText(lines[0].slice(0, -1))}</strong></p>
-          <ul class="plain-list">${bullets.map((line) => `<li>${escapeText(line.slice(2))}</li>`).join("")}</ul>`;
+          <ul class="plain-list">${bullets.map((line) => `<li>${linked(line.slice(2))}</li>`).join("")}</ul>`;
       }
-      return `<p>${escapeText(block)}</p>`;
+      return `<p>${linked(block)}</p>`;
     })
     .join("");
+}
+
+function linkTeams(html) {
+  if (!teamIndex.length) return html;
+  const pattern = new RegExp(`\\b(${teamIndex.map((t) => escapeText(t.name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "g");
+  return html.replace(pattern, (name) => {
+    const team = teamIndex.find((t) => escapeText(t.name) === name);
+    return team ? `<a class="chat-team" href="/teams?team=${team.id}">${name}</a>` : name;
+  });
+}
+
+/** A probability strip for a matchup answer (same numbers as the text). */
+function renderMiniChart(envelope) {
+  const prediction = envelope?.tool === "predict_matchup" && envelope.status === "success" ? envelope.data?.prediction : null;
+  if (!prediction) return "";
+  const home = teamIndex.find((t) => t.id === prediction.home_team_id);
+  const away = teamIndex.find((t) => t.id === prediction.away_team_id);
+  const pair = clashingPair(teamColor(prediction.home_team_id), teamColor(prediction.away_team_id));
+  const pHome = prediction.home_win_probability;
+  return `<div class="chat-mini" role="img" aria-label="${escapeAttr(away?.name || "Away")} ${Math.round((1 - pHome) * 100)}%, ${escapeAttr(home?.name || "Home")} ${Math.round(pHome * 100)}%">
+    <span class="chat-mini-label">${escapeText(away?.abbreviation || "Away")} ${Math.round((1 - pHome) * 100)}%</span>
+    <span class="chat-mini-bar"><span style="width:${(1 - pHome) * 100}%; background:${pair.second};"></span><span style="flex:1; background:${pair.first};"></span></span>
+    <span class="chat-mini-label">${Math.round(pHome * 100)}% ${escapeText(home?.abbreviation || "Home")}</span>
+  </div>`;
+}
+
+/** "Open this on its page" links from the answer's tool calls. */
+function pageLinks(message) {
+  const links = [];
+  const seen = new Set();
+  const add = (label, href) => {
+    if (!seen.has(href)) {
+      seen.add(href);
+      links.push({ label, href });
+    }
+  };
+  (message.plan || []).forEach(({ tool, parameters = {} }) => {
+    if ((tool === "predict_matchup" || tool === "predict_margin") && parameters.home_team_id && parameters.away_team_id) {
+      add("Open in Matchups", `/matchups?home=${parameters.home_team_id}&away=${parameters.away_team_id}`);
+    }
+    if (parameters.person_id) add("Player page", `/players?id=${parameters.person_id}`);
+    if (tool === "playoff_odds" || tool === "simulate_season") add("Playoff odds", "/playoffs");
+    if (tool === "head_to_head" && parameters.team_a_id && parameters.team_b_id) {
+      add("Head-to-head page", `/head-to-head?a=${parameters.team_a_id}&b=${parameters.team_b_id}`);
+    }
+    if (tool === "validation_report") add("Model report card", "/report-card");
+  });
+  return links.slice(0, 4);
+}
+
+/** Next questions the planner can answer, built from this answer's teams. */
+function followUps(message) {
+  if (message.status === "error") return [];
+  const ids = message.context?.teams || [];
+  const name = (id) => teamIndex.find((t) => t.id === id)?.name;
+  const tools = new Set((message.plan || []).map((step) => step.tool));
+  const out = [];
+  if (ids.length >= 2 && name(ids[0]) && name(ids[1])) {
+    const [a, b] = [name(ids[0]), name(ids[1])];
+    if (tools.has("predict_matchup")) out.push(`Who wins if the ${b.split(" ").pop()} host the ${a.split(" ").pop()}?`);
+    if (!tools.has("head_to_head")) out.push(`What is the head-to-head record between the ${a} and the ${b}?`);
+  }
+  if (ids.length === 1 && name(ids[0])) {
+    out.push(`What are the ${name(ids[0])}' playoff odds?`);
+    out.push(`Who did the ${name(ids[0])} add this offseason?`);
+  }
+  if (!tools.has("validation_report")) out.push("How good is the prediction model overall?");
+  return out.slice(0, 3);
 }
 
 function renderEnvelopeDetails(envelope) {

@@ -5,6 +5,7 @@
 // polished dashboard. No simulation logic lives here — every number comes
 // directly from the `simulate_season` tool envelope.
 
+import { csvButton, downloadCsv } from "../components/csv.js";
 import { getTools, getSeasonSimulation, projectRestOfSeason } from "../api.js";
 import { fetchTeams } from "../components/teamSelect.js";
 import { renderSeedProbabilityBars } from "../components/seedProbabilities.js";
@@ -19,8 +20,12 @@ export const meta = {
 // These are the seasons src/simulate_season.py's own VALIDATION_SEASONS
 // replays and compares against actual outcomes (see README §5), so they are
 // the seasons this page exposes rather than an arbitrary free-text season.
-const SEASON_OPTIONS = [2025, 2024, 2023];
-const DEFAULT_SEASON = 2025;
+// The season in progress (starting year) joins them: it can only be
+// projected forward from a date, so replay mode is off for it.
+const TODAY = new Date();
+const IN_PROGRESS_SEASON = TODAY.getMonth() >= 8 ? TODAY.getFullYear() : TODAY.getFullYear() - 1;
+const SEASON_OPTIONS = [...new Set([IN_PROGRESS_SEASON, 2025, 2024, 2023])];
+const DEFAULT_SEASON = IN_PROGRESS_SEASON;
 const SIMULATION_OPTIONS = [200, 500, 1000, 2000];
 const DEFAULT_SIMULATIONS = 1000;
 
@@ -148,11 +153,19 @@ function wireRunButton(container, ctx) {
   const modeNote = container.querySelector("#sim-mode-note");
 
   const syncMode = () => {
-    const asOf = modeSelect.value === "asof";
     const season = Number(seasonSelect.value);
+    const replayOption = modeSelect.querySelector('option[value="replay"]');
+    const inProgress = season >= IN_PROGRESS_SEASON;
+    replayOption.disabled = inProgress;
+    if (inProgress) {
+      modeSelect.value = "asof";
+      const today = TODAY.toISOString().slice(0, 10);
+      if (!dateInput.value || dateInput.value > today || !dateInput.value.startsWith(String(season))) dateInput.value = today;
+    }
+    const asOf = modeSelect.value === "asof";
     // `.field` sets its own display, which beats the hidden attribute.
     dateField.style.display = asOf ? "" : "none";
-    if (!dateInput.value || !dateInput.value.startsWith(String(season + 1))) {
+    if (!inProgress && (!dateInput.value || !dateInput.value.startsWith(String(season + 1)))) {
       dateInput.value = `${season + 1}-01-15`;
     }
     modeNote.textContent = asOf
@@ -207,8 +220,13 @@ function wireRunButton(container, ctx) {
 
     const projection = res.data.data.projection;
     const teams = await fetchTeams().catch(() => []);
-    resultMount.innerHTML = renderResults(projection, teams);
+    resultMount.innerHTML = renderResults(projection, teams) +
+      `<div class="toolbar mt-1">${csvButton("sim-csv", "Download standings CSV")}</div>`;
     wireResultInteractions(resultMount, teams, ctx);
+    resultMount.querySelector("#sim-csv")?.addEventListener("click", () => downloadCsv(`backboard-simulation-${season}`, [
+      ["Team", "Conference", "Mean wins", "5th pct wins", "95th pct wins", "Top-6 probability"],
+      ...projection.projected_standings.map((r) => [r.teamName || r.teamId, r.conference, r.mean_wins, r.p5_wins, r.p95_wins, r.direct_playoff_probability]),
+    ]));
   });
 }
 

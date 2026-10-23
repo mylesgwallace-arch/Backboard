@@ -15,7 +15,9 @@ import { teamColor } from "../teamColors.js";
 import { readableInk } from "../colorInk.js";
 import { dumbbellRows, wireChartTooltips } from "../components/charts.js";
 import { playerThumb, wireTornPhoto } from "../components/tornPhoto.js";
-import { apiMoves as stripNames, decodeScenario, encodeScenario } from "../components/scenario.js";
+import { FEATURED_SCENARIOS, apiMoves as stripNames, decodeScenario, encodeScenario } from "../components/scenario.js";
+import { saveScenario } from "../components/prefs.js";
+import { copyText, toast } from "../components/toast.js";
 import {
   debounce, emptyState, errorBanner, escapeHtml, fixed, pct, safe, seasonLabel, signed, signedPoints, unwrap,
 } from "../components/format.js";
@@ -34,28 +36,7 @@ const MOVE_TABS = [
   ["minutes", "Minutes"],
 ];
 
-// Ready-made scenarios for the next-season mode (ids from the 2025-26 rosters).
-const PRESETS = [
-  {
-    label: "Jokic ↔ Giannis",
-    moves: [{ type: "trade", assets: [
-      { person_id: 203999, from_team_id: 1610612743, to_team_id: 1610612749 },
-      { person_id: 203507, from_team_id: 1610612749, to_team_id: 1610612743 },
-    ] }],
-  },
-  {
-    label: "1990-91 Jordan joins the Spurs",
-    moves: [{ type: "sign", person_id: 893, to_team_id: 1610612759, from_season: 1990 }],
-  },
-  {
-    label: "Wembanyama to the Knicks",
-    moves: [{ type: "trade", assets: [{ person_id: 1641705, from_team_id: 1610612759, to_team_id: 1610612752 }] }],
-  },
-  {
-    label: "SGA misses half the season",
-    moves: [{ type: "injury", person_id: 1628983, team_id: 1610612760, games_missed: 41 }],
-  },
-];
+const PRESETS = FEATURED_SCENARIOS;
 
 let sb = null; // page state: { mode, season, moves, rosters, seasons, ... }
 
@@ -139,7 +120,7 @@ function saveState() {
 }
 
 function shareLink() {
-  return `${location.origin}${location.pathname}#/sandbox?s=${encodeScenario(sb)}`;
+  return `${location.origin}/sandbox?s=${encodeScenario(sb)}`;
 }
 
 const rosterCache = {};
@@ -576,7 +557,7 @@ function renderLedger(ledger, container, ctx) {
     ${sb.moves.length ? `<ol class="move-list">${sb.moves.map((move, i) => `<li><span>${describeMove(move)}</span>
         <button class="icon-btn" data-remove="${i}" aria-label="Remove move ${i + 1}">✕</button></li>`).join("")}</ol>
       <div class="toolbar"><button class="link-btn" id="sb-clear">Clear all</button><button class="link-btn" id="sb-share">Copy share link</button>
-        <span class="text-muted" id="sb-share-note" role="status"></span></div>`
+        <button class="link-btn" id="sb-save">Save to gallery</button></div>`
       : emptyState("No moves yet. Build one on the left, or try a ready-made scenario above.")}
     <div id="sb-preview" aria-live="polite"></div>
     <div class="sim-controls">
@@ -607,15 +588,14 @@ function renderLedger(ledger, container, ctx) {
     renderLedger(ledger, container, ctx);
     renderBuilder(container.querySelector("#sb-builder"), container, ctx);
   });
-  ledger.querySelector("#sb-share")?.addEventListener("click", async () => {
-    const note = ledger.querySelector("#sb-share-note");
-    try {
-      await navigator.clipboard.writeText(shareLink());
-      note.textContent = "Link copied.";
-    } catch (err) {
-      note.textContent = "Copy failed; the link is in the address bar.";
-      history.replaceState(null, "", shareLink());
-    }
+  ledger.querySelector("#sb-share")?.addEventListener("click", () => copyText(shareLink()));
+  ledger.querySelector("#sb-save")?.addEventListener("click", () => {
+    const plain = document.createElement("div");
+    plain.innerHTML = sb.moves.map(describeMove).join("; ");
+    const name = window.prompt("Name this scenario", plain.textContent.slice(0, 80));
+    if (name === null) return;
+    const saved = saveScenario(name.trim() || "My scenario", { mode: sb.mode, season: sb.season, moves: sb.moves });
+    toast(saved ? "Saved to the Scenario Gallery" : "This browser would not save it", { tone: saved ? "ok" : "warn" });
   });
   ledger.querySelector("#sb-n").addEventListener("change", (e) => { sb.nSimulations = Number(e.target.value); });
   ledger.querySelector("#sb-transfer").addEventListener("change", (e) => { sb.transfer = e.target.value; });

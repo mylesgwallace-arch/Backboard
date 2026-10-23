@@ -8,7 +8,7 @@
 // shared rendering components as the Season Simulator; no simulation logic
 // lives here.
 
-import { getSeasonSimulation } from "../api.js";
+import { getSeasonSimulation, projectRestOfSeason } from "../api.js";
 import { fetchTeams } from "../components/teamSelect.js";
 import { renderLeagueSummaryCard } from "../components/leagueSummary.js";
 import { renderPlayoffField } from "../components/playoffField.js";
@@ -23,8 +23,12 @@ export const meta = {
 // Same validated seasons the Season Simulator exposes (src/simulate_season.py's
 // own VALIDATION_SEASONS). 2025 is the default so the page shows the current
 // season's projection immediately without any input from the user.
-const SEASON_OPTIONS = [2025, 2024, 2023];
-const DEFAULT_SEASON = 2025;
+// Plus the season in progress (starting year), projected forward from today
+// with project_rest_of_season instead of replayed; it is the default.
+const TODAY = new Date();
+const IN_PROGRESS_SEASON = TODAY.getMonth() >= 8 ? TODAY.getFullYear() : TODAY.getFullYear() - 1;
+const SEASON_OPTIONS = [...new Set([IN_PROGRESS_SEASON, 2025, 2024, 2023])];
+const DEFAULT_SEASON = IN_PROGRESS_SEASON;
 
 // Fixed at the Season Simulator's own default. This page is an overview, not
 // a configuration surface, so the simulation-count control is deliberately
@@ -130,7 +134,9 @@ async function loadProjection(container, ctx, season) {
 
   let res;
   try {
-    res = await getSeasonSimulation({ season, nSimulations: N_SIMULATIONS });
+    res = season >= IN_PROGRESS_SEASON
+      ? await projectRestOfSeason({ season, asOf: TODAY.toISOString().slice(0, 10), nSimulations: N_SIMULATIONS })
+      : await getSeasonSimulation({ season, nSimulations: N_SIMULATIONS });
   } catch (err) {
     reloadBtn.disabled = false;
     statusEl.textContent = "";

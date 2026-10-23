@@ -225,3 +225,73 @@ export function simulateScenario({ mode, season, moves, nSimulations, randomStat
   if (transfer) parameters.transfer = transfer;
   return runTool("sandbox_simulate", parameters);
 }
+
+// League views (see src/league_views.py, src/player_boards.py, src/live_games.py).
+
+export function getStandings({ season, asOf } = {}) {
+  const parameters = {};
+  if (season != null) parameters.season = season;
+  if (asOf) parameters.as_of = asOf;
+  return runTool("standings", parameters);
+}
+
+export function getScoreboard(date) {
+  return runTool("scoreboard", date ? { date } : {});
+}
+
+export function getLiveScoreboard(date) {
+  return runTool("live_scoreboard", date ? { date } : {});
+}
+
+export function getTeamSchedule({ teamId, season, asOf }) {
+  const parameters = { team_id: teamId };
+  if (season != null) parameters.season = season;
+  if (asOf) parameters.as_of = asOf;
+  return runTool("team_schedule", parameters);
+}
+
+export function getStrengthOfSchedule({ season, asOf } = {}) {
+  const parameters = {};
+  if (season != null) parameters.season = season;
+  if (asOf) parameters.as_of = asOf;
+  return runTool("strength_of_schedule", parameters);
+}
+
+export function getReportCard(season) {
+  return runTool("model_report_card", season != null ? { season } : {});
+}
+
+export function getOddsHistory({ season, teamId } = {}) {
+  const parameters = {};
+  if (season != null) parameters.season = season;
+  if (teamId != null) parameters.team_id = teamId;
+  return runTool("odds_history", parameters);
+}
+
+export function getInjuryReport(teamId) {
+  return runTool("injury_report", teamId != null ? { team_id: teamId } : {});
+}
+
+export function getStatLeaders({ season, stat, limit, minGames } = {}) {
+  const parameters = {};
+  if (season != null) parameters.season = season;
+  if (stat) parameters.stat = stat;
+  if (limit != null) parameters.limit = limit;
+  if (minGames != null) parameters.min_games = minGames;
+  return runTool("stat_leaders", parameters);
+}
+
+export function getPlayerCards({ season, teamId } = {}) {
+  const parameters = {};
+  if (season != null) parameters.season = season;
+  if (teamId != null) parameters.team_id = teamId;
+  return runTool("player_cards", parameters);
+}
+
+export function getSimilarPlayers({ personId, season, limit, anyAge } = {}) {
+  const parameters = { person_id: personId };
+  if (season != null) parameters.season = season;
+  if (limit != null) parameters.limit = limit;
+  if (anyAge) parameters.any_age = true;
+  return runTool("similar_players", parameters);
+}

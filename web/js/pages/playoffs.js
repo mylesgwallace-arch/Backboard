@@ -3,8 +3,11 @@
 // cutoff date. Every number comes from the `playoff_odds` tool envelope; the
 // evidence card is the stored replay validation (`validation_report`).
 
-import { getTools, getPlayoffOdds, getValidationReport } from "../api.js";
+import { getTools, getPlayoffOdds, getValidationReport, getOddsHistory } from "../api.js";
 import { mountFreshness } from "../components/freshness.js";
+import { emphasisLineChart, wireEmphasisChart } from "../components/charts.js";
+import { favoriteTeam } from "../components/prefs.js";
+import { safe, seasonLabel, unwrap } from "../components/format.js";
 
 export const meta = {
   title: "Playoffs",
@@ -66,12 +69,31 @@ export function render(container) {
       </div>
       <div class="predict-actions">
         <button class="btn" id="po-run">Run playoff odds</button>
-        <span id="po-status" class="text-muted"></span>
+        <span id="po-status" class="text-muted" role="status"></span>
       </div>
-      <div id="po-error" class="mt-1"></div>
+      <div id="po-error" class="mt-1" aria-live="assertive"></div>
     </div>
 
-    <div id="po-result"></div>
+    <div id="po-result" aria-live="polite"></div>
+
+    <section class="card fade-in" aria-labelledby="po-history-title">
+      <div class="card-header">
+        <div>
+          <h2 id="po-history-title">How the odds moved</h2>
+          <p class="card-subtitle">Stored snapshots of every team's odds through the season (one per daily refresh, or replayed from earlier dates). Pick a team to follow it.</p>
+        </div>
+        <div class="card-tools">
+          <div class="segmented" role="group" aria-label="Which odds">
+            <button class="seg is-on" data-odds="p_champion" aria-pressed="true">Title</button>
+            <button class="seg" data-odds="p_won_conf_finals" aria-pressed="false">Finals</button>
+            <button class="seg" data-odds="p_made_playoffs" aria-pressed="false">Playoffs</button>
+          </div>
+          <div class="select-wrap compact-field"><label class="sr-only" for="po-history-team">Follow a team</label>
+            <select class="select" id="po-history-team"></select></div>
+        </div>
+      </div>
+      <div id="po-history"><div class="skeleton" style="height:240px;"></div></div>
+    </section>
 
     <div class="card fade-in">
       <div class="card-header">
@@ -110,6 +132,24 @@ export function render(container) {
   seasonSelect.addEventListener("change", syncDate);
   modeSelect.addEventListener("change", syncDate);
   syncDate();
+  const history = { season: Number(seasonSelect.value), metric: "p_champion", team: null, data: null };
+  seasonSelect.addEventListener("change", () => {
+    history.season = Number(seasonSelect.value);
+    loadHistory(container, history);
+  });
+  container.querySelectorAll("[data-odds]").forEach((button) => button.addEventListener("click", () => {
+    history.metric = button.dataset.odds;
+    container.querySelectorAll("[data-odds]").forEach((b) => {
+      b.classList.toggle("is-on", b === button);
+      b.setAttribute("aria-pressed", String(b === button));
+    });
+    paintHistory(container, history);
+  }));
+  container.querySelector("#po-history-team").addEventListener("change", (event) => {
+    history.team = Number(event.target.value) || null;
+    paintHistory(container, history);
+  });
+  loadHistory(container, history);
 
   mountFreshness(container);
   loadAbout(container.querySelector("#po-about"));
@@ -175,7 +215,8 @@ function wireRun(container, { seasonSelect, modeSelect, dateInput }) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Running…';
     status.textContent = "The first run in a session loads the model inputs (a few seconds).";
-    resultMount.innerHTML = `<div class="card fade-in"><div class="skeleton" style="height:260px;"></div></div>`;
+    resultMount.setAttribute("aria-busy", "true");
+    resultMount.innerHTML = `<div class="card fade-in" aria-label="Loading"><div class="skeleton" style="height:260px;"></div></div>`;
     let res;
     try {
       res = await getPlayoffOdds({ season, asOf });
@@ -186,10 +227,12 @@ function wireRun(container, { seasonSelect, modeSelect, dateInput }) {
     btn.textContent = "Run playoff odds";
     status.textContent = "";
     if (!res.ok || res.data?.status !== "success") {
+      resultMount.setAttribute("aria-busy", "false");
       resultMount.innerHTML = "";
-      errorMount.innerHTML = `<div class="error-banner">⚠ ${escapeHtml(res.data?.error?.message || "The request failed.")}</div>`;
+      errorMount.innerHTML = `<div class="error-banner" role="alert">⚠ ${escapeHtml(res.data?.error?.message || "The request failed.")}</div>`;
       return;
     }
+    resultMount.setAttribute("aria-busy", "false");
     resultMount.innerHTML = renderResult(res.data.data);
   });
 }
@@ -300,4 +343,56 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
   ));
+}
+
+// ---------------------------------------------------------------------------
+// Odds history (odds_history tool): every team a thin gray line, the followed
+// team in red with its end label.
+// ---------------------------------------------------------------------------
+
+async function loadHistory(container, history) {
+  const mount = container.querySelector("#po-history");
+  mount.innerHTML = `<div class="skeleton" style="height:240px;"></div>`;
+  const res = unwrap(await safe(getOddsHistory({ season: history.season })));
+  if (!container.isConnected) return;
+  history.data = res.data;
+  if (!res.data) {
+    mount.innerHTML = `<p class="text-muted">${escapeHtml(res.message)}</p>`;
+    return;
+  }
+  const select = container.querySelector("#po-history-team");
+  const teams = [...res.data.teams].sort((a, b) => a.teamName.localeCompare(b.teamName));
+  const fav = favoriteTeam();
+  if (history.team == null || !teams.some((t) => t.teamId === history.team)) {
+    history.team = teams.some((t) => t.teamId === fav) ? fav : res.data.teams[0]?.teamId ?? null;
+  }
+  select.innerHTML = teams.map((t) => `<option value="${t.teamId}" ${t.teamId === history.team ? "selected" : ""}>${escapeHtml(t.teamName)}</option>`).join("");
+  paintHistory(container, history);
+}
+
+function paintHistory(container, history) {
+  const mount = container.querySelector("#po-history");
+  const data = history.data;
+  if (!data) return;
+  if (data.dates.length < 2) {
+    mount.innerHTML = `<div class="empty-state">No odds history stored for ${seasonLabel(history.season)} yet.
+      The daily refresh adds a snapshot each day; to replay a season run
+      <code>python -m src.odds_history backfill --season ${history.season}</code>.</div>`;
+    return;
+  }
+  const series = data.teams.map((t) => ({
+    id: t.teamId, label: t.abbreviation || t.teamName,
+    points: t.points.map((p) => ({ x: p.as_of, y: p[history.metric] })),
+  }));
+  const max = Math.max(0.05, ...series.flatMap((s) => s.points.map((p) => p.y ?? 0)));
+  const yMax = history.metric === "p_made_playoffs" ? 1 : Math.min(1, Math.ceil(max * 10) / 10);
+  const followed = data.teams.find((t) => t.teamId === history.team);
+  mount.innerHTML = `
+    <div class="chart-wrap" id="po-history-chart">${emphasisLineChart(series, {
+      emphasis: history.team, yMax, labelTop: 3,
+      label: `${history.metric === "p_champion" ? "Title" : history.metric === "p_made_playoffs" ? "Playoff" : "Finals"} odds by date, ${seasonLabel(history.season)}${followed ? `, following ${followed.teamName}` : ""}`,
+    })}</div>
+    <p class="table-note">${data.dates.length} snapshots, ${escapeHtml(data.dates[0])} to ${escapeHtml(data.dates[data.dates.length - 1])}.
+      Each is a 1,000-simulation estimate, so small wiggles are noise.</p>`;
+  wireEmphasisChart(mount.querySelector("#po-history-chart"), series, { emphasis: history.team });
 }

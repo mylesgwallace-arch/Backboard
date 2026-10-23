@@ -55,12 +55,12 @@ export function render(container) {
       </div>
       <div class="predict-actions">
         <button class="btn" id="wi-run">Run what-if</button>
-        <span class="text-muted" id="wi-status"></span>
+        <span class="text-muted" id="wi-status" role="status"></span>
       </div>
-      <div id="wi-error" class="mt-1"></div>
+      <div id="wi-error" class="mt-1" aria-live="assertive"></div>
       <div id="wi-candidates" class="mt-1"></div>
     </div>
-    <div id="wi-result"></div>
+    <div id="wi-result" aria-live="polite" aria-busy="false"></div>
     <div class="card fade-in"><details class="collapsible"><summary>How this works</summary>
       <div id="wi-about" class="mt-1"><div class="skeleton" style="height:40px;"></div></div></details></div>
   `;
@@ -125,7 +125,8 @@ async function run(container, inPersonId) {
   }
   button.disabled = true;
   status.textContent = "Simulating… the first run in a session loads the season model (about a minute).";
-  resultMount.innerHTML = `<div class="card fade-in"><div class="skeleton" style="height:260px;"></div></div>`;
+  resultMount.setAttribute("aria-busy", "true");
+  resultMount.innerHTML = `<div class="card fade-in" aria-label="Loading"><div class="skeleton" style="height:260px;"></div></div>`;
   const res = await safe(simulateEraSwap({
     teamId: Number(container.querySelector("#wi-team").value),
     season: Number(container.querySelector("#wi-season").value),
@@ -137,10 +138,12 @@ async function run(container, inPersonId) {
   button.disabled = false;
   status.textContent = "";
   if (!res.ok || res.data?.status !== "success") {
+    resultMount.setAttribute("aria-busy", "false");
     resultMount.innerHTML = "";
     errorMount.innerHTML = errorBanner(res.data?.error?.message || "The what-if could not run.");
     return;
   }
+  resultMount.setAttribute("aria-busy", "false");
   resultMount.innerHTML = renderReport(res.data.data);
 }
 
@@ -218,7 +221,7 @@ function signed(value, digits = 2) {
   return value > 0 ? `+${text}` : text;
 }
 function pct(value) { return value == null ? "—" : `${(value * 100).toFixed(1)}%`; }
-function errorBanner(message) { return `<div class="error-banner">⚠ ${escapeHtml(message)}</div>`; }
+function errorBanner(message) { return `<div class="error-banner" role="alert">⚠ ${escapeHtml(message)}</div>`; }
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }

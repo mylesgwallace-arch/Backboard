@@ -321,3 +321,237 @@ export function dumbbellRows(rows, { min, max, unit = "" }) {
       <div class="dumbbell-axis" aria-hidden="true"><span>${min}</span><span>${Math.round((min + max) / 2)}</span><span>${max}</span></div>
     </div>`;
 }
+
+/**
+ * Lines over time with emphasis: every series is a thin gray line, the
+ * emphasized one is the accent, drawn last, with an end label (so no
+ * categorical palette is needed for 30 teams). A crosshair snaps to the
+ * nearest date; its tooltip lists the emphasized series and the top few.
+ * series: [{id, label, points: [{x: "YYYY-MM-DD", y}]}]; y in 0..yMax.
+ */
+export function emphasisLineChart(series, { emphasis = null, yMin = 0, yMax = 1, format = (v) => `${Math.round(v * 100)}%`,
+  label = "chart", labelTop = 3 } = {}) {
+  const dates = [...new Set(series.flatMap((s) => s.points.map((p) => p.x)))].sort();
+  if (dates.length < 1) return "";
+  const width = 760;
+  const height = 260;
+  const pad = { top: 16, right: 64, bottom: 30, left: 44 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const t0 = Date.parse(dates[0]);
+  const t1 = Date.parse(dates[dates.length - 1]);
+  const x = (d) => pad.left + (t1 === t0 ? plotW / 2 : ((Date.parse(d) - t0) / (t1 - t0)) * plotW);
+  const y = (v) => pad.top + (1 - (Math.min(yMax, Math.max(yMin, v)) - yMin) / (yMax - yMin)) * plotH;
+  const ticks = niceTicks(yMin, yMax, 4);
+  const pathOf = (s) => s.points.filter((p) => p.y != null)
+    .map((p, i) => `${i ? "L" : "M"}${x(p.x).toFixed(1)},${y(p.y).toFixed(1)}`).join(" ");
+  const last = (s) => [...s.points].reverse().find((p) => p.y != null);
+  const ranked = [...series].sort((a, b) => (last(b)?.y ?? 0) - (last(a)?.y ?? 0));
+  const labelled = new Set([emphasis, ...ranked.slice(0, labelTop).map((s) => s.id)].filter((id) => id != null));
+  const background = series.filter((s) => s.id !== emphasis).map((s) => `
+    <path d="${pathOf(s)}" fill="none" class="c-base-line ${labelled.has(s.id) ? "" : "is-faint"}" stroke-width="${labelled.has(s.id) ? 2 : 1.25}"
+      stroke-linejoin="round" stroke-linecap="round" data-series="${escapeHtml(String(s.id))}" />`).join("");
+  const hero = series.find((s) => s.id === emphasis);
+  const heroPath = hero ? `<path d="${pathOf(hero)}" fill="none" class="c-accent-line" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />` : "";
+  // End labels, nudged apart only by a minimum gap (with leader lines).
+  const ends = [...labelled].map((id) => series.find((s) => s.id === id)).filter(Boolean)
+    .map((s) => ({ s, p: last(s) })).filter((e) => e.p).sort((a, b) => y(a.p.y) - y(b.p.y));
+  let floor = -Infinity;
+  const endLabels = ends.map(({ s, p }) => {
+    const target = y(p.y);
+    const ly = Math.max(target, floor + 14);
+    floor = ly;
+    const isHero = s.id === emphasis;
+    return `<line x1="${x(p.x) + 4}" x2="${width - pad.right + 6}" y1="${target}" y2="${ly}" class="c-grid" />
+      ${isHero ? `<circle cx="${x(p.x)}" cy="${target}" r="4.5" class="c-accent c-ring" stroke-width="2" />` : ""}
+      <text x="${width - pad.right + 9}" y="${ly + 4}" class="chart-label ${isHero ? "is-strong" : ""}">${escapeHtml(s.label)} ${format(p.y)}</text>`;
+  }).join("");
+  const stops = dates.map((d, i) => {
+    const left = i === 0 ? pad.left : (x(dates[i - 1]) + x(d)) / 2;
+    const right = i === dates.length - 1 ? width - pad.right : (x(d) + x(dates[i + 1])) / 2;
+    return `<rect class="chart-hit" data-tip="${i}" tabindex="${i === dates.length - 1 ? 0 : -1}" x="${left}" y="${pad.top}" width="${Math.max(1, right - left)}" height="${plotH}" fill="transparent"
+      aria-label="${escapeHtml(d)}" />`;
+  }).join("");
+  const xTicks = dates.length > 1 ? [0, Math.floor((dates.length - 1) / 2), dates.length - 1] : [0];
+  return `
+    <svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(label)}">
+      ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" class="c-grid" />
+        <text x="${pad.left - 6}" y="${y(t) + 4}" text-anchor="end" class="chart-axis-label">${format(t)}</text>`).join("")}
+      ${background}
+      ${heroPath}
+      ${endLabels}
+      <line class="chart-crosshair c-axis" x1="0" x2="0" y1="${pad.top}" y2="${pad.top + plotH}" visibility="hidden" />
+      ${stops}
+      ${[...new Set(xTicks)].map((i) => `<text x="${x(dates[i])}" y="${height - 8}" text-anchor="${i === 0 ? "start" : i === dates.length - 1 ? "end" : "middle"}" class="chart-axis-label">${escapeHtml(shortDate(dates[i]))}</text>`).join("")}
+    </svg>`;
+}
+
+function shortDate(iso) {
+  const [yy, mm, dd] = String(iso).split("-").map(Number);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return mm ? `${months[mm - 1]} ${dd}${yy ? ` '${String(yy).slice(2)}` : ""}` : iso;
+}
+
+/** Tooltip + crosshair for emphasisLineChart. */
+export function wireEmphasisChart(root, series, { emphasis = null, format = (v) => `${Math.round(v * 100)}%`, top = 4 } = {}) {
+  const dates = [...new Set(series.flatMap((s) => s.points.map((p) => p.x)))].sort();
+  const svg = root.querySelector("svg.chart");
+  const cross = svg?.querySelector(".chart-crosshair");
+  wireChartTooltips(root, (index) => {
+    const date = dates[Number(index)];
+    const at = series.map((s) => ({ s, p: s.points.find((p) => p.x === date) })).filter((e) => e.p?.y != null)
+      .sort((a, b) => b.p.y - a.p.y);
+    const hero = at.find((e) => e.s.id === emphasis);
+    const shown = [...(hero ? [hero] : []), ...at.filter((e) => e.s.id !== emphasis).slice(0, top)];
+    const hit = svg.querySelector(`[data-tip="${index}"]`);
+    if (cross && hit) {
+      const cx = Number(hit.getAttribute("x")) + Number(hit.getAttribute("width")) / 2;
+      cross.setAttribute("x1", cx);
+      cross.setAttribute("x2", cx);
+      cross.setAttribute("visibility", "visible");
+    }
+    return {
+      title: shortDate(date),
+      rows: shown.map((e) => ({ value: format(e.p.y), label: e.s.label, key: e.s.id === emphasis ? KEYS.accent : KEYS.base })),
+    };
+  });
+  svg?.addEventListener("pointerleave", () => cross?.setAttribute("visibility", "hidden"));
+}
+
+/**
+ * Calibration: for each confidence bin, how often the favorite really won
+ * (y) against how confident the model was (x). The diagonal is perfect
+ * calibration. bins: [{predicted, actual, games, bin: [lo, hi]}]
+ */
+export function calibrationChart(bins) {
+  if (!bins?.length) return "";
+  const size = 340;
+  const pad = { top: 14, right: 16, bottom: 40, left: 46 };
+  const plot = size - pad.left - pad.right;
+  const lo = 0.45;
+  const hi = 1.0;
+  const sx = (v) => pad.left + ((v - lo) / (hi - lo)) * plot;
+  const sy = (v) => pad.top + (1 - (v - lo) / (hi - lo)) * plot;
+  const ticks = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+  return `
+    <svg class="chart chart--square" viewBox="0 0 ${size} ${size}" role="img"
+      aria-label="Calibration: how often the favorite won against the model's confidence">
+      ${ticks.map((t) => `<line x1="${pad.left}" x2="${pad.left + plot}" y1="${sy(t)}" y2="${sy(t)}" class="c-grid" />
+        <text x="${pad.left - 6}" y="${sy(t) + 4}" text-anchor="end" class="chart-axis-label">${Math.round(t * 100)}%</text>
+        <text x="${sx(t)}" y="${pad.top + plot + 16}" text-anchor="middle" class="chart-axis-label">${Math.round(t * 100)}</text>`).join("")}
+      <line x1="${sx(lo)}" y1="${sy(lo)}" x2="${sx(hi)}" y2="${sy(hi)}" class="c-axis" stroke-width="1.5" />
+      <text x="${sx(0.93)}" y="${sy(0.97) - 6}" text-anchor="end" class="chart-axis-label">perfect</text>
+      ${bins.map((b, i) => `<g class="chart-hit" data-tip="${i}" tabindex="0"
+          aria-label="Model said ${Math.round(b.predicted * 100)}%, favorites won ${Math.round(b.actual * 100)}% of ${b.games} games">
+          <circle cx="${sx(b.predicted)}" cy="${sy(Math.max(lo, b.actual))}" r="13" fill="transparent" />
+          <line x1="${sx(b.predicted)}" x2="${sx(b.predicted)}" y1="${sy(b.predicted)}" y2="${sy(Math.max(lo, b.actual))}" class="c-accent-line" stroke-width="2" />
+          <circle cx="${sx(b.predicted)}" cy="${sy(Math.max(lo, b.actual))}" r="${Math.max(4.5, Math.min(9, Math.sqrt(b.games) / 2.2))}" class="chart-mark c-accent c-ring" stroke-width="2" />
+        </g>`).join("")}
+      <text x="${pad.left + plot / 2}" y="${size - 6}" text-anchor="middle" class="chart-axis-label">Model's confidence in the favorite (%)</text>
+    </svg>`;
+}
+
+export function calibrationTooltip(bins) {
+  return (index) => {
+    const b = bins[Number(index)];
+    if (!b) return null;
+    return {
+      title: `Picks at ${Math.round(b.bin[0] * 100)}–${Math.round(b.bin[1] * 100)}%`,
+      rows: [
+        { value: `${(b.predicted * 100).toFixed(1)}%`, label: "average confidence", key: KEYS.base },
+        { value: `${(b.actual * 100).toFixed(1)}%`, label: "favorite actually won", key: KEYS.accent },
+        { value: `${b.games}`, label: "games" },
+      ],
+    };
+  };
+}
+
+/**
+ * In-game win probability for the home team over the 48 regulation minutes,
+ * with the 50% line and the quarter breaks. history: [{elapsed, home_win_probability}].
+ */
+export function winProbabilityChart(history, { home = "Home", away = "Away" } = {}) {
+  const points = (history || []).filter((p) => p.elapsed != null);
+  const width = 560;
+  const height = 150;
+  const pad = { top: 12, right: 10, bottom: 18, left: 40 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const maxX = Math.max(48, ...points.map((p) => p.elapsed));
+  const x = (m) => pad.left + (m / maxX) * plotW;
+  const y = (v) => pad.top + (1 - v) * plotH;
+  const path = points.map((p, i) => `${i ? "L" : "M"}${x(p.elapsed).toFixed(1)},${y(p.home_win_probability).toFixed(1)}`).join(" ");
+  const lastPoint = points[points.length - 1];
+  return `
+    <svg class="chart" viewBox="0 0 ${width} ${height}" role="img"
+      aria-label="${escapeHtml(home)} win probability through the game${lastPoint ? `, now ${Math.round(lastPoint.home_win_probability * 100)}%` : ""}">
+      ${[12, 24, 36].map((m) => `<line x1="${x(m)}" x2="${x(m)}" y1="${pad.top}" y2="${pad.top + plotH}" class="c-grid" />`).join("")}
+      <line x1="${pad.left}" x2="${width - pad.right}" y1="${y(0.5)}" y2="${y(0.5)}" class="c-axis" />
+      <text x="${pad.left - 6}" y="${y(1) + 9}" text-anchor="end" class="chart-axis-label">${escapeHtml(home)}</text>
+      <text x="${pad.left - 6}" y="${y(0) - 1}" text-anchor="end" class="chart-axis-label">${escapeHtml(away)}</text>
+      ${["Q1", "Q2", "Q3", "Q4"].map((q, i) => `<text x="${x(i * 12 + 6)}" y="${height - 4}" text-anchor="middle" class="chart-axis-label">${q}</text>`).join("")}
+      ${points.length > 1 ? `<path d="${path}" fill="none" class="c-accent-line" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` : ""}
+      ${lastPoint ? `<circle cx="${x(lastPoint.elapsed)}" cy="${y(lastPoint.home_win_probability)}" r="4.5" class="c-accent c-ring" stroke-width="2" />` : ""}
+    </svg>`;
+}
+
+/**
+ * Two players' careers on one axis (box impact by age): player A is the
+ * accent, player B the gray base, both labeled at their ends and in the
+ * legend. points: [{x: age, y, label}].
+ */
+export function pairLineChart(a, b, { yLabel = "box impact", format = (v) => `${v > 0 ? "+" : ""}${v.toFixed(1)}` } = {}) {
+  const all = [...a.points, ...b.points].filter((p) => p.y != null && p.x != null);
+  if (!all.length) return "";
+  const width = 760;
+  const height = 250;
+  const pad = { top: 16, right: 92, bottom: 30, left: 40 };
+  const xs = all.map((p) => p.x);
+  const ys = all.map((p) => p.y);
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const lo = Math.min(0, ...ys) - 0.3;
+  const hi = Math.max(0, ...ys) + 0.4;
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const x = (v) => pad.left + (x1 === x0 ? plotW / 2 : ((v - x0) / (x1 - x0)) * plotW);
+  const y = (v) => pad.top + ((hi - v) / (hi - lo)) * plotH;
+  const ticks = niceTicks(lo, hi, 4);
+  const line = (s, cls, w) => {
+    const pts = s.points.filter((p) => p.y != null && p.x != null);
+    if (!pts.length) return "";
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p.x).toFixed(1)},${y(p.y).toFixed(1)}`).join(" ");
+    const end = pts[pts.length - 1];
+    return `<path d="${d}" fill="none" class="${cls}-line" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" />
+      ${pts.map((p, i) => `<g class="chart-hit" data-tip="${s.key}:${i}" tabindex="0" aria-label="${escapeHtml(s.label)}, age ${p.x}: ${format(p.y)}">
+        <circle cx="${x(p.x)}" cy="${y(p.y)}" r="11" fill="transparent" />
+        <circle cx="${x(p.x)}" cy="${y(p.y)}" r="4" class="chart-mark ${cls} c-ring" stroke-width="2" /></g>`).join("")}
+      <text x="${x(end.x) + 8}" y="${y(end.y) + 4}" class="chart-label">${escapeHtml(s.short || s.label)}</text>`;
+  };
+  return `
+    <div class="chart-legend" aria-hidden="true">
+      <span><i class="legend-line" style="background:var(--chart-accent)"></i>${escapeHtml(a.label)}</span>
+      <span><i class="legend-line" style="background:var(--chart-base)"></i>${escapeHtml(b.label)}</span>
+    </div>
+    <svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(yLabel)} by age: ${escapeHtml(a.label)} and ${escapeHtml(b.label)}">
+      ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" class="c-grid" />
+        <text x="${pad.left - 6}" y="${y(t) + 4}" text-anchor="end" class="chart-axis-label">${t > 0 ? "+" : ""}${t}</text>`).join("")}
+      <line x1="${pad.left}" x2="${width - pad.right}" y1="${y(0)}" y2="${y(0)}" class="c-axis" />
+      ${line(b, "c-base", 2)}
+      ${line(a, "c-accent", 2.5)}
+      ${[x0, Math.round((x0 + x1) / 2), x1].filter((v, i, arr) => arr.indexOf(v) === i).map((v) => `<text x="${x(v)}" y="${height - 8}" text-anchor="middle" class="chart-axis-label">age ${v}</text>`).join("")}
+    </svg>`;
+}
+
+export function pairLineTooltip(a, b, format = (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}`) {
+  return (key) => {
+    const [which, index] = String(key).split(":");
+    const s = which === a.key ? a : b;
+    const p = s.points.filter((q) => q.y != null && q.x != null)[Number(index)];
+    if (!p) return null;
+    return { title: `${s.label} · age ${p.x}`, rows: [
+      { value: format(p.y), label: "box impact / 100", key: which === a.key ? KEYS.accent : KEYS.base },
+      ...(p.label ? [{ value: p.label, label: "" }] : []),
+    ] };
+  };
+}

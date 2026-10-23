@@ -10,7 +10,17 @@ import {
   getTeamEloRating,
   getTeamProjection,
   getHeadToHead,
+  getTeamSchedule,
+  getOddsHistory,
+  getInjuryReport,
+  getStandings,
+  projectRestOfSeason,
 } from "../api.js";
+import { emphasisLineChart, wireEmphasisChart } from "../components/charts.js";
+import { csvButton, wireCsv } from "../components/csv.js";
+import { favoriteTeam, setFavoriteTeam } from "../components/prefs.js";
+import { toast } from "../components/toast.js";
+import { safe, seasonLabel, unwrap } from "../components/format.js";
 import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
 import { renderComparisonRow } from "../components/comparisonBar.js";
 import { renderSeedProbabilityBars } from "../components/seedProbabilities.js";
@@ -22,8 +32,10 @@ export const meta = {
   subtitle: "Records, recent form, Elo strength, and season projections for any current NBA franchise.",
 };
 
-const CURRENT_SEASON = 2025; // Latest season present in the repository's data (see PROJECT_CONTEXT.md).
-const TABS = ["Overview", "Performance", "Projections", "Head-to-Head"];
+// The season in progress (or the latest with results), from the standings
+// tool's default; read once per visit.
+let CURRENT_SEASON = null;
+const TABS = ["Overview", "Schedule", "Performance", "Projections", "Head-to-Head"];
 
 // Streak stamp on the team header, derived from the team_form envelope this
 // page already loads (last-10 win rate). See web/DESIGN-BRIEF.md.
@@ -89,6 +101,10 @@ export function render(container, ctx = {}) {
 async function loadTeam(body, teams, teamId, ctx) {
   body.innerHTML = renderLoadingShell();
   const team = teams.find((t) => t.team_id === teamId);
+  if (CURRENT_SEASON == null) {
+    const standings = unwrap(await safe(getStandings()));
+    CURRENT_SEASON = standings.data?.season ?? new Date().getFullYear() - (new Date().getMonth() < 8 ? 1 : 0);
+  }
 
   const [recordAllTime, recordSeason, form, elo] = await Promise.all([
     getTeamRecord({ teamId }),
@@ -108,7 +124,8 @@ async function loadTeam(body, teams, teamId, ctx) {
     ctx,
   });
 
-  wireTabs(body);
+  wireTabs(body, { Schedule: () => loadSchedulePanel(body, teamId, ctx) });
+  wireFavorite(body, teamId);
   wireProjectionsTab(body, teamId);
   wireHeadToHeadTab(body, teams, teamId, ctx);
   wirePredictButton(body, team, ctx);
@@ -154,14 +171,17 @@ function renderTeamExplorer({ team, teamId, recordAllTime, recordSeason, form, e
     ${renderKeyMetrics({ recordSeason, recordAllTime, form, elo })}
 
     <div class="card fade-in">
-      <div class="toolbar tab-strip" id="team-tabs">
+      <div class="toolbar tab-strip" id="team-tabs" role="tablist" aria-label="Team sections">
         ${TABS.map(
-          (tab, i) => `<button class="btn ${i === 0 ? "" : "btn-secondary"}" data-tab="${tab}">${tab}</button>`
+          (tab, i) => `<button class="btn ${i === 0 ? "" : "btn-secondary"}" data-tab="${tab}" role="tab" aria-selected="${i === 0}">${tab}</button>`
         ).join("")}
       </div>
 
-      <div data-tab-panel="Overview">
+      <div data-tab-panel="Overview" role="tabpanel">
         ${renderOverviewPanel({ recordAllTime, recordSeason, form })}
+      </div>
+      <div data-tab-panel="Schedule" role="tabpanel" style="display:none;">
+        <div class="skeleton" style="height:300px;"></div>
       </div>
       <div data-tab-panel="Performance" style="display:none;">
         ${renderPerformancePanel({ form })}
@@ -191,6 +211,7 @@ function renderHeader({ team, color, form }) {
         <div class="team-hero-actions">
           ${streak ? `<p class="stamp stamp--tilt team-streak">${streak}</p>` : ""}
           <span class="badge team-abbrev-stamp">${escapeHtml(abbrev)}</span>
+          <button type="button" class="btn btn-secondary fav-btn" id="team-fav-btn" aria-pressed="false">★ My team</button>
           <button class="btn" id="predict-from-team-btn">Predict a matchup ▸</button>
         </div>
       </div>
@@ -228,7 +249,7 @@ function renderKeyMetrics({ recordSeason, recordAllTime, form, elo }) {
           <div class="stat-value">${eloValue}</div>
         </div>
         <div class="stat-tile">
-          <div class="stat-label">${CURRENT_SEASON} record</div>
+          <div class="stat-label">${seasonLabel(CURRENT_SEASON)} record</div>
           <div class="stat-value">${seasonRecord}</div>
         </div>
         <div class="stat-tile">
@@ -252,7 +273,7 @@ function renderOverviewPanel({ recordAllTime, recordSeason, form }) {
   return `
     <div class="stat-grid">
       <div class="stat-tile">
-        <div class="stat-label">${CURRENT_SEASON} season</div>
+        <div class="stat-label">${seasonLabel(CURRENT_SEASON)} season</div>
         <div class="stat-value">${recordSeason.available ? `${recordSeason.data.wins}W – ${recordSeason.data.losses}L` : "—"}</div>
       </div>
       <div class="stat-tile">
@@ -322,7 +343,7 @@ function renderProjectionsPanel() {
     <div id="projections-panel-body">
       <p class="text-muted" style="font-size:0.85rem;">
         Run the validated Monte Carlo season simulator for this team's
-        ${CURRENT_SEASON} season. The first run in a session replays the
+        ${seasonLabel(CURRENT_SEASON)} season. The first run in a session replays the
         entire schedule and may take up to a minute; results are cached
         after that.
       </p>
@@ -354,12 +375,22 @@ function renderHeadToHeadPanel() {
 // Interaction wiring
 // ---------------------------------------------------------------------------
 
-function wireTabs(body) {
+function wireTabs(body, loaders = {}) {
   const tabButtons = body.querySelectorAll("#team-tabs [data-tab]");
+  const loaded = new Set();
   tabButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      tabButtons.forEach((b) => b.classList.add("btn-secondary"));
+      tabButtons.forEach((b) => {
+        b.classList.add("btn-secondary");
+        b.setAttribute("aria-selected", "false");
+      });
       btn.classList.remove("btn-secondary");
+      btn.setAttribute("aria-selected", "true");
+      const tab = btn.dataset.tab;
+      if (loaders[tab] && !loaded.has(tab)) {
+        loaded.add(tab);
+        loaders[tab]();
+      }
       TABS.forEach((tab) => {
         const panel = body.querySelector(`[data-tab-panel="${tab}"]`);
         if (panel) panel.style.display = tab === btn.dataset.tab ? "" : "none";
@@ -379,22 +410,29 @@ function wireProjectionsTab(body, teamId) {
     btn.innerHTML = '<span class="spinner spinner-dark"></span> Running simulation… this may take up to a minute';
     mount.innerHTML = "";
 
-    const res = await getTeamProjection({ teamId, season: CURRENT_SEASON });
+    // A season in progress is projected forward from today's record; a
+    // finished one falls back to the validated game-by-game replay.
+    const today = new Date().toISOString().slice(0, 10);
+    const forward = await safe(projectRestOfSeason({ season: CURRENT_SEASON, asOf: today, teamId }));
+    const row = forward.ok && forward.data?.status === "success" ? forward.data.data.team_projection : null;
+    let result = null;
+    if (row && row.games_remaining > 0) {
+      result = { projection: row, n: forward.data.data.projection.n_simulations ?? 1000, mode: "forward" };
+    } else {
+      const res = await getTeamProjection({ teamId, season: CURRENT_SEASON });
+      if (res.ok && res.data?.status === "success") {
+        result = { projection: res.data.data.projection, n: res.data.data.n_simulations, mode: "replay" };
+      } else {
+        mount.innerHTML = errorBanner(res.data?.error?.message || "The season projection request failed.");
+      }
+    }
     btn.disabled = false;
     btn.textContent = original;
-
-    if (!res.ok || res.data?.status !== "success") {
-      mount.innerHTML = errorBanner(
-        res.data?.error?.message || "The season projection request failed."
-      );
-      return;
-    }
-
-    mount.innerHTML = renderProjectionResult(res.data.data.projection, res.data.data.n_simulations);
+    if (result) mount.innerHTML = renderProjectionResult(result.projection, result.n, result.mode);
   });
 }
 
-function renderProjectionResult(projection, nSimulations) {
+function renderProjectionResult(projection, nSimulations, mode = "replay") {
   return `
     <div class="stat-grid">
       <div class="stat-tile">
@@ -417,8 +455,10 @@ function renderProjectionResult(projection, nSimulations) {
     <div class="section-title mt-2">Projected conference seed probability</div>
     ${renderSeedProbabilityBars(projection)}
     <p class="text-muted mt-2" style="font-size:0.76rem;">
-      Based on ${nSimulations} Monte Carlo simulations of the ${CURRENT_SEASON} schedule
-      using the validated production model. Descriptive projection, not a guarantee.
+      ${mode === "forward"
+        ? `Projected from today's record (${projection.current_wins}-${projection.current_losses}, ${projection.games_remaining} games left) with ${nSimulations} simulations of the rest of the ${seasonLabel(CURRENT_SEASON)} schedule, team strength frozen today plus calibrated uncertainty.`
+        : `Based on ${nSimulations} Monte Carlo simulations replaying the ${seasonLabel(CURRENT_SEASON)} schedule with the validated production model.`}
+      Descriptive projection, not a guarantee.
     </p>
   `;
 }
@@ -501,4 +541,83 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
   ));
+}
+
+// ---------------------------------------------------------------------------
+// Schedule tab: results so far, win chances in every game left, how the
+// playoff and title odds moved, and who is on the injury report (from the
+// team_schedule, odds_history and injury_report tools).
+// ---------------------------------------------------------------------------
+
+function wireFavorite(body, teamId) {
+  const button = body.querySelector("#team-fav-btn");
+  if (!button) return;
+  const paint = () => {
+    const on = favoriteTeam() === teamId;
+    button.setAttribute("aria-pressed", String(on));
+    button.textContent = on ? "★ Your team" : "☆ My team";
+  };
+  button.addEventListener("click", () => {
+    const on = favoriteTeam() === teamId;
+    setFavoriteTeam(on ? null : teamId);
+    paint();
+    toast(on ? "Your team is cleared" : "Saved as your team: it leads Home and Tonight");
+  });
+  paint();
+}
+
+async function loadSchedulePanel(body, teamId, ctx) {
+  const panel = body.querySelector('[data-tab-panel="Schedule"]');
+  const [scheduleRes, oddsRes, injuryRes] = await Promise.all([
+    safe(getTeamSchedule({ teamId, season: CURRENT_SEASON })).then(unwrap),
+    safe(getOddsHistory({ season: CURRENT_SEASON, teamId })).then(unwrap),
+    safe(getInjuryReport(teamId)).then(unwrap),
+  ]);
+  if (!panel.isConnected) return;
+  if (!scheduleRes.data) {
+    panel.innerHTML = errorBanner(scheduleRes.message);
+    return;
+  }
+  const sched = scheduleRes.data;
+  const left = sched.remaining;
+  const points = oddsRes.data?.teams?.[0]?.points || [];
+  const injured = injuryRes.data?.teams?.[0]?.players || [];
+  const series = [
+    { id: "playoffs", label: "Make playoffs", points: points.map((p) => ({ x: p.as_of, y: p.p_made_playoffs })) },
+    { id: "title", label: "Title", points: points.map((p) => ({ x: p.as_of, y: p.p_champion })) },
+  ];
+  panel.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="stat-label">Record</div><div class="stat-value">${escapeHtml(sched.record)}</div></div>
+      <div class="stat-tile"><div class="stat-label">Games left</div><div class="stat-value">${left.games}</div>
+        <div class="stat-note">${left.home} home · ${left.road} road</div></div>
+      <div class="stat-tile"><div class="stat-label">Expected wins left</div><div class="stat-value">${left.expected_wins}</div>
+        <div class="stat-note">sum of win chances, strength as of ${escapeHtml(sched.as_of)}</div></div>
+      <div class="stat-tile"><div class="stat-label">Back-to-backs left</div><div class="stat-value">${left.back_to_backs}</div></div>
+    </div>
+    ${injured.length ? `<div class="info-banner mt-2"><div><p class="note-label">Injury report</p>
+      <ul class="plain-list">${injured.map((p) => `<li><strong>${escapeHtml(p.name)}</strong> · ${escapeHtml(p.status)}${p.injury ? ` (${escapeHtml(p.injury.toLowerCase())})` : ""}${p.return_date ? ` · back ${escapeHtml(p.return_date)}` : ""}</li>`).join("")}</ul>
+      <p class="text-muted" style="font-size:0.82rem;">The model has no injury input: these win chances assume a normal roster.</p></div></div>` : ""}
+    ${points.length > 1 ? `<h3 class="section-title mt-2">How the odds moved</h3>
+      <div class="chart-legend" aria-hidden="true"><span><i class="legend-line" style="background:var(--chart-base)"></i>Make playoffs</span>
+        <span><i class="legend-line" style="background:var(--chart-accent)"></i>Win the title</span></div>
+      <div class="chart-wrap" id="team-odds-chart">${emphasisLineChart(series, { emphasis: "title", labelTop: 2, label: "Playoff and title odds over the season" })}</div>` : ""}
+    <div class="stat-toolbar toolbar mt-2"><h3 class="section-title" style="margin:0; flex:1;">${seasonLabel(sched.season)} schedule</h3>${csvButton("team-sched-csv")}</div>
+    <div class="table-scroll schedule-scroll"><table class="data-table sticky-first schedule-table" id="team-sched-table">
+      <thead><tr><th scope="col">Date</th><th scope="col">Opponent</th><th scope="col">Result</th><th class="num" scope="col">Win chance</th><th scope="col">Record</th></tr></thead>
+      <tbody>${sched.games.map((g) => `<tr class="${g.played ? "" : "is-upcoming"}">
+        <th scope="row">${escapeHtml(g.date)}</th>
+        <td><button class="row-toggle" data-opp="${g.opponent_id}">${g.home ? "vs" : "@"} ${escapeHtml(g.opponent)}</button></td>
+        <td>${g.played ? `<span class="${g.result === "W" ? "result-w" : "result-l"}">${g.result}</span> ${escapeHtml(g.score || "")}` : "—"}</td>
+        <td class="num" data-csv="${g.win_probability}"><span class="odds-cell"><span>${Math.round(g.win_probability * 100)}%</span>
+          <span class="mini-prob"><span style="width:${g.win_probability * 100}%"></span></span></span></td>
+        <td>${g.record_after || ""}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <p class="table-note">Played games show the pregame chance the model gave; upcoming games use strength as of today.</p>`;
+  if (points.length > 1) wireEmphasisChart(panel.querySelector("#team-odds-chart"), series, { emphasis: "title" });
+  wireCsv(panel.querySelector("#team-sched-csv"), panel.querySelector("#team-sched-table"), `backboard-schedule-${teamId}-${sched.season}`);
+  panel.querySelectorAll("[data-opp]").forEach((button) => button.addEventListener("click", () =>
+    ctx.navigate("/teams", { team: button.dataset.opp })));
+  const next = panel.querySelector("tr.is-upcoming");
+  if (next) next.classList.add("is-next");
 }
