@@ -796,3 +796,36 @@ def test_a_malformed_scenario_is_a_structured_error():
     result = execute_tool("sandbox_preview", {"moves": "nope"})
     assert result["status"] == "error"
     assert "JSON list" in result["error"]["message"]
+
+
+def test_league_view_tools_are_registered_with_metadata():
+    tools = {tool["name"]: tool for tool in list_tools()}
+    for name in ("standings", "scoreboard", "team_schedule", "strength_of_schedule",
+                 "model_report_card", "odds_history", "live_scoreboard", "injury_report",
+                 "stat_leaders", "player_cards", "similar_players"):
+        assert name in tools, name
+        assert tools[name]["limitations"] and tools[name]["assumptions"]
+
+
+def test_stat_leaders_rejects_an_unknown_stat_as_a_structured_error(monkeypatch):
+    def boom(season, stat, limit, min_games):
+        raise ValueError(f"Unknown stat '{stat}'.")
+
+    monkeypatch.setattr("src.tools.player_boards.stat_leaders", boom)
+    envelope = execute_tool("stat_leaders", {"stat": "dunks"})
+    assert envelope["status"] == "error"
+    assert "Unknown stat" in envelope["error"]["message"]
+
+
+def test_live_scoreboard_offline_is_unavailable_not_an_error(monkeypatch):
+    from src import live_games
+
+    def offline(*args, **kwargs):
+        raise live_games.FetchError("no network")
+
+    monkeypatch.setattr("src.tools._cached_model_inputs", lambda: None)
+    monkeypatch.setattr("src.tools._cached_probabilities", lambda: None)
+    monkeypatch.setattr(live_games, "live_scoreboard", offline)
+    envelope = execute_tool("live_scoreboard", {})
+    assert envelope["status"] == "unavailable"
+    assert "still shows recorded results" in envelope["error"]["message"]

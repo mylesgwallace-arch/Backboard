@@ -83,6 +83,11 @@ try:
     from src import live_results
     from src import player_profile as profiles
     from src import sandbox
+    from src import injuries
+    from src import league_views
+    from src import live_games
+    from src import odds_history
+    from src import player_boards
 except ImportError:  # pragma: no cover - direct-script support
     from main import (
         FEATURES_PATH,
@@ -134,6 +139,11 @@ except ImportError:  # pragma: no cover - direct-script support
     import live_results
     import player_profile as profiles
     import sandbox
+    import injuries
+    import league_views
+    import live_games
+    import odds_history
+    import player_boards
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -170,20 +180,72 @@ class ToolError(Exception):
     """Raised for invalid tool requests (unknown tool or bad parameters)."""
 
 
+# Optional on-disk copy of the pregame probabilities (the slowest cache to
+# build, about a minute). Off unless enabled (the API server enables it), so
+# command-line runs and tests never read a stale file.
+DISK_CACHE = {"dir": None}
+
+
+def enable_disk_cache(directory):
+    DISK_CACHE["dir"] = Path(directory)
+
+
+def _file_stamp(path):
+    try:
+        stat = Path(path).stat()
+        return [stat.st_mtime_ns, stat.st_size]
+    except OSError:
+        return None
+
+
+def _probabilities_from_disk(stamp):
+    directory = DISK_CACHE["dir"]
+    if directory is None:
+        return None
+    data, meta = directory / "pregame_probabilities.pkl", directory / "pregame_probabilities.json"
+    try:
+        if json.loads(meta.read_text(encoding="utf-8")).get("stamp") == stamp:
+            return pd.read_pickle(data)
+    except (OSError, ValueError, EOFError):
+        return None
+    return None
+
+
+def _probabilities_to_disk(stamp, probabilities):
+    directory = DISK_CACHE["dir"]
+    if directory is None:
+        return
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        probabilities.to_pickle(directory / "pregame_probabilities.pkl")
+        (directory / "pregame_probabilities.json").write_text(json.dumps({"stamp": stamp}), encoding="utf-8")
+    except OSError:
+        pass  # the disk copy is an optimisation only
+
+
 def _cached_probabilities(
     features_path=FEATURES_PATH,
     model_path=MODEL_PATH,
     metrics_path=METRICS_PATH,
 ):
+    # The feature file's stamp is part of the key, so the daily refresh's
+    # rebuilt features are picked up without a server restart.
+    stamp = [str(features_path), _file_stamp(features_path), _file_stamp(model_path),
+             _file_stamp(metrics_path)]
     key = (str(features_path), str(model_path), str(metrics_path))
     with _PROBABILITIES_LOCK:
-        if key not in PROBABILITIES_CACHE:
-            PROBABILITIES_CACHE[key] = load_pregame_probabilities(
-                features_path=features_path,
-                model_path=model_path,
-                metrics_path=metrics_path,
-            )
-    return PROBABILITIES_CACHE[key]
+        cached = PROBABILITIES_CACHE.get(key)
+        if cached is None or cached[0] != stamp:
+            probabilities = _probabilities_from_disk(stamp)
+            if probabilities is None:
+                probabilities = load_pregame_probabilities(
+                    features_path=features_path,
+                    model_path=model_path,
+                    metrics_path=metrics_path,
+                )
+                _probabilities_to_disk(stamp, probabilities)
+            PROBABILITIES_CACHE[key] = (stamp, probabilities)
+    return PROBABILITIES_CACHE[key][1]
 
 
 def clear_probability_cache():
@@ -1058,6 +1120,157 @@ def _execute_validation_report(parameters):
             "evaluation_seasons": report["calibrated_strength_uncertainty"]["seasons"],
         }
     return {"component": component, "source": f"models/{path.name}", "report": report}
+
+
+# ---------------------------------------------------------------------------
+# League views: standings, scoreboards, schedules, report card, live, injuries
+# ---------------------------------------------------------------------------
+
+def _latest_played_season():
+    """Start year of the latest season with a recorded regular-season result."""
+    with sqlite3.connect(TEAM_DB_PATH) as connection:
+        latest = connection.execute(
+            "SELECT MAX(gameDateTimeEst) FROM games "
+            "WHERE gameType = 'Regular Season' AND winner IS NOT NULL"
+        ).fetchone()[0]
+    if latest is None:
+        raise ToolUnavailable("No regular-season results are in the database.")
+    stamp = pd.Timestamp(latest)
+    return stamp.year - (stamp.month < 9)
+
+
+def _season_or_latest(parameters):
+    return parameters["season"] if parameters.get("season") is not None else _latest_played_season()
+
+
+def _margin_for_scoreboard(inputs):
+    try:
+        bundle = _cached_margin_bundle()
+    except ToolUnavailable:
+        return None
+
+    def margin(home, away, cutoff):
+        return predict_margin(home, away, inputs, bundle, game_date=cutoff)
+
+    return margin
+
+
+def _execute_standings(parameters):
+    """Conference standings from recorded results."""
+    season = _season_or_latest(parameters)
+    return league_views.standings(season, parameters.get("as_of"), db_path=TEAM_DB_PATH)
+
+
+def _execute_scoreboard(parameters):
+    """One day's games with the model's pregame call and results."""
+    inputs = _cached_model_inputs()
+    day = pd.Timestamp(parameters["date"]) if parameters.get("date") else _today()
+    try:
+        return league_views.scoreboard(
+            day, inputs, _cached_probabilities(), margin_fn=_margin_for_scoreboard(inputs),
+            db_path=TEAM_DB_PATH,
+        )
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _execute_team_schedule(parameters):
+    """A team's season: results so far, win chances in the games left."""
+    team_id = _team_id_or_name(parameters, "team_id", "team")
+    season = _season_or_latest(parameters)
+    as_of = parameters.get("as_of") or str(_today().date())
+    try:
+        return league_views.team_schedule(
+            team_id, season, _cached_model_inputs(), _cached_probabilities(), as_of, db_path=TEAM_DB_PATH
+        )
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _execute_strength_of_schedule(parameters):
+    """Every team's schedule difficulty, played and remaining."""
+    season = _season_or_latest(parameters)
+    as_of = parameters.get("as_of") or str(_today().date())
+    try:
+        return league_views.strength_of_schedule(season, _cached_model_inputs(), as_of, db_path=TEAM_DB_PATH)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+REPORT_CARD_MIN_GAMES = 100
+
+
+def _execute_model_report_card(parameters):
+    """Grade the production model's pregame calls for one season."""
+    probabilities = _cached_probabilities()
+    season = parameters.get("season")
+    if season is None:
+        graded = probabilities[probabilities["target"].notna()].groupby("season").size()
+        enough = graded[graded >= REPORT_CARD_MIN_GAMES]
+        if graded.empty:
+            raise ToolUnavailable("No graded games are available.")
+        season = int((enough if not enough.empty else graded).index.max())
+    try:
+        return league_views.report_card(
+            season, probabilities, db_path=TEAM_DB_PATH, split_start=league_views.holdout_start()
+        )
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _execute_odds_history(parameters):
+    """Stored daily playoff/title odds snapshots for charting."""
+    season = _season_or_latest(parameters)
+    team_id = None
+    if parameters.get("team_id") is not None or parameters.get("team"):
+        team_id = _team_id_or_name(parameters, "team_id", "team")
+    return odds_history.history(season, db_path=TEAM_DB_PATH, team_id=team_id)
+
+
+def _execute_live_scoreboard(parameters):
+    """Live scores and in-game win probability from ESPN's scoreboard."""
+    day = pd.Timestamp(parameters["date"]) if parameters.get("date") else _today()
+    try:
+        return live_games.live_scoreboard(day, _cached_model_inputs(), _cached_probabilities(),
+                                          db_path=TEAM_DB_PATH)
+    except live_games.FetchError as exc:
+        raise ToolUnavailable(
+            f"Live scores are unavailable: ESPN's scoreboard could not be reached ({exc}). "
+            "The scoreboard tool still shows recorded results and pregame calls."
+        )
+
+
+def _execute_injury_report(parameters):
+    """The stored injury report (refreshed with the daily refresh)."""
+    team_id = None
+    if parameters.get("team_id") is not None or parameters.get("team"):
+        team_id = _team_id_or_name(parameters, "team_id", "team")
+    return injuries.injury_report(TEAM_DB_PATH, team_id=team_id)
+
+
+def _execute_stat_leaders(parameters):
+    """League leaders in one stat for one season."""
+    return player_boards.stat_leaders(
+        parameters.get("season"), parameters.get("stat", "pts"),
+        limit=parameters.get("limit", 25), min_games=parameters.get("min_games"),
+    )
+
+
+def _execute_player_cards(parameters):
+    """Every player of a season with percentile ratings (the character select)."""
+    team_id = None
+    if parameters.get("team_id") is not None or parameters.get("team"):
+        team_id = _team_id_or_name(parameters, "team_id", "team")
+    return player_boards.player_cards(parameters.get("season"), team_id=team_id)
+
+
+def _execute_similar_players(parameters):
+    """Most similar player-seasons in history."""
+    person_id = _person_id_or_name(parameters)
+    return player_boards.similar_players(
+        person_id, parameters.get("season"), limit=parameters.get("limit", 12),
+        any_age=parameters.get("any_age", False),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2061,6 +2274,302 @@ TOOLS = {
             "A report reflects the data and code at the time it was generated.",
         ],
         "execute": _execute_validation_report,
+    },
+    "standings": {
+        "name": "standings",
+        "description": (
+            "Conference standings from recorded results: wins, losses, games "
+            "behind, home/road and conference records, last 10, streak and "
+            "point differential."
+        ),
+        "category": "database_query",
+        "model": "nba.db games table (factual records)",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season with results)."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Count results through this date YYYY-MM-DD (default all)."},
+        ],
+        "assumptions": [
+            "Only regular-season games with a recorded winner count.",
+            "Ties in win percentage are listed by wins, then point differential; "
+            "the NBA's head-to-head and division tiebreakers are not applied.",
+        ],
+        "limitations": [
+            "Records are as current as the latest data refresh (see data_status).",
+        ],
+        "execute": _execute_standings,
+    },
+    "scoreboard": {
+        "name": "scoreboard",
+        "description": (
+            "Every game on one day with the production model's pregame win "
+            "probability, the predicted margin and, once played, the final "
+            "score and whether the model's pick was right."
+        ),
+        "category": "prediction",
+        "model": "elo_boosted_ensemble (pregame) + margin model + nba.db results",
+        "parameters": [
+            {"name": "date", "type": STR_TYPE, "required": False,
+             "description": "Day YYYY-MM-DD (default today)."},
+        ],
+        "assumptions": [
+            "A played game keeps the probability the model gave it before tip-off "
+            "(pregame Elo and rolling features). Other games are scored with "
+            "strength frozen on that day, exactly like predict_matchup.",
+            "An upset is a win by a team the model gave under 40%.",
+        ],
+        "limitations": [
+            "Scores and schedules are as current as the latest data refresh; for "
+            "games in progress use live_scoreboard.",
+            "The model has no injury or lineup feature.",
+        ],
+        "execute": _execute_scoreboard,
+    },
+    "team_schedule": {
+        "name": "team_schedule",
+        "description": (
+            "One team's regular season: every game with its result or the "
+            "production model's win probability, plus remaining home/road "
+            "games, back-to-backs and expected remaining wins."
+        ),
+        "category": "prediction",
+        "model": "elo_boosted_ensemble + nba.db schedule (factual)",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Numeric teamId."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season with results)."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Freeze strength for remaining games at this date (default today)."},
+        ],
+        "assumptions": [
+            "Remaining games use strength frozen at as_of; expected wins are the "
+            "sum of those probabilities.",
+        ],
+        "limitations": [
+            "Expected wins ignore injuries, rest and future form changes.",
+        ],
+        "execute": _execute_team_schedule,
+    },
+    "strength_of_schedule": {
+        "name": "strength_of_schedule",
+        "description": (
+            "Every team's schedule difficulty: the average strength of the "
+            "opponents it has played and has left, expected remaining wins, "
+            "remaining home games and back-to-backs, ranked hardest first."
+        ),
+        "category": "prediction",
+        "model": "elo_boosted_ensemble strength vs an average team (team_strength)",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season with results)."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Date YYYY-MM-DD strength is frozen at (default today)."},
+        ],
+        "assumptions": [
+            "Opponent strength is each opponent's current chance to beat an "
+            "average team (home and road averaged), not its record.",
+        ],
+        "limitations": [
+            "Uses today's strength for past opponents too, so a team that played "
+            "a rival before it got good is credited with a hard game.",
+        ],
+        "execute": _execute_strength_of_schedule,
+    },
+    "model_report_card": {
+        "name": "model_report_card",
+        "description": (
+            "Grade the production model's pregame calls for a season: pick "
+            "accuracy, Brier score and log-loss against simple baselines, "
+            "calibration, accuracy by confidence and by month, and its "
+            "biggest misses."
+        ),
+        "category": "diagnostic",
+        "model": "elo_boosted_ensemble pregame probabilities vs recorded results",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season with 100+ graded games)."},
+        ],
+        "assumptions": [
+            "A pick is the side the model gave 50% or more; every graded "
+            "probability was computed from pregame information only.",
+        ],
+        "limitations": [
+            "Games before the model's holdout start (games_in_holdout says how "
+            "many are after it) were in its training data, so their grades flatter it.",
+            "A single season is a small sample: accuracy moves a few points by luck.",
+        ],
+        "execute": _execute_model_report_card,
+    },
+    "odds_history": {
+        "name": "odds_history",
+        "description": (
+            "Stored snapshots of every team's playoff and title odds over a "
+            "season, for charting how they moved."
+        ),
+        "category": "prediction",
+        "model": "playoff_odds snapshots (models: elo_boosted_ensemble, bracket simulation)",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season with results)."},
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Only this team."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city."},
+        ],
+        "assumptions": [
+            "The daily refresh stores one snapshot; 'backfill' snapshots replay "
+            "earlier dates with only the data before each date.",
+        ],
+        "limitations": [
+            "Empty until a snapshot has been stored: python -m src.odds_history "
+            "backfill --season <year>.",
+            "Each point is a 1,000-simulation estimate, so small moves are noise.",
+        ],
+        "execute": _execute_odds_history,
+    },
+    "live_scoreboard": {
+        "name": "live_scoreboard",
+        "description": (
+            "Live scores for today's games with an in-game home win probability "
+            "that starts at the production model's pregame call."
+        ),
+        "category": "prediction",
+        "model": "ESPN live scoreboard + random-walk in-game model (Stern 1994)",
+        "parameters": [
+            {"name": "date", "type": STR_TYPE, "required": False,
+             "description": "Day YYYY-MM-DD (default today)."},
+        ],
+        "assumptions": [
+            "The rest of a game adds a normal amount to the lead, centred on the "
+            "pregame expected margin scaled to the time left, with the margin "
+            "model's holdout residual SD (about 13.5 points) over a full game.",
+            "ESPN responses are cached for 20 seconds; nothing is stored.",
+        ],
+        "limitations": [
+            "The in-game model is a textbook approximation, not fitted or "
+            "validated on play-by-play data (the database has none). It ignores "
+            "possession, fouls and timeouts, so late-game swings are smoother "
+            "than real ones.",
+            "Needs network access to ESPN's unofficial, undocumented feed.",
+        ],
+        "execute": _execute_live_scoreboard,
+    },
+    "injury_report": {
+        "name": "injury_report",
+        "description": (
+            "The latest stored league injury report: who is out or "
+            "day-to-day, the injury and the expected return when given."
+        ),
+        "category": "database_query",
+        "model": "ESPN injury report snapshot (factual, as reported)",
+        "parameters": [
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Only this team."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city."},
+        ],
+        "assumptions": [
+            "'Out' covers Out, Suspension and Injured Reserve; Day-To-Day and "
+            "Questionable are listed but not counted as out.",
+        ],
+        "limitations": [
+            "Refreshed with the daily refresh (python -m src.live_data refresh), "
+            "not live; reported_at says when.",
+            "The win-probability model has no injury feature, so projections do "
+            "not change when a player is listed.",
+        ],
+        "execute": _execute_injury_report,
+    },
+    "stat_leaders": {
+        "name": "stat_leaders",
+        "description": (
+            "League leaders in one stat for a season (per game, shooting, per "
+            "100 possessions or the box-impact model), among qualified players."
+        ),
+        "category": "database_query",
+        "model": "complete player-season tables (box scores) + box-impact model",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season 20+ games in)."},
+            {"name": "stat", "type": STR_TYPE, "required": False,
+             "description": "pts, trb, ast, stl, blk, tpm, mpg, ts, tp_pct, ft_pct, "
+                            "pts_100, box_impact or wins_added (default pts)."},
+            {"name": "limit", "type": INT_TYPE, "required": False,
+             "description": "How many leaders (default 25)."},
+            {"name": "min_games", "type": INT_TYPE, "required": False,
+             "description": "Games played to qualify (default 70% of team games)."},
+        ],
+        "assumptions": [
+            "Percentage leaders also need attempts per game played: 5 true-shooting "
+            "attempts, 1.5 threes or 1.5 free throws.",
+        ],
+        "limitations": [
+            "Seasons from 1985-86 (complete team box scores) on; a traded player's "
+            "season is the total across teams.",
+        ],
+        "execute": _execute_stat_leaders,
+    },
+    "player_cards": {
+        "name": "player_cards",
+        "description": (
+            "Every player with real minutes in a season, with per-game numbers "
+            "and six 0-100 ratings (percentiles among qualified players) for the "
+            "character-select screen."
+        ),
+        "category": "database_query",
+        "model": "complete player-season tables + league percentiles + box-impact model",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season 20+ games in)."},
+            {"name": "team_id", "type": INT_TYPE, "required": False,
+             "description": "Only players whose last game that season was for this team."},
+            {"name": "team", "type": STR_TYPE, "required": False,
+             "description": "Current franchise name or city."},
+        ],
+        "assumptions": [
+            "Ratings are within-season percentiles among players with 500+ "
+            "minutes (everyone with real minutes early in a season).",
+        ],
+        "limitations": [
+            "'Defense (box)' averages steal and block rates only; box scores miss "
+            "most defense.",
+            "A rating is a rank, not a measure of how much better one player is.",
+        ],
+        "execute": _execute_player_cards,
+    },
+    "similar_players": {
+        "name": "similar_players",
+        "description": (
+            "The player-seasons in history most similar to one player's season, "
+            "with each comparable's next season."
+        ),
+        "category": "diagnostic",
+        "model": "league-relative z-score distance (the player Outlook's comparables)",
+        "parameters": [
+            {"name": "person_id", "type": INT_TYPE, "required": False,
+             "description": "NBA personId."},
+            {"name": "player", "type": STR_TYPE, "required": False,
+             "description": "Player name."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: the player's latest)."},
+            {"name": "limit", "type": INT_TYPE, "required": False,
+             "description": "How many comparables (default 12)."},
+            {"name": "any_age", "type": BOOL_TYPE, "required": False,
+             "description": "Ignore age (default: within a year of the same age)."},
+        ],
+        "assumptions": [
+            "Similarity compares box-score style relative to each season's league, "
+            "so players from different eras can match.",
+        ],
+        "limitations": [
+            "Box scores only: two players with the same numbers can play very "
+            "differently, and defense barely registers.",
+        ],
+        "execute": _execute_similar_players,
     },
 }
 
