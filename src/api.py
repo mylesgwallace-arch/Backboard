@@ -682,6 +682,22 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(status, payload)
 
 
+# A browser that leaves a page, cancels a fetch or seeks a video closes the
+# socket mid-response. That is normal, so the server drops those quietly
+# instead of printing a traceback for each.
+CLIENT_DISCONNECTS = (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)
+
+
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        import sys
+        if isinstance(sys.exc_info()[1], CLIENT_DISCONNECTS):
+            return
+        super().handle_error(request, client_address)
+
+
 def warm_caches():
     """Load the slow, shared inputs once so the first page view is fast.
 
@@ -735,7 +751,7 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    server = ThreadingHTTPServer((args.host, args.port), _Handler)
+    server = Server((args.host, args.port), _Handler)
     print(f"{SERVICE_NAME} API listening on http://{args.host}:{args.port}")
     print(f"  production model: {PRODUCTION_MODEL}")
     print("  endpoints: GET / and the page paths (front end), GET /health, GET /tools, "

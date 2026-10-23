@@ -464,3 +464,21 @@ def test_llm_questions_fall_back_past_the_daily_limit(monkeypatch):
     status, second = api.handle_request("POST", "/ask", body)
     assert seen[0]["mode"] == "llm" and "notice" not in first
     assert seen[1]["mode"] == "deterministic" and second["notice"] == api.LLM_LIMIT_NOTICE
+
+
+def test_client_disconnects_are_not_reported(capsys):
+    server = api.Server(("127.0.0.1", 0), api._Handler)
+    try:
+        for exc in (ConnectionAbortedError("aborted"), BrokenPipeError(), ConnectionResetError()):
+            try:
+                raise exc
+            except OSError:
+                server.handle_error(None, ("127.0.0.1", 1))
+        assert capsys.readouterr().err == ""
+        try:
+            raise ValueError("a real bug")
+        except ValueError:
+            server.handle_error(None, ("127.0.0.1", 1))
+        assert "a real bug" in capsys.readouterr().err
+    finally:
+        server.server_close()
