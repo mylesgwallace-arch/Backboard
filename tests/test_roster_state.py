@@ -9,6 +9,7 @@ import pytest
 from src import roster_state as rs
 
 TEAM_A, TEAM_B = 1610612737, 1610612738
+TEAM_NAMES = {TEAM_A: "Hawks", TEAM_B: "Celtics", 1610612739: "Cavaliers", 1610612740: "Pelicans"}
 
 
 def _db(tmp_path):
@@ -19,34 +20,39 @@ def _db(tmp_path):
     for index in range(12):
         game_id = 100 + index
         date = (pd.Timestamp("2025-03-01 19:00") + pd.DateOffset(days=index)).strftime("%Y-%m-%d %H:%M:%S")
-        games.append((game_id, date, "Regular Season", TEAM_A, TEAM_B))
+        games.append((game_id, date, "Regular Season", TEAM_A, TEAM_NAMES[TEAM_A],
+                      TEAM_B, TEAM_NAMES[TEAM_B]))
         for team in (TEAM_A, TEAM_B):
             team_rows.append((game_id, date, team, "Regular Season"))
             for person in roster[team]:
                 minutes = 0 if (person == 3 and index % 2) else 20 + person
-                player_rows.append((game_id, date, team, person, f"P{person}", "X",
+                player_rows.append((game_id, date, team, TEAM_NAMES[team], int(team == TEAM_A),
+                                    person, f"P{person}", "X",
                                     str(minutes), 10 * person + index, person, person + 1,
                                     "Regular Season"))
     # Player 7 has history with some other team, earlier.
     for index in range(12):
         date = (pd.Timestamp("2024-12-01 19:00") + pd.DateOffset(days=index)).strftime("%Y-%m-%d %H:%M:%S")
-        games.append((500 + index, date, "Regular Season", 1610612739, 1610612740))
-        player_rows.append((500 + index, date, 1610612739, 7, "P7", "X", "30", 25, 5, 6,
-                            "Regular Season"))
+        games.append((500 + index, date, "Regular Season", 1610612739, "Cavaliers",
+                      1610612740, "Pelicans"))
+        player_rows.append((500 + index, date, 1610612739, "Cavaliers", 1, 7, "P7", "X", "30",
+                            25, 5, 6, "Regular Season"))
     with sqlite3.connect(db_path) as connection:
         connection.execute("CREATE TABLE games (gameId INTEGER, gameDateTimeEst TEXT, gameType TEXT, "
-                           "hometeamId INTEGER, awayteamId INTEGER)")
+                           "hometeamId INTEGER, hometeamName TEXT, awayteamId INTEGER, "
+                           "awayteamName TEXT)")
         connection.execute("CREATE TABLE team_statistics (gameId INTEGER, gameDateTimeEst TEXT, "
                            "teamId INTEGER, gameType TEXT)")
         connection.execute("CREATE TABLE player_statistics (gameId INTEGER, gameDateTimeEst TEXT, "
-                           "playerteamId INTEGER, personId INTEGER, firstName TEXT, lastName TEXT, "
+                           "playerteamId INTEGER, playerteamName TEXT, home INTEGER, "
+                           "personId INTEGER, firstName TEXT, lastName TEXT, "
                            "numMinutes TEXT, points INTEGER, assists INTEGER, reboundsTotal INTEGER, "
                            "gameType TEXT)")
         connection.execute("CREATE TABLE players (personId INTEGER, firstName TEXT, lastName TEXT)")
-        connection.executemany("INSERT INTO games VALUES (?, ?, ?, ?, ?)", games)
+        connection.executemany("INSERT INTO games VALUES (?, ?, ?, ?, ?, ?, ?)", games)
         connection.executemany("INSERT INTO team_statistics VALUES (?, ?, ?, ?)", team_rows)
-        connection.executemany("INSERT INTO player_statistics VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                               player_rows)
+        connection.executemany("INSERT INTO player_statistics VALUES "
+                               "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", player_rows)
         connection.execute("INSERT INTO players VALUES (7, 'P7', 'X')")
         connection.commit()
     return db_path
@@ -100,6 +106,22 @@ def test_no_transactions_leaves_production_snapshot_unchanged(tmp_path):
                                    production.loc[adjusted.index, column].to_numpy(dtype=float))
     assert applied == []
     assert all(not team["arrived"] and not team["departed"] for team in state.values())
+
+
+def test_rows_without_a_team_id_take_the_team_from_the_game(tmp_path):
+    db_path = _db(tmp_path)
+    with sqlite3.connect(db_path) as connection:
+        expected = rs._player_rows(connection, game_ids=list(range(100, 112)))
+        # 2021-22 style gap: no playerteamId; team from the name, else the home flag.
+        connection.execute("UPDATE player_statistics SET playerteamId = NULL WHERE gameId < 106")
+        connection.execute("UPDATE player_statistics SET playerteamName = 'Old name' "
+                           "WHERE gameId IN (100, 101)")
+        actual = rs._player_rows(connection, game_ids=list(range(100, 112)))
+    key = ["gameId", "teamId", "personId"]
+    pd.testing.assert_frame_equal(
+        actual.sort_values(key).reset_index(drop=True),
+        expected.sort_values(key).reset_index(drop=True),
+    )
 
 
 def test_trade_moves_the_players_window_contribution(tmp_path):

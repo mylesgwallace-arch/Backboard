@@ -8,8 +8,10 @@ import numpy as np
 import pandas as pd
 
 if __package__:
+    from .era_swap import PLAYER_TEAM_SQL
     from .roster_change_data import validate_roster_change_events
 else:
+    from era_swap import PLAYER_TEAM_SQL
     from roster_change_data import validate_roster_change_events
 
 
@@ -24,25 +26,24 @@ HOLDOUT_BOOTSTRAP_SEED = 42
 
 def load_player_history(connection, person_id, before=None):
     """Load regular-season player appearances available before ``before``."""
-    query = """
-        SELECT player_statistics_extended.personId,
-               player_statistics_extended.gameId,
-               player_statistics_extended.gameDateTimeEst,
-               player_statistics_extended.playerteamId AS teamId,
-               CAST(player_statistics_extended.numMinutes AS REAL) AS minutes,
-               player_statistics_extended.netRating
-        FROM player_statistics_extended
-        JOIN games USING (gameId)
-        WHERE personId = ?
-          AND COALESCE(player_statistics_extended.gameType, games.gameType) =
-                'Regular Season'
-          AND player_statistics_extended.playerteamId IS NOT NULL
-          AND CAST(player_statistics_extended.numMinutes AS REAL) > 0
-          AND player_statistics_extended.netRating IS NOT NULL
+    query = f"""
+        SELECT ps.personId,
+               ps.gameId,
+               ps.gameDateTimeEst,
+               {PLAYER_TEAM_SQL} AS teamId,
+               CAST(ps.numMinutes AS REAL) AS minutes,
+               ps.netRating
+        FROM player_statistics_extended ps
+        JOIN games g ON g.gameId = ps.gameId
+        WHERE ps.personId = ?
+          AND COALESCE(ps.gameType, g.gameType) = 'Regular Season'
+          AND ({PLAYER_TEAM_SQL}) IS NOT NULL
+          AND CAST(ps.numMinutes AS REAL) > 0
+          AND ps.netRating IS NOT NULL
     """
     parameters = [person_id]
     if before is not None:
-        query += " AND games.gameDateTimeEst < ?"
+        query += " AND g.gameDateTimeEst < ?"
         parameters.append(pd.Timestamp(before).strftime("%Y-%m-%d %H:%M:%S"))
     history = pd.read_sql_query(query, connection, params=parameters)
     if not history.empty:
@@ -704,6 +705,12 @@ def validate_player_impact(
     players["prior_minutes"] = player_groups["minutes"].transform(
         lambda values: values.shift(1).rolling(window, min_periods=window).sum()
     )
+    players["prior_points"] = player_groups["points"].transform(
+        lambda series: series.shift(1).rolling(window, min_periods=window).sum()
+    )
+    players["prior_player_possessions"] = player_groups["player_possessions"].transform(
+        lambda series: series.shift(1).rolling(window, min_periods=window).sum()
+    )
     team_groups = teams.groupby("teamId", sort=False)
     teams["prior_team_net_rating"] = team_groups["netRating"].transform(
         lambda values: values.shift(1).rolling(window, min_periods=window).mean()
@@ -750,13 +757,6 @@ def validate_player_impact(
     )
     values = values.dropna(
         subset=["prior_minutes", "prior_team_possessions"]
-    )
-    player_groups = players.groupby("personId", sort=False)
-    values["prior_points"] = player_groups["points"].transform(
-        lambda series: series.shift(1).rolling(window, min_periods=window).sum()
-    )
-    values["prior_player_possessions"] = player_groups["player_possessions"].transform(
-        lambda series: series.shift(1).rolling(window, min_periods=window).sum()
     )
     values["player_signal"] = (
         values["prior_points"] / values["prior_player_possessions"]
@@ -893,33 +893,38 @@ def validate_player_impact(
 
 
 def load_validation_data(connection):
+    # Rows without a playerteamId (most of 2021-22, about half of 2000-01) take
+    # their team from the game; see PLAYER_TEAM_SQL.
     player_games = pd.read_sql_query(
-        """
-        SELECT player_statistics_extended.personId, player_statistics_extended.gameId,
-               player_statistics_extended.playerteamId AS teamId,
-               player_statistics_extended.gameDateTimeEst,
-               CAST(player_statistics_extended.numMinutes AS REAL) AS minutes,
-               player_statistics_extended.netRating,
-               CAST(player_statistics_extended.points AS REAL) AS points,
-               CAST(player_statistics_extended.possessions AS REAL) AS player_possessions
-        FROM player_statistics_extended
-        JOIN games USING (gameId)
-        WHERE COALESCE(player_statistics_extended.gameType, games.gameType) =
-              'Regular Season'
-          AND player_statistics_extended.playerteamId IS NOT NULL
-          AND CAST(player_statistics_extended.numMinutes AS REAL) > 0
-          AND player_statistics_extended.netRating IS NOT NULL
+        f"""
+        SELECT ps.personId, ps.gameId,
+               {PLAYER_TEAM_SQL} AS teamId,
+               ps.gameDateTimeEst,
+               CAST(ps.numMinutes AS REAL) AS minutes,
+               ps.netRating,
+               CAST(ps.points AS REAL) AS points,
+               CAST(ps.possessions AS REAL) AS player_possessions
+        FROM player_statistics_extended ps
+        JOIN games g ON g.gameId = ps.gameId
+        WHERE COALESCE(ps.gameType, g.gameType) = 'Regular Season'
+          AND ({PLAYER_TEAM_SQL}) IS NOT NULL
+          AND CAST(ps.numMinutes AS REAL) > 0
+          AND ps.netRating IS NOT NULL
         """,
         connection,
     )
+    # Team rows with a NULL gameType (same seasons) take it from the game, as
+    # build_features.load_team_games does.
     team_games = pd.read_sql_query(
         """
-        SELECT teamId, opponentTeamId, gameId, gameDateTimeEst, home,
-               netRating AS teamNetRating, teamScore AS team_points,
-               opponentScore AS opponent_points,
-               CAST(possessions AS REAL) AS team_possessions
-        FROM team_statistics_extended
-        WHERE gameType = 'Regular Season' AND netRating IS NOT NULL
+        SELECT ts.teamId, ts.opponentTeamId, ts.gameId, ts.gameDateTimeEst, ts.home,
+               ts.netRating AS teamNetRating, ts.teamScore AS team_points,
+               ts.opponentScore AS opponent_points,
+               CAST(ts.possessions AS REAL) AS team_possessions
+        FROM team_statistics_extended ts
+        LEFT JOIN games g ON g.gameId = ts.gameId
+        WHERE COALESCE(ts.gameType, g.gameType) = 'Regular Season'
+          AND ts.netRating IS NOT NULL
         """,
         connection,
     ).rename(columns={"teamNetRating": "netRating"})

@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 
 try:
+    from src.era_swap import PLAYER_TEAM_SQL
     from src.forward_projection import team_snapshots
     from src.main import TEAM_DB_PATH
     from src.roster_change_data import (
@@ -50,6 +51,7 @@ try:
         load_roster_change_events,
     )
 except ImportError:  # pragma: no cover - direct-script support
+    from era_swap import PLAYER_TEAM_SQL
     from forward_projection import team_snapshots
     from main import TEAM_DB_PATH
     from roster_change_data import (
@@ -133,7 +135,7 @@ def _player_rows(connection, game_ids=None, person_ids=None):
     where = " AND ".join(clauses) if clauses else "1 = 1"
     frame = pd.read_sql_query(
         f"""
-        SELECT ps.gameId, ps.playerteamId AS teamId, ps.personId,
+        SELECT ps.gameId, {PLAYER_TEAM_SQL} AS teamId, ps.personId,
                MIN(ps.gameDateTimeEst) AS gameDateTimeEst,
                MAX(ps.firstName) AS firstName, MAX(ps.lastName) AS lastName,
                SUM(COALESCE(CAST(ps.numMinutes AS REAL), 0)) AS minutes,
@@ -144,8 +146,8 @@ def _player_rows(connection, game_ids=None, person_ids=None):
         JOIN games g ON g.gameId = ps.gameId
         WHERE {where}
           AND COALESCE(ps.gameType, g.gameType) = 'Regular Season'
-          AND ps.playerteamId IS NOT NULL
-        GROUP BY ps.gameId, ps.playerteamId, ps.personId
+          AND ({PLAYER_TEAM_SQL}) IS NOT NULL
+        GROUP BY ps.gameId, teamId, ps.personId
         """,
         connection,
         params=params,
