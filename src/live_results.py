@@ -521,6 +521,10 @@ def parse_args(argv=None):
                         help="Skip the injury report.")
     parser.add_argument("--no-odds-snapshot", action="store_true",
                         help="Skip storing today's playoff/title odds for the odds history chart.")
+    parser.add_argument("--no-market-lines", action="store_true",
+                        help="Skip storing today's and tomorrow's betting lines.")
+    parser.add_argument("--no-refit", action="store_true",
+                        help="Skip the weekly refit of the injury overlay and player forecasts.")
     return parser.parse_args(argv)
 
 
@@ -552,12 +556,12 @@ def features_lag(db_path=DB_PATH, features_path=None):
 
 
 def run_all(db_path=DB_PATH, since=None, through=None, dry_run=False, box_scores=True,
-            features_path=None, injuries=True, odds_snapshot=True):
+            features_path=None, injuries=True, odds_snapshot=True, market=True, refit=True):
     """Refresh schedule + results, then box scores, then rebuild features if needed.
 
-    The injury report and the day's odds snapshot run last. Each is optional
-    and fails soft: its error is reported, and the results already written
-    stay written.
+    The injury report, the betting lines, the day's odds snapshot and the
+    weekly refit of the overlay models run last. Each is optional and fails
+    soft: its error is reported, and the results already written stay written.
     """
     manifest = refresh(db_path, since, through, dry_run)
     report = {"results": manifest}
@@ -578,8 +582,14 @@ def run_all(db_path=DB_PATH, since=None, through=None, dry_run=False, box_scores
         report["features_rebuilt"] = True
     else:
         report["features_rebuilt"] = False
+    if market:
+        report["market_lines"] = _soft(lambda: _store_market_lines(db_path))
     if odds_snapshot:
         report["odds_snapshot"] = _soft(lambda: _store_odds_snapshot(db_path))
+    if refit:
+        report["model_refit"] = _soft(lambda: _refit_overlays(db_path))
+    if report.get("features_rebuilt"):
+        report["caches_primed"] = _soft(_prime_caches)
     return report
 
 
@@ -596,6 +606,67 @@ def _ingest_injuries(db_path, dry_run):
     except ImportError:  # pragma: no cover - direct-script support
         from injuries import ingest_injuries
     return ingest_injuries(db_path, dry_run=dry_run)
+
+
+def _store_market_lines(db_path):
+    try:
+        from src.market_lines import snapshot
+    except ImportError:  # pragma: no cover - direct-script support
+        from market_lines import snapshot
+    return snapshot(db_path)
+
+
+REFIT_DAYS = 7
+
+
+def _refit_overlays(db_path, now=None):
+    """Refit the injury/schedule overlay and the player-forecast backtest once a week.
+
+    Doing it here (not on a page view) keeps the site fast after a refresh.
+    """
+    try:
+        from src import game_context, player_forecast
+        from src.simulate_season import load_pregame_probabilities
+    except ImportError:  # pragma: no cover - direct-script support
+        import game_context
+        import player_forecast
+        from simulate_season import load_pregame_probabilities
+    now = now or datetime.now().timestamp()
+    out = {}
+    for name, path, run in (
+        ("game_context", game_context.MODEL_FILE,
+         lambda: game_context.fit(load_pregame_probabilities(), db_path=db_path)),
+        ("player_forecast", player_forecast.BACKTEST_FILE, lambda: player_forecast.backtest(db_path=db_path)),
+    ):
+        try:
+            fresh = now - path.stat().st_mtime < REFIT_DAYS * 86400
+        except OSError:
+            fresh = False
+        if fresh:
+            out[name] = "fresh"
+            continue
+        run()
+        out[name] = "refitted"
+    return out
+
+
+def _prime_caches():
+    """Recompute every game's pregame probability now and save it to disk.
+
+    The server reads the saved copy (data/cache) when the feature file has not
+    changed since, so after a refresh the first page view does not wait about
+    a minute for this.
+    """
+    try:
+        from src import tools
+    except ImportError:  # pragma: no cover - direct-script support
+        import tools
+    from pathlib import Path
+    started = datetime.now()
+    tools.enable_disk_cache(Path(__file__).resolve().parents[1] / "data" / "cache")
+    tools.clear_probability_cache()
+    games = len(tools._cached_probabilities())
+    return {"games": games, "seconds": round((datetime.now() - started).total_seconds(), 1)}
 
 
 def _store_odds_snapshot(db_path, today=None):
@@ -627,7 +698,8 @@ def main(argv=None):
     args = parse_args(argv)
     try:
         report = run_all(args.db, args.since, args.through, args.dry_run, not args.no_box_scores,
-                         injuries=not args.no_injuries, odds_snapshot=not args.no_odds_snapshot)
+                         injuries=not args.no_injuries, odds_snapshot=not args.no_odds_snapshot,
+                         market=not args.no_market_lines, refit=not args.no_refit)
     except RefreshError as exc:
         print(f"Refresh failed, database unchanged: {exc}")
         return 1
@@ -640,7 +712,7 @@ def main(argv=None):
         for key, value in report["box_scores"].items():
             print(f"  {key}: {value}")
         print(f"  features_rebuilt: {report['features_rebuilt']}")
-    for extra in ("injuries", "odds_snapshot"):
+    for extra in ("injuries", "market_lines", "odds_snapshot", "model_refit", "caches_primed"):
         if extra in report:
             print(extra.replace("_", " ").capitalize())
             for key, value in report[extra].items():

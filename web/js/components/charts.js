@@ -555,3 +555,72 @@ export function pairLineTooltip(a, b, format = (v) => `${v > 0 ? "+" : ""}${v.to
     ] };
   };
 }
+
+/**
+ * Career arc against comparables: x is years from the matched season (0),
+ * y is box impact. Comparables are thin gray lines, the player is the
+ * accent line, and the seasons ahead carry the middle half of what the
+ * comparables went on to do (a band) with its median dashed.
+ * arc / comps[i].arc: [{offset, box_impact, season, age}]; band: [{offset, box_impact_p25, _median, _p75}]
+ */
+export function arcCompsChart(arc, comps, band) {
+  const all = [...arc, ...comps.flatMap((c) => c.arc)].filter((p) => p.box_impact != null);
+  if (!all.length) return "";
+  const bandPoints = (band || []).filter((b) => b.box_impact_median != null);
+  const xs = [...all.map((p) => p.offset), ...bandPoints.map((b) => b.offset)];
+  const minX = Math.max(-12, Math.min(...xs));
+  const maxX = Math.min(8, Math.max(...xs, 1));
+  const ys = [...all.map((p) => p.box_impact), ...bandPoints.flatMap((b) => [b.box_impact_p25, b.box_impact_p75])];
+  const minY = Math.min(-2, ...ys);
+  const maxY = Math.max(2, ...ys);
+  const width = 760;
+  const height = 280;
+  const pad = { top: 16, right: 18, bottom: 34, left: 44 };
+  const x = (v) => pad.left + ((v - minX) / (maxX - minX || 1)) * (width - pad.left - pad.right);
+  const y = (v) => pad.top + (1 - (v - minY) / (maxY - minY || 1)) * (height - pad.top - pad.bottom);
+  const line = (points) => points.filter((p) => p.box_impact != null && p.offset >= minX && p.offset <= maxX)
+    .map((p, i) => `${i ? "L" : "M"}${x(p.offset).toFixed(1)},${y(p.box_impact).toFixed(1)}`).join(" ");
+  const ticks = niceTicks(minY, maxY, 4);
+  const area = bandPoints.length > 1
+    ? `<path d="M${bandPoints.map((b) => `${x(b.offset)},${y(b.box_impact_p75)}`).join(" L")} L${[...bandPoints].reverse().map((b) => `${x(b.offset)},${y(b.box_impact_p25)}`).join(" L")} Z" class="c-band" />
+       <path d="M${bandPoints.map((b) => `${x(b.offset)},${y(b.box_impact_median)}`).join(" L")}" fill="none" class="c-accent-line" stroke-width="2" stroke-dasharray="5 5" />`
+    : "";
+  const dots = arc.filter((p) => p.box_impact != null && p.offset >= minX).map((p) =>
+    `<circle cx="${x(p.offset)}" cy="${y(p.box_impact)}" r="5" class="c-accent c-ring" stroke-width="2" tabindex="0" data-tip="a${p.season}" aria-label="${escapeHtml(`Season ${p.season}`)}" />`).join("");
+  const bandDots = bandPoints.map((b, i) =>
+    `<rect x="${x(b.offset) - 9}" y="${pad.top}" width="18" height="${height - pad.top - pad.bottom}" fill="transparent" tabindex="0" data-tip="b${i}" aria-label="${escapeHtml(`Year +${b.offset}`)}" />`).join("");
+  const xTicks = [];
+  for (let t = Math.ceil(minX); t <= maxX; t += Math.max(1, Math.round((maxX - minX) / 8))) xTicks.push(t);
+  return `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Career arc against similar players">
+    ${ticks.map((t) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(t)}" y2="${y(t)}" class="${t === 0 ? "c-base" : "c-grid"}" />
+      <text x="${pad.left - 6}" y="${y(t) + 4}" text-anchor="end" class="chart-axis-label">${t > 0 ? "+" : ""}${t}</text>`).join("")}
+    <line x1="${x(0)}" x2="${x(0)}" y1="${pad.top}" y2="${height - pad.bottom}" class="c-axis" stroke-dasharray="2 4" />
+    ${area}
+    ${comps.map((c) => `<path d="${line(c.arc)}" fill="none" class="c-base-line is-faint" stroke-width="1.4" stroke-linejoin="round" />`).join("")}
+    <path d="${line(arc)}" fill="none" class="c-accent-line" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+    ${dots}${bandDots}
+    ${xTicks.map((t) => `<text x="${x(t)}" y="${height - 10}" text-anchor="middle" class="chart-axis-label">${t === 0 ? "now" : `${t > 0 ? "+" : ""}${t}y`}</text>`).join("")}
+  </svg>`;
+}
+
+export function arcCompsTooltip(arc, band) {
+  const bandPoints = (band || []).filter((b) => b.box_impact_median != null);
+  return (key) => {
+    if (key.startsWith("a")) {
+      const p = arc.find((point) => point.season === Number(key.slice(1)));
+      if (!p) return null;
+      return { title: `${p.season}-${String(p.season + 1).slice(-2)} · age ${p.age ?? "?"}`, rows: [
+        { value: `${p.box_impact > 0 ? "+" : ""}${p.box_impact.toFixed(2)}`, label: "box impact", key: KEYS.accent },
+        ...(p.percentile != null ? [{ value: `${Math.round(p.percentile)}th`, label: "percentile that season" }] : []),
+        { value: `${p.games} g · ${p.mpg} mpg`, label: "" },
+      ] };
+    }
+    const b = bandPoints[Number(key.slice(1))];
+    if (!b) return null;
+    return { title: `${b.offset} year${b.offset === 1 ? "" : "s"} ahead${b.age ? ` · age ${b.age}` : ""}`, rows: [
+      { value: `${b.box_impact_median > 0 ? "+" : ""}${b.box_impact_median.toFixed(2)}`, label: "comparables' median", key: KEYS.accent },
+      { value: `${b.box_impact_p25.toFixed(2)} to ${b.box_impact_p75.toFixed(2)}`, label: "middle half" },
+      { value: `${Math.round((b.share_still_regulars ?? 0) * 100)}%`, label: "still regulars" },
+    ] };
+  };
+}

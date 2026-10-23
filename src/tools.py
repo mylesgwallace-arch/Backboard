@@ -88,6 +88,12 @@ try:
     from src import live_games
     from src import odds_history
     from src import player_boards
+    from src import game_context
+    from src import player_forecast
+    from src import market_lines
+    from src import awards
+    from src import lottery
+    from src import history_views
 except ImportError:  # pragma: no cover - direct-script support
     from main import (
         FEATURES_PATH,
@@ -144,6 +150,12 @@ except ImportError:  # pragma: no cover - direct-script support
     import live_games
     import odds_history
     import player_boards
+    import game_context
+    import player_forecast
+    import market_lines
+    import awards
+    import lottery
+    import history_views
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1273,6 +1285,134 @@ def _execute_similar_players(parameters):
     )
 
 
+def _game_context_model():
+    try:
+        return game_context.load_or_fit(_cached_probabilities, db_path=TEAM_DB_PATH)
+    except ValueError as exc:
+        raise ToolUnavailable(f"The injury and schedule overlay could not be fitted: {exc}")
+
+
+def _execute_game_context(parameters):
+    """Missing players, schedule spots and injury-adjusted odds for one day."""
+    day = pd.Timestamp(parameters["date"]) if parameters.get("date") else _today()
+    label = str(day.date())
+    games = league_views.load_games(f"{label} 00:00:00", f"{label} 23:59:59", TEAM_DB_PATH,
+                                    league_views.SCOREBOARD_GAME_TYPES)
+    if not games.empty:
+        games = league_views.attach_pregame_probabilities(
+            games, _cached_probabilities(), _cached_model_inputs(), day)
+    return game_context.day_context(day, games, _game_context_model(), db_path=TEAM_DB_PATH)
+
+
+def _day_games(day):
+    label = str(day.date())
+    return league_views.load_games(f"{label} 00:00:00", f"{label} 23:59:59", TEAM_DB_PATH,
+                                   league_views.SCOREBOARD_GAME_TYPES)
+
+
+def _forecast_backtest():
+    try:
+        return player_forecast.load_or_backtest(db_path=TEAM_DB_PATH)
+    except ValueError:
+        return None  # forecasts still work, with default ranges
+
+
+def _execute_player_game_forecast(parameters):
+    """One player's points/rebounds/assists/threes forecast for a game."""
+    person_id = _person_id_or_name(parameters)
+    day = pd.Timestamp(parameters["date"]) if parameters.get("date") else _today()
+    opponent = None
+    if parameters.get("opponent_id") is not None or parameters.get("opponent"):
+        opponent = _team_id_or_name(parameters, "opponent_id", "opponent")
+    return player_forecast.player_game_forecast(
+        person_id, day, db_path=TEAM_DB_PATH, opponent_id=opponent, home=parameters.get("home"),
+        backtest_report=_forecast_backtest())
+
+
+def _execute_slate_player_forecasts(parameters):
+    """The top expected scorers on each side of each game of a day."""
+    day = pd.Timestamp(parameters["date"]) if parameters.get("date") else _today()
+    return player_forecast.slate_forecasts(day, _day_games(day), db_path=TEAM_DB_PATH,
+                                           per_team=parameters.get("per_team", 3),
+                                           backtest_report=_forecast_backtest())
+
+
+def _execute_model_vs_market(parameters):
+    """The production model against the stored betting lines."""
+    day = pd.Timestamp(parameters["date"]) if parameters.get("date") else _today()
+    season = parameters.get("season") if parameters.get("season") is not None else day.year - (day.month < 9)
+    return market_lines.comparison(season, day, _cached_model_inputs(), _cached_probabilities(),
+                                   db_path=TEAM_DB_PATH)
+
+
+AWARDS_MIN_GAMES = 20
+
+
+def _median_team_games(season):
+    start, end = league_views.season_window(season)
+    with sqlite3.connect(TEAM_DB_PATH) as connection:
+        rows = connection.execute(
+            "SELECT team, COUNT(*) FROM (SELECT hometeamId AS team FROM games WHERE gameType = 'Regular Season' "
+            "AND winner IS NOT NULL AND gameDateTimeEst BETWEEN ? AND ? UNION ALL SELECT awayteamId FROM games "
+            "WHERE gameType = 'Regular Season' AND winner IS NOT NULL AND gameDateTimeEst BETWEEN ? AND ?) "
+            "GROUP BY team", (start, end, start, end)).fetchall()
+    counts = sorted(count for _, count in rows)
+    return counts[len(counts) // 2] if counts else 0
+
+
+def _execute_awards_race(parameters):
+    """MVP, rookie, sixth man and most improved races from the box-score value measure."""
+    season = parameters.get("season")
+    if season is None:
+        season = _latest_played_season()
+        # A season a few games old has no race yet: show last season's until
+        # teams have played AWARDS_MIN_GAMES.
+        if _median_team_games(season) < AWARDS_MIN_GAMES:
+            season -= 1
+    try:
+        return awards.awards_race(season, _game_context_model(), through=parameters.get("as_of"),
+                                  db_path=TEAM_DB_PATH)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _execute_draft_lottery(parameters):
+    """Each lottery team's chance at every pick."""
+    season = _season_or_latest(parameters)
+    as_of = parameters.get("as_of") or str(_today().date())
+    try:
+        return lottery.lottery_odds(season, as_of, _cached_model_inputs(),
+                                    n_simulations=parameters.get("n_simulations", 1000),
+                                    team_names=load_team_names(season))
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _execute_rivalry(parameters):
+    """Every meeting between two franchises."""
+    team_a = _team_id_or_name(parameters, "team_a_id", "team_a")
+    team_b = _team_id_or_name(parameters, "team_b_id", "team_b")
+    if team_a == team_b:
+        raise ToolError("Pick two different teams.")
+    return history_views.rivalry(team_a, team_b, _cached_probabilities(), db_path=TEAM_DB_PATH)
+
+
+def _execute_season_recap(parameters):
+    """A season told from recorded data."""
+    season = _season_or_latest(parameters)
+    try:
+        return history_views.season_recap(season, _cached_model_inputs(), _cached_probabilities(),
+                                          db_path=TEAM_DB_PATH)
+    except ValueError as exc:
+        raise ToolUnavailable(str(exc))
+
+
+def _execute_career_arc(parameters):
+    """A player's career next to similar players' careers."""
+    person_id = _person_id_or_name(parameters)
+    return history_views.career_arc(person_id, parameters.get("season"))
+
+
 # ---------------------------------------------------------------------------
 # Tool registry
 # ---------------------------------------------------------------------------
@@ -2274,6 +2414,200 @@ TOOLS = {
             "A report reflects the data and code at the time it was generated.",
         ],
         "execute": _execute_validation_report,
+    },
+    "game_context": {
+        "name": "game_context",
+        "description": (
+            "For one day's games: which rotation players are missing (injury "
+            "report for games not played yet, box scores for played ones) and "
+            "what each is worth in points, schedule spots (back-to-backs, 3 in 4 "
+            "nights, travel, time zones, road trips) and the model's win "
+            "probability with and without an injury/fatigue adjustment."
+        ),
+        "category": "prediction",
+        "model": "elo_boosted_ensemble + game_context overlay (fitted and graded separately)",
+        "parameters": [
+            {"name": "date", "type": STR_TYPE, "required": False,
+             "description": "Day YYYY-MM-DD (default today)."},
+        ],
+        "assumptions": [
+            "Player value is a box-score rating fitted on this database, times expected "
+            "minutes, above a replacement-level player.",
+            "The overlay keeps the production model's log-odds fixed and adds what it "
+            "learned from absences and schedule spots in seasons before its test seasons.",
+        ],
+        "limitations": [
+            "Box scores do not measure defence well, so defensive players are undervalued.",
+            "Upcoming games use the stored injury report; 'questionable' players are "
+            "assumed to play.",
+            "The adjusted number is an overlay, not the validated production model; "
+            "model.test shows whether it beat the plain model on held-out seasons.",
+        ],
+        "execute": _execute_game_context,
+    },
+    "player_game_forecast": {
+        "name": "player_game_forecast",
+        "description": (
+            "Forecast one player's points, rebounds, assists and threes for a game "
+            "(their team's next game by default), with an 80% range."
+        ),
+        "category": "prediction",
+        "model": "expected minutes x blended per-minute rate x opponent factor (backtested)",
+        "parameters": [
+            {"name": "person_id", "type": INT_TYPE, "required": False, "description": "NBA personId."},
+            {"name": "player", "type": STR_TYPE, "required": False, "description": "Player name."},
+            {"name": "date", "type": STR_TYPE, "required": False,
+             "description": "Forecast the first game on/after this day YYYY-MM-DD (default today)."},
+            {"name": "opponent_id", "type": INT_TYPE, "required": False,
+             "description": "Opponent teamId (default: the scheduled opponent)."},
+            {"name": "opponent", "type": STR_TYPE, "required": False, "description": "Opponent name."},
+            {"name": "home", "type": BOOL_TYPE, "required": False,
+             "description": "Whether the player's team is at home (with an explicit opponent)."},
+        ],
+        "assumptions": [
+            "The player plays; forecasts say nothing about whether they will.",
+            "Recent form and the last 82 appearances count equally in the per-minute rate.",
+        ],
+        "limitations": [
+            "Minutes are the biggest source of error: blowouts, foul trouble and "
+            "rotation changes are not foreseen.",
+            "backtest compares the method with the season-average forecast on held-out seasons.",
+        ],
+        "execute": _execute_player_game_forecast,
+    },
+    "slate_player_forecasts": {
+        "name": "slate_player_forecasts",
+        "description": "The top expected scorers on each side of every game on one day.",
+        "category": "prediction",
+        "model": "player_game_forecast for each rotation player",
+        "parameters": [
+            {"name": "date", "type": STR_TYPE, "required": False, "description": "Day YYYY-MM-DD (default today)."},
+            {"name": "per_team", "type": INT_TYPE, "required": False, "description": "Players per team (default 3)."},
+        ],
+        "assumptions": ["A player counts for the team of their latest appearance in the last 30 days."],
+        "limitations": ["Injured players are not removed; check game_context for who is out."],
+        "execute": _execute_slate_player_forecasts,
+    },
+    "model_vs_market": {
+        "name": "model_vs_market",
+        "description": (
+            "The production model's win probabilities next to the betting market's "
+            "(stored ESPN lines, vig removed): one day's biggest disagreements and, "
+            "for the season, whose numbers were closer."
+        ),
+        "category": "prediction",
+        "model": "elo_boosted_ensemble vs. sportsbook moneylines/spreads",
+        "parameters": [
+            {"name": "date", "type": STR_TYPE, "required": False, "description": "Day YYYY-MM-DD (default today)."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year for the scorecard (default: the date's season)."},
+        ],
+        "assumptions": [
+            "The market probability removes the bookmaker's margin proportionally; a game "
+            "with only a spread uses the margin model's spread of outcomes.",
+            "Lines are stored by the daily refresh; the last pregame line kept is the closing line "
+            "as of the last refresh before tip-off.",
+        ],
+        "limitations": [
+            "Only games with a stored line count, so the scorecard starts when the refresh "
+            "started storing lines.",
+        ],
+        "execute": _execute_model_vs_market,
+    },
+    "awards_race": {
+        "name": "awards_race",
+        "description": (
+            "MVP, Rookie of the Year, Sixth Man and Most Improved races ranked by a "
+            "box-score value measure, with each race's weekly trend."
+        ),
+        "category": "diagnostic",
+        "model": "game_context box rating (points of margin above replacement)",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: the latest season with 20+ games a team)."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Count games through this day YYYY-MM-DD (default all)."},
+        ],
+        "assumptions": ["MVP weights value added by (0.5 + team win%)."],
+        "limitations": [
+            "An index from box scores, not a model of voting: defence and narrative are missing.",
+        ],
+        "execute": _execute_awards_race,
+    },
+    "draft_lottery": {
+        "name": "draft_lottery",
+        "description": (
+            "Every lottery team's chance at each pick in the coming draft, from the "
+            "final standings or the model's projection of them, under the 2019 rules."
+        ),
+        "category": "simulation",
+        "model": "exact lottery odds x forward_projection standings (elo_boosted_ensemble)",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season with results)."},
+            {"name": "as_of", "type": STR_TYPE, "required": False,
+             "description": "Standings cutoff YYYY-MM-DD (default today)."},
+            {"name": "n_simulations", "type": INT_TYPE, "required": False,
+             "description": "Season simulations (default 1000)."},
+        ],
+        "assumptions": ["Ties in record are broken at random."],
+        "limitations": ["Traded picks and protections are not modelled."],
+        "execute": _execute_draft_lottery,
+    },
+    "rivalry": {
+        "name": "rivalry",
+        "description": (
+            "Every meeting between two franchises (regular season, play-in, playoffs) "
+            "with streaks, margins, playoff series and the model's record on them."
+        ),
+        "category": "database_query",
+        "model": "nba.db games + stored pregame probabilities",
+        "parameters": [
+            {"name": "team_a_id", "type": INT_TYPE, "required": False, "description": "First teamId."},
+            {"name": "team_a", "type": STR_TYPE, "required": False, "description": "First team name."},
+            {"name": "team_b_id", "type": INT_TYPE, "required": False, "description": "Second teamId."},
+            {"name": "team_b", "type": STR_TYPE, "required": False, "description": "Second team name."},
+        ],
+        "assumptions": ["Franchise history follows the team id through relocations."],
+        "limitations": ["The model's record covers only games with a stored pregame probability."],
+        "execute": _execute_rivalry,
+    },
+    "season_recap": {
+        "name": "season_recap",
+        "description": (
+            "A season told from recorded data: best records, champion, biggest upsets, the "
+            "model's best and worst calls, teams that beat or missed their preseason "
+            "projection, and turning points in the stored playoff odds."
+        ),
+        "category": "database_query",
+        "model": "nba.db results + elo_boosted_ensemble probabilities and projections",
+        "parameters": [
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season start year (default: latest season with results)."},
+        ],
+        "assumptions": [
+            "Best calls: games where the model and plain Elo picked different winners and the model was right.",
+        ],
+        "limitations": ["Turning points need stored odds snapshots (the daily refresh or odds_history backfill)."],
+        "execute": _execute_season_recap,
+    },
+    "career_arc": {
+        "name": "career_arc",
+        "description": (
+            "A player's box impact season by season next to the careers of the most "
+            "similar players at the same age, with the range those careers took next."
+        ),
+        "category": "diagnostic",
+        "model": "player reference box impact + comparables",
+        "parameters": [
+            {"name": "person_id", "type": INT_TYPE, "required": False, "description": "NBA personId."},
+            {"name": "player", "type": STR_TYPE, "required": False, "description": "Player name."},
+            {"name": "season", "type": INT_TYPE, "required": False,
+             "description": "Season to match comparables on (default: the latest)."},
+        ],
+        "assumptions": ["Comparables are matched on one season's box-score profile within a year of age."],
+        "limitations": ["Box impact misses most defence; injuries end careers the band cannot foresee."],
+        "execute": _execute_career_arc,
     },
     "standings": {
         "name": "standings",

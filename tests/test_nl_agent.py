@@ -37,6 +37,7 @@ def test_home_and_away_follow_the_wording():
     assert (host["home_team_id"], host["away_team_id"]) == (KNICKS, CELTICS)
 
 
+@pytest.mark.real_data
 def test_dates_seasons_and_players_are_extracted():
     step = plan_question("As of January 15, 2026, what did the rest-of-season projection look like "
                          "for the Spurs?")[0]
@@ -48,6 +49,7 @@ def test_dates_seasons_and_players_are_extracted():
                      "focus": None}
 
 
+@pytest.mark.real_data
 def test_ambiguous_references_ask_instead_of_guessing():
     with pytest.raises(ValueError, match="Los Angeles"):
         plan_question("Who is favored in Los Angeles vs Denver?")
@@ -193,6 +195,7 @@ def test_llm_failures_fall_back_to_the_deterministic_planner(monkeypatch):
     assert result["status"] == "success"
 
 
+@pytest.mark.real_data
 def test_what_if_swap_questions_become_one_era_swap_call():
     steps = plan_question("How would the 1993 Chicago Bulls change if they had 2016 Steph Curry "
                           "instead of B.J. Armstrong?")

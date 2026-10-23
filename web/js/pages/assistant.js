@@ -41,7 +41,7 @@ const state = {
   context: null,
 };
 
-export function render(container) {
+export function render(container, ctx = {}) {
   container.innerHTML = `
     <div class="card fade-in assistant-card">
       <div class="card-header">
@@ -140,6 +140,13 @@ export function render(container) {
       form.requestSubmit();
     }
   });
+
+  // /assistant?q=… (from the command palette) asks straight away.
+  const preset = ctx.query?.get?.("q");
+  if (preset && !state.pending) {
+    input.value = preset;
+    form.requestSubmit();
+  }
 }
 
 function setComposerDisabled(sendBtn, input, disabled) {

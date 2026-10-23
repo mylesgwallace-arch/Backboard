@@ -5,3 +5,6 @@
 # the `from src.xxx import ...` imports used throughout tests/.
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "real_data: needs the real Kaggle NBA database and raw files (real players, row counts); CI runs on a generated league and skips these",
+]

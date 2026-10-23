@@ -78,6 +78,7 @@ except ImportError:  # pragma: no cover - direct-script support
 ROOT = Path(__file__).resolve().parents[1]
 WEB_DIR = ROOT / "web"
 WEB_HTML = WEB_DIR / "index.html"
+EMBED_HTML = WEB_DIR / "embed.html"  # /embed/<widget>: framable widgets for other sites
 
 SERVICE_NAME = "backboard"
 
@@ -152,8 +153,17 @@ APP_PAGES = {
                           "tool and model that produced it."),
     "/current-season": ("Current season", "Where every team stands now: strength, roster "
                                           "changes, injuries and the season projection."),
-    "/head-to-head": ("Head-to-head", "Any two franchises' regular-season record, all-time and "
-                                      "season by season."),
+    "/head-to-head": ("Head-to-head", "Any two franchises: every meeting, streaks, playoff series "
+                                      "and the model's record on the rivalry."),
+    "/market": ("Model vs market", "The model's win probabilities against the sportsbooks: today's "
+                                   "biggest disagreements and whose numbers have been closer."),
+    "/awards": ("Awards race", "MVP, Rookie of the Year, Sixth Man and Most Improved races from "
+                               "the box score, week by week."),
+    "/lottery": ("Draft lottery", "Every lottery team's odds at each pick, and a lottery machine "
+                                  "to run the draw yourself."),
+    "/recap": ("Season recap", "A season in data: champion, biggest upsets, the model's best and "
+                               "worst calls, surprises and turning points."),
+    "/pickem": ("Pick'em", "Pick the night's winners against the model and keep score."),
     "/league-predictions": ("League predictions", "The projected playoff picture and full "
                                                   "standings for the season."),
     "/player-impact": ("Player impact", "How a team has done with and without a player: an "
@@ -315,6 +325,8 @@ CACHEABLE_TOOLS = {
     "player_outlook", "player_season_stats", "team_season_roster", "validation_report",
     "playoff_odds", "simulate_season", "team_projection", "project_rest_of_season",
     "odds_history", "injury_report", "predict_matchup", "predict_margin", "resolve_player",
+    "game_context", "player_game_forecast", "slate_player_forecasts", "model_vs_market", "awards_race",
+    "draft_lottery", "rivalry", "season_recap", "career_arc",
 }
 TOOL_CACHE_SIZE = 256
 _TOOL_CACHE = OrderedDict()
@@ -383,7 +395,7 @@ class RateLimiter:
 
 HEAVY_TOOLS = {"simulate_season", "team_projection", "project_rest_of_season", "playoff_odds",
                "sandbox_simulate", "simulate_era_swap", "player_scenario", "player_impact",
-               "strength_of_schedule", "query_database"}
+               "strength_of_schedule", "query_database", "draft_lottery", "season_recap", "awards_race"}
 LIMITERS = {
     "ask": RateLimiter(per_minute=20, burst=6),
     "heavy": RateLimiter(per_minute=30, burst=10),
@@ -647,6 +659,9 @@ class _Handler(BaseHTTPRequestHandler):
         if route in ("/", "/app", "/index.html") or page_route(parsed.path):
             self._serve_html()
             return
+        if route.startswith("/embed/") and EMBED_HTML.exists():
+            self._write(200, EMBED_HTML.read_bytes(), "text/html; charset=utf-8", {"Cache-Control": "no-cache"})
+            return
         if route == "/sitemap.xml":
             self._write(200, sitemap_xml(self._base_url()).encode("utf-8"),
                         "application/xml; charset=utf-8", {"Cache-Control": "no-cache"})
@@ -716,10 +731,19 @@ def warm_caches():
         import sandbox
         from tools import _cached_model_inputs, _cached_probabilities
 
+    try:
+        from src import game_context, player_forecast
+    except ImportError:  # pragma: no cover - direct-script support
+        import game_context
+        import player_forecast
+
     def next_season_setup():
         season = sandbox.seasons_available()["next"]
         sandbox.season_setup(season, "next", None, _cached_model_inputs())
 
+    # The daily refresh saves the pregame probabilities and refits the two
+    # overlays, so each of these is a quick load after a refresh; only a
+    # fresh install pays the full cost, and here rather than on a page view.
     steps = [
         ("player tables", player_profile.team_season_totals),
         ("league reference", player_profile.league_reference),
@@ -727,13 +751,16 @@ def warm_caches():
         ("model inputs", _cached_model_inputs),
         ("next-season schedule", next_season_setup),
         ("season probabilities", _cached_probabilities),
+        ("injury overlay", lambda: game_context.load_or_fit(_cached_probabilities, db_path=TEAM_DB_PATH)),
+        ("player forecasts", lambda: player_forecast.load_or_backtest(db_path=TEAM_DB_PATH)),
     ]
+    started = time.monotonic()
     for label, step in steps:
         try:
             step()
         except Exception as exc:  # pragma: no cover - best effort
             print(f"  warm-up skipped {label}: {exc}")
-    print("  caches warm: player pages and the Sandbox are ready")
+    print(f"  caches warm in {time.monotonic() - started:.0f} s: every page is ready")
 
 
 def parse_args(argv=None):

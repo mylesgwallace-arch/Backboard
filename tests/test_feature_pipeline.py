@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.build_features import (
     add_opponent_adjusted_margin,
@@ -99,6 +100,7 @@ def load_expected_features():
     )
 
 
+@pytest.mark.real_data
 def test_generated_features_match_source_and_rolling_history():
     # The daily refresh appends live-season rows to the feature file. These
     # checks cover the historical dataset the production model was validated on.

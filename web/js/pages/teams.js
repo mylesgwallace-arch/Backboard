@@ -20,6 +20,7 @@ import { emphasisLineChart, wireEmphasisChart } from "../components/charts.js";
 import { csvButton, wireCsv } from "../components/csv.js";
 import { favoriteTeam, setFavoriteTeam } from "../components/prefs.js";
 import { toast } from "../components/toast.js";
+import { openEmbedDialog } from "../components/embedDialog.js";
 import { safe, seasonLabel, unwrap } from "../components/format.js";
 import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
 import { renderComparisonRow } from "../components/comparisonBar.js";
@@ -213,6 +214,7 @@ function renderHeader({ team, color, form }) {
           <span class="badge team-abbrev-stamp">${escapeHtml(abbrev)}</span>
           <button type="button" class="btn btn-secondary fav-btn" id="team-fav-btn" aria-pressed="false">★ My team</button>
           <button class="btn" id="predict-from-team-btn">Predict a matchup ▸</button>
+          <button type="button" class="btn btn-secondary" id="team-embed-btn" title="Put this team's odds on another site">Embed</button>
         </div>
       </div>
     </section>
@@ -525,6 +527,10 @@ function wireHeadToHeadTab(body, teams, teamId, ctx) {
 }
 
 function wirePredictButton(body, team, ctx) {
+  if (team) {
+    body.querySelector("#team-embed-btn")?.addEventListener("click", () =>
+      openEmbedDialog("team", { team: team.team_id }, team.full_name));
+  }
   const btn = body.querySelector("#predict-from-team-btn");
   if (!btn || !team || !ctx.navigate) return;
   btn.addEventListener("click", () => {

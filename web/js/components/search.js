@@ -1,8 +1,11 @@
-// components/search.js — one search box for the whole site, opened with "/"
-// or Ctrl/⌘-K (or the search button): pages by name, teams by name, city or
-// abbreviation (list_teams), and players by name (resolve_player). Arrow keys
-// move, Enter opens, Esc closes. It is a dialog: focus stays inside while it
-// is open and returns to where it was when it closes.
+// components/search.js — the command palette, opened with "/" or Ctrl/⌘-K
+// (or the search button): pages by name, teams by name, city or abbreviation
+// (list_teams), players by name (resolve_player), and commands (theme,
+// sounds, alerts, your team, copy link…). "A vs B" offers the matchup and the
+// rivalry; anything else can be sent to the assistant. Starting with ">"
+// lists commands only. Arrow keys move, Enter runs, Esc closes. It is a
+// dialog: focus stays inside while it is open and returns to where it was
+// when it closes.
 
 import { resolvePlayer } from "../api.js";
 import { fetchTeams } from "./teamSelect.js";
@@ -10,6 +13,7 @@ import { debounce, escapeHtml, safe, unwrap } from "./format.js";
 import { teamColor } from "../teamColors.js";
 
 let pages = [];
+let commands = [];
 let navigateTo = null;
 let root = null;
 let input = null;
@@ -19,9 +23,10 @@ let active = 0;
 let lastFocus = null;
 let query = "";
 
-export function initSearch({ routes, navigate }) {
+export function initSearch({ routes, navigate, actions = [] }) {
   pages = routes;
   navigateTo = navigate;
+  commands = actions;
   document.addEventListener("keydown", (event) => {
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") ||
       document.activeElement?.isContentEditable;
@@ -48,12 +53,12 @@ function build() {
     <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search Backboard">
       <div class="search-field">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
-        <input class="search-input" type="search" placeholder="Search players, teams and pages" autocomplete="off"
+        <input class="search-input" type="search" placeholder="Search players, teams, pages, or type > for commands" autocomplete="off"
           role="combobox" aria-expanded="true" aria-controls="search-list" aria-autocomplete="list" spellcheck="false">
         <kbd>Esc</kbd>
       </div>
       <ul class="search-list" id="search-list" role="listbox"></ul>
-      <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>/</kbd> or <kbd>Ctrl K</kbd> from anywhere</p>
+      <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>&gt;</kbd> commands · try "Celtics vs Knicks" · <kbd>Ctrl K</kbd> from anywhere</p>
     </div>`;
   document.body.appendChild(root);
   input = root.querySelector(".search-input");
@@ -68,12 +73,15 @@ function build() {
       meta: `${c.from_year ?? "?"}–${c.to_year ?? "now"}${c.positions?.length ? ` · ${c.positions.join("-")}` : ""}`,
       path: "/players", query: { id: c.person_id },
     }));
-    results = [...results.filter((r) => r.kind !== "Player"), ...found];
+    // Players slot in after teams and matchups, before pages and commands.
+    const lead = results.filter((r) => ["Matchup", "Rivalry", "Team"].includes(r.kind));
+    const rest = results.filter((r) => !["Matchup", "Rivalry", "Team", "Player"].includes(r.kind));
+    results = [...lead, ...found, ...rest];
     paint();
   }, 220);
   input.addEventListener("input", () => {
     query = input.value.trim();
-    local(query).then(() => players(query));
+    local(query).then(() => (query.startsWith(">") ? null : players(query)));
   });
   input.addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -104,17 +112,57 @@ function build() {
   });
 }
 
+function commandHits(text) {
+  const lower = text.replace(/^>\s*/, "").toLowerCase();
+  const labelOf = (c) => (typeof c.label === "function" ? c.label() : c.label);
+  return commands
+    .filter((c) => (c.when ? c.when() : true))
+    .filter((c) => !lower || `${labelOf(c)} ${c.keywords || ""}`.toLowerCase().includes(lower))
+    .map((c) => ({ kind: "Command", label: labelOf(c), meta: c.meta || "", run: c.run }));
+}
+
+/** "Celtics vs Knicks", "BOS @ NYK": the matchup and the rivalry. */
+function versusHits(text, teams) {
+  const match = text.match(/^(.+?)\s+(vs\.?|v\.?|versus|at|@)\s+(.+)$/i);
+  if (!match) return [];
+  const find = (name) => {
+    const lower = name.trim().toLowerCase();
+    return teams.find((t) => t.abbreviation.toLowerCase() === lower)
+      || teams.find((t) => t.full_name.toLowerCase().includes(lower));
+  };
+  const a = find(match[1]);
+  const b = find(match[3]);
+  if (!a || !b || a.team_id === b.team_id) return [];
+  const away = /^(at|@)$/i.test(match[2]);
+  const home = away ? b : a;
+  const visitor = away ? a : b;
+  return [
+    { kind: "Matchup", label: `${visitor.full_name} at ${home.full_name}`, meta: "win probability and projected score",
+      path: "/matchups", query: { home: home.team_id, away: visitor.team_id }, color: teamColor(home.team_id).primary },
+    { kind: "Rivalry", label: `${a.full_name} vs ${b.full_name}`, meta: "every meeting, streaks and series",
+      path: "/head-to-head", query: { a: a.team_id, b: b.team_id }, color: teamColor(a.team_id).primary },
+  ];
+}
+
 async function local(text) {
   const lower = text.toLowerCase();
+  if (text.startsWith(">")) {
+    results = commandHits(text);
+    active = 0;
+    paint();
+    return;
+  }
   const pageHits = pages
     .filter((p) => !lower || p.label.toLowerCase().includes(lower) || (p.description || "").toLowerCase().includes(lower))
     .slice(0, lower ? 5 : 8)
     .map((p) => ({ kind: "Page", label: p.label, meta: p.description || "", path: p.path }));
   let teamHits = [];
+  let versus = [];
   if (lower.length >= 2) {
     try {
       const teams = await fetchTeams();
-      teamHits = teams
+      versus = versusHits(text, teams);
+      teamHits = versus.length ? [] : teams
         .filter((t) => `${t.full_name} ${t.abbreviation}`.toLowerCase().includes(lower))
         .slice(0, 5)
         .map((t) => ({ kind: "Team", label: t.full_name, meta: t.abbreviation, path: "/teams",
@@ -125,14 +173,18 @@ async function local(text) {
   }
   if (text !== query) return;
   const players = results.filter((r) => r.kind === "Player" && lower.length >= 3);
-  results = [...teamHits, ...players, ...pageHits];
+  const commandList = lower.length >= 2 ? commandHits(text).slice(0, 3) : [];
+  const askHit = text.length >= 8 && /\s/.test(text)
+    ? [{ kind: "Ask", label: `Ask: “${text}”`, meta: "the assistant answers with the tools", path: "/assistant", query: { q: text } }]
+    : [];
+  results = [...versus, ...teamHits, ...players, ...pageHits, ...commandList, ...askHit];
   active = 0;
   paint();
 }
 
 function paint() {
   if (!results.length) {
-    list.innerHTML = `<li class="search-empty">${query.length >= 3 ? "Nothing matches yet…" : "Type a player, team or page."}</li>`;
+    list.innerHTML = `<li class="search-empty">${query.length >= 3 ? "Nothing matches yet…" : "Type a player, team or page, or > for commands."}</li>`;
     input.removeAttribute("aria-activedescendant");
     return;
   }
@@ -149,7 +201,8 @@ function paint() {
 function choose(result) {
   if (!result) return;
   closeSearch();
-  navigateTo(result.path, result.query || null);
+  if (result.run) result.run();
+  else navigateTo(result.path, result.query || null);
 }
 
 export function openSearch() {

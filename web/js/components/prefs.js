@@ -1,5 +1,6 @@
 // components/prefs.js — per-browser conveniences: the favorite team, the
-// color theme and Sandbox scenarios saved to the gallery. Everything lives in
+// color theme, Sandbox scenarios saved to the gallery, Pick'em picks, alert
+// settings and the arcade-sound switch. Everything lives in
 // localStorage behind try/catch, so a private window or blocked storage just
 // means nothing is remembered; no page depends on these values existing.
 
@@ -7,6 +8,9 @@ const KEYS = {
   favorite: "backboard.favoriteTeam.v1",
   theme: "backboard.theme.v1",
   gallery: "backboard.gallery.v1",
+  pickem: "backboard.pickem.v1",
+  alerts: "backboard.alerts.v1",
+  sound: "backboard.sound.v1",
 };
 
 function read(key, fallback) {
@@ -84,4 +88,38 @@ export function saveScenario(name, scenario) {
 export function deleteScenario(id) {
   write(KEYS.gallery, savedScenarios().filter((entry) => entry.id !== id));
   changed("gallery");
+}
+
+/** Pick'em: {gameId: {team, date, home, away, picked_at}}. */
+export function pickemPicks() {
+  const picks = read(KEYS.pickem, {});
+  return picks && typeof picks === "object" && !Array.isArray(picks) ? picks : {};
+}
+
+export function setPick(gameId, pick) {
+  const picks = pickemPicks();
+  if (pick) picks[gameId] = { ...pick, picked_at: new Date().toISOString() };
+  else delete picks[gameId];
+  write(KEYS.pickem, picks);
+  changed("pickem");
+}
+
+/** Alert settings: {enabled, closeGames, favoriteSwings, lastOdds: {teamId: p}}. */
+export function alertSettings() {
+  const value = read(KEYS.alerts, {});
+  return { enabled: false, closeGames: true, favoriteSwings: true, lastOdds: {}, ...(value || {}) };
+}
+
+export function setAlertSettings(patch) {
+  write(KEYS.alerts, { ...alertSettings(), ...patch });
+  changed("alerts");
+}
+
+export function soundOn() {
+  return read(KEYS.sound, false) === true;
+}
+
+export function setSound(on) {
+  write(KEYS.sound, Boolean(on));
+  changed("sound");
 }
