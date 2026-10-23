@@ -4,8 +4,8 @@
     {
       "name": "web",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "web"],
-      "port": 4173
+      "runtimeArgs": ["src/api.py", "--host", "127.0.0.1", "--port", "8000"],
+      "port": 8000
     }
   ]
 }

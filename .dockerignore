@@ -1,0 +1,7 @@
+.git
+.venv
+data
+notebooks
+design
+web/raw-clips
+**/__pycache__
