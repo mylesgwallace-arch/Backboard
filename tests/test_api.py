@@ -328,3 +328,139 @@ def test_static_asset_path_blocks_traversal_outside_web_dir():
     assert api._static_asset_path("/../../etc/passwd") is None
     assert api._static_asset_path("/does-not-exist.js") is None
     assert api._static_asset_path("/styles.css") is not None
+
+
+# ---- page paths, caching headers, memo and rate limits --------------------
+
+def _serve():
+    server = api.ThreadingHTTPServer(("127.0.0.1", 0), api._Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def test_every_front_end_route_has_a_server_page():
+    from pathlib import Path
+    import re
+    main_js = (Path(api.WEB_DIR) / "js" / "main.js").read_text(encoding="utf-8")
+    routes = set(re.findall(r'\{ path: "(/[a-z0-9-]+)"', main_js))
+    assert routes, "ROUTES not found in main.js"
+    assert routes == set(api.APP_PAGES)
+
+
+def test_page_paths_serve_the_app_with_their_own_title(tmp_path):
+    import sqlite3
+    db = tmp_path / "nba.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("CREATE TABLE players (personId INTEGER, firstName TEXT, lastName TEXT)")
+        conn.execute("INSERT INTO players VALUES (2544, 'LeBron', 'James')")
+        conn.execute("CREATE TABLE team_histories (teamId INTEGER, teamCity TEXT, teamName TEXT, "
+                     "seasonActiveTill INTEGER)")
+    page = api.render_index("/players?id=2544", "https://example.org", db_path=db)
+    assert "<title>LeBron James · Players · Backboard</title>" in page
+    assert 'content="LeBron James: every season' in page
+    assert '<link rel="canonical" href="https://example.org/players?id=2544">' in page
+    assert api.page_meta("/standings")[0] == "Standings · Backboard"
+    assert api.page_meta("/players?id=999", db_path=db)[0] == "Players · Backboard"
+    assert api.page_meta("/dashboard")[0] == "Backboard — NBA Analytics"
+
+
+def test_socket_serves_page_paths_sitemap_and_gzip():
+    server, base = _serve()
+    try:
+        with urllib.request.urlopen(f"{base}/standings") as resp:
+            assert resp.headers.get("Content-Type").startswith("text/html")
+            assert "<title>Standings · Backboard</title>" in resp.read().decode("utf-8")
+        with urllib.request.urlopen(f"{base}/sitemap.xml") as resp:
+            text = resp.read().decode("utf-8")
+            assert f"<loc>{base}/tonight</loc>" in text
+        request = urllib.request.Request(f"{base}/styles.css", headers={"Accept-Encoding": "gzip"})
+        with urllib.request.urlopen(request) as resp:
+            assert resp.headers.get("Content-Encoding") == "gzip"
+            import gzip
+            assert b":root" in gzip.decompress(resp.read())
+            etag = resp.headers.get("ETag")
+        request = urllib.request.Request(f"{base}/styles.css", headers={"If-None-Match": etag})
+        with pytest.raises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request)
+        assert caught.value.code == 304
+        with pytest.raises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(f"{base}/not-a-page")
+        assert caught.value.code == 404
+    finally:
+        server.shutdown()
+
+
+def test_read_only_tool_results_are_memoised_until_data_changes(monkeypatch):
+    calls = []
+
+    def fake_execute(name, parameters):
+        calls.append(name)
+        return {"status": "success", "data": {"n": len(calls)}}
+
+    monkeypatch.setattr(api, "execute_tool", fake_execute)
+    api.clear_tool_cache()
+    version = ["v1"]
+    monkeypatch.setattr(api, "_data_version", lambda: tuple(version))
+    first = api.cached_execute("standings", {"season": 2025})
+    again = api.cached_execute("standings", {"season": 2025})
+    assert first is again and calls == ["standings"]
+    api.cached_execute("sandbox_simulate", {})
+    api.cached_execute("sandbox_simulate", {})
+    assert calls.count("sandbox_simulate") == 2  # not cacheable
+    version[0] = "v2"
+    api.cached_execute("standings", {"season": 2025})
+    assert calls.count("standings") == 2
+    api.clear_tool_cache()
+
+
+def test_rate_limiter_refills_over_time():
+    limiter = api.RateLimiter(per_minute=60, burst=2)
+    assert limiter.allow("a", now=0.0) == (True, 0)
+    assert limiter.allow("a", now=0.0) == (True, 0)
+    allowed, retry = limiter.allow("a", now=0.0)
+    assert not allowed and retry == 1
+    assert limiter.allow("b", now=0.0)[0]  # per client
+    assert limiter.allow("a", now=1.0)[0]
+
+
+def test_client_keys_exempt_loopback_unless_behind_a_proxy(monkeypatch):
+    monkeypatch.delenv("BACKBOARD_TRUST_PROXY", raising=False)
+    assert api.client_key("127.0.0.1") is None
+    assert api.client_key("203.0.113.9") == "203.0.113.9"
+    monkeypatch.setenv("BACKBOARD_TRUST_PROXY", "1")
+    assert api.client_key("127.0.0.1", "198.51.100.7, 10.0.0.1") == "198.51.100.7"
+    assert api.limiter_for("/ask") is api.LIMITERS["ask"]
+    assert api.limiter_for("/tools/sandbox_simulate") is api.LIMITERS["heavy"]
+    assert api.limiter_for("/tools/standings") is api.LIMITERS["default"]
+
+
+def test_rate_limited_post_gets_429(monkeypatch):
+    monkeypatch.setenv("BACKBOARD_TRUST_PROXY", "1")
+    monkeypatch.setitem(api.LIMITERS, "default", api.RateLimiter(per_minute=1, burst=1))
+    monkeypatch.setattr(api, "execute_tool", lambda name, params: {"status": "success", "data": {}})
+    server, base = _serve()
+    try:
+        def post():
+            request = urllib.request.Request(
+                f"{base}/tools/list_teams", data=b"{}", method="POST",
+                headers={"Content-Type": "application/json", "X-Forwarded-For": "198.51.100.7"})
+            return urllib.request.urlopen(request)
+        with post() as resp:
+            assert resp.status == 200
+        with pytest.raises(urllib.error.HTTPError) as caught:
+            post()
+        assert caught.value.code == 429 and caught.value.headers.get("Retry-After")
+    finally:
+        server.shutdown()
+
+
+def test_llm_questions_fall_back_past_the_daily_limit(monkeypatch):
+    seen = []
+    monkeypatch.setattr(api, "answer_question", lambda q, **options: seen.append(options) or {"answer": "ok"})
+    monkeypatch.setattr(api, "LLM_QUESTIONS", api.DailyCounter())
+    monkeypatch.setenv("BACKBOARD_LLM_DAILY_LIMIT", "1")
+    body = json.dumps({"question": "Who wins?", "mode": "llm"}).encode()
+    status, first = api.handle_request("POST", "/ask", body)
+    status, second = api.handle_request("POST", "/ask", body)
+    assert seen[0]["mode"] == "llm" and "notice" not in first
+    assert seen[1]["mode"] == "deterministic" and second["notice"] == api.LLM_LIMIT_NOTICE
