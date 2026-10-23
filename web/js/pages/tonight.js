@@ -5,15 +5,23 @@
 // probability that starts at the pregame pick. Injury listings come from the
 // stored injury report.
 //
-// Numbers come from the scoreboard, live_scoreboard and injury_report tools;
-// the page only formats them.
+// Each card also carries the game's context (game_context: who is missing,
+// schedule spots, and the model's number with and without the injury/fatigue
+// overlay; tapping a missing player puts them back in), the betting line
+// (model_vs_market) and the players to watch (slate_player_forecasts).
+//
+// Numbers come from those tools; the page only formats them and re-applies
+// the overlay's published coefficient when a missing player is toggled.
 
-import { getInjuryReport, getLiveScoreboard, getScoreboard } from "../api.js";
+import {
+  getGameContext, getInjuryReport, getLiveScoreboard, getModelVsMarket, getScoreboard, getSlateForecasts,
+} from "../api.js";
 import { teamColor } from "../teamColors.js";
 import { clashingPair, readableInk } from "../colorInk.js";
 import { winProbabilityChart } from "../components/charts.js";
 import { favoriteTeam } from "../components/prefs.js";
 import { shareImage } from "../components/share.js";
+import { openEmbedDialog } from "../components/embedDialog.js";
 import { uncrumple } from "../components/motion.js";
 import { emptyState, errorBanner, escapeHtml, fixed, safe, signed, unwrap } from "../components/format.js";
 
@@ -72,7 +80,9 @@ export function render(container, ctx = {}) {
         <li><strong>Predicted score</strong> comes from the separate margin model (about ±16 points either way covers 80% of games). The two models disagree on the favorite in about 7% of games.</li>
         <li><strong>Upset</strong> means the winner had under a 40% chance before the game.</li>
         <li><strong>Live win probability</strong> starts at the pregame pick and moves with the score and the clock (a random-walk model; it has not been fitted to play-by-play data).</li>
-        <li><strong>Injuries</strong> are the latest stored report. The model has no injury input, so a listed star does not move the pick.</li>
+        <li><strong>Missing players</strong> are rotation players on the injury report as out (or, once a game is played, rotation players who sat). Each one's value is the points of margin their box score is worth above a replacement player. Tap a name to put them back in.</li>
+        <li><strong>With injuries &amp; schedule</strong> adds a small overlay to the model's pick for missing players and tough schedule spots (back-to-backs, 3 games in 4 nights, long flights, road trips). It was fitted on earlier seasons and graded on later ones; the card says if it did not beat the plain model there. The plain pick is always shown first.</li>
+        <li><strong>Market</strong> is the sportsbook's line with its margin removed, stored by the daily refresh. <strong>Players to watch</strong> are each side's top expected scorers, with an 80% range.</li>
       </ul>
     </details>`;
 
@@ -106,9 +116,21 @@ async function load(container, ctx, day, go) {
   next.onclick = () => go(board.next_date);
   document.title = `Tonight · ${pretty.month} ${pretty.day} · Backboard`;
 
-  const injuries = await injuriesPromise;
+  const [injuries, contextRes, forecastRes, marketRes] = await Promise.all([
+    injuriesPromise,
+    safe(getGameContext(board.date)).then(unwrap),
+    safe(getSlateForecasts(board.date, 2)).then(unwrap),
+    safe(getModelVsMarket({ date: board.date })).then(unwrap),
+  ]);
+  if (!container.isConnected) return;
   const outByTeam = {};
   (injuries?.data?.teams || []).forEach((team) => { outByTeam[team.teamId] = team.players; });
+  const extras = {
+    context: Object.fromEntries((contextRes.data?.games || []).map((g) => [g.gameId, g])),
+    overlay: contextRes.data?.model || null,
+    forecasts: Object.fromEntries((forecastRes.data?.games || []).map((g) => [g.gameId, g])),
+    market: Object.fromEntries((marketRes.data?.slate || []).map((g) => [g.gameId, g])),
+  };
   renderSummary(container.querySelector("#tn-summary"), board.summary);
 
   if (!board.games.length) {
@@ -119,8 +141,9 @@ async function load(container, ctx, day, go) {
   const games = [...board.games].sort((a, b) =>
     Number(b.home.teamId === favorite || b.away.teamId === favorite) - Number(a.home.teamId === favorite || a.away.teamId === favorite)
     || a.tip.localeCompare(b.tip));
-  grid.innerHTML = games.map((game) => gameCard(game, outByTeam, favorite)).join("");
+  grid.innerHTML = games.map((game) => gameCard(game, outByTeam, favorite, extras)).join("");
   wireCards(grid, games);
+  wireContext(grid, extras);
   const upset = grid.querySelector(".game-card.is-upset");
   if (upset) uncrumple(upset, { seed: Number(upset.dataset.game) });
 
@@ -150,15 +173,96 @@ function teamSide(team, probability, colors, side, extra = "") {
   </a>`;
 }
 
-function injuryLine(players, abbreviation) {
-  const out = (players || []).filter((p) => p.out);
+function injuryLine(players, abbreviation, { skipOut = false } = {}) {
+  const out = skipOut ? [] : (players || []).filter((p) => p.out);
   const doubtful = (players || []).filter((p) => !p.out);
   if (!out.length && !doubtful.length) return "";
   const names = (list) => list.slice(0, 3).map((p) => `${escapeHtml(p.name)}${p.injury ? ` <small>(${escapeHtml(p.injury.toLowerCase())})</small>` : ""}`).join(", ");
   return `<li><b>${escapeHtml(abbreviation)}</b> ${out.length ? `out: ${names(out)}${out.length > 3 ? ` +${out.length - 3}` : ""}` : ""}${out.length && doubtful.length ? "; " : ""}${doubtful.length ? `${escapeHtml(doubtful[0].status.toLowerCase())}: ${names(doubtful)}` : ""}</li>`;
 }
 
-function gameCard(game, outByTeam, favorite) {
+const logit = (p) => Math.log(Math.min(0.999999, Math.max(1e-6, p)) / (1 - Math.min(0.999999, Math.max(1e-6, p))));
+const sigmoid = (x) => 1 / (1 + Math.exp(-x));
+
+/** The overlay's home probability with some missing players put back in. */
+function contextProbability(context, overlay, playing) {
+  const theta = overlay?.overlay?.missing_value ?? 0;
+  const p0 = context.model_home_win_probability;
+  const full = logit(context.adjusted.home_win_probability) - logit(p0);
+  const schedule = full - theta * (context.features?.missing_value ?? 0);
+  const lost = (side) => context[side].missing.filter((m) => !playing.has(String(m.person_id)))
+    .reduce((sum, m) => sum + (m.value || 0), 0);
+  return sigmoid(logit(p0) + schedule + theta * (lost("away") - lost("home")));
+}
+
+function contextBlock(game, extras) {
+  const context = extras.context[game.gameId];
+  if (!context) return "";
+  const overlay = extras.overlay;
+  const side = (key, team) => {
+    const info = context[key];
+    const flags = info.flags.map((f) => `<span class="ctx-flag">${escapeHtml(f)}</span>`).join("");
+    const missing = info.missing.map((m) => `<button type="button" class="ctx-out" data-person="${m.person_id}" aria-pressed="true"
+        title="Tap to put ${escapeHtml(m.name)} back in">${escapeHtml(m.name)} <small>${m.value ? `−${fixed(m.value, 1)}` : "0"}</small></button>`).join("");
+    const listed = info.listed_not_in_rotation.length
+      ? `<span class="ctx-minor">also out: ${info.listed_not_in_rotation.slice(0, 3).map((m) => escapeHtml(m.name)).join(", ")}</span>` : "";
+    if (!flags && !missing && !listed) return "";
+    return `<div class="ctx-side"><b>${escapeHtml(team.abbreviation)}</b>${flags}${missing}${listed}</div>`;
+  };
+  const sides = side("away", game.away) + side("home", game.home);
+  const adjusted = context.adjusted;
+  const moved = Math.abs(adjusted.change) >= 0.005;
+  const note = overlay && overlay.beats_plain_model === false ? ` <span class="ctx-warn" title="On held-out seasons this adjustment did not beat the plain model.">unproven</span>` : "";
+  return `<div class="ctx" data-context="${game.gameId}">
+    ${sides || `<p class="ctx-none">Nobody in the rotation listed out · no schedule flags</p>`}
+    ${moved || sides ? `<p class="ctx-prob">${escapeHtml(game.home.abbreviation)} <span class="text-muted">model</span> <b>${Math.round(context.model_home_win_probability * 100)}%</b>
+      → <span class="text-muted">with injuries &amp; schedule</span> <b data-ctx-prob>${Math.round(adjusted.home_win_probability * 100)}%</b>${note}</p>` : ""}
+  </div>`;
+}
+
+function marketLine(game, extras) {
+  const line = extras.market[game.gameId];
+  if (!line) return "";
+  const spread = line.home_spread != null ? ` · ${escapeHtml(game.home.abbreviation)} ${line.home_spread > 0 ? "+" : ""}${line.home_spread}` : "";
+  return `<p class="game-market">Market <b>${escapeHtml(game.home.abbreviation)} ${Math.round(line.market_home_probability * 100)}%</b>${spread}
+    ${line.big_gap ? `<span class="badge accent">Model ${line.gap > 0 ? "higher" : "lower"} by ${Math.round(Math.abs(line.gap) * 100)}</span>` : ""}</p>`;
+}
+
+function watchList(game, extras) {
+  const slate = extras.forecasts[game.gameId];
+  if (!slate) return "";
+  const context = extras.context[game.gameId];
+  const out = new Set(context ? ["home", "away"].flatMap((side) =>
+    [...context[side].missing, ...context[side].listed_not_in_rotation].map((m) => m.person_id)) : []);
+  const players = [...slate.away, ...slate.home].filter((p) => !out.has(p.person_id));
+  if (!players.length) return "";
+  const line = (p) => {
+    const s = p.stats;
+    return `<li><a href="/players?id=${p.person_id}">${escapeHtml(p.name)}</a>
+      <span><b>${fixed(s.pts.expected, 0)}</b> pts <small>(${s.pts.low}–${s.pts.high})</small> · ${fixed(s.reb.expected, 0)} reb · ${fixed(s.ast.expected, 0)} ast</span></li>`;
+  };
+  return `<details class="game-watch"><summary>Players to watch</summary><ul>${players.map(line).join("")}</ul></details>`;
+}
+
+function wireContext(grid, extras) {
+  grid.querySelectorAll("[data-context]").forEach((block) => {
+    const context = extras.context[block.dataset.context];
+    const playing = new Set();
+    block.querySelectorAll(".ctx-out").forEach((button) => button.addEventListener("click", () => {
+      const id = button.dataset.person;
+      if (playing.has(id)) playing.delete(id);
+      else playing.add(id);
+      const out = !playing.has(id);
+      button.setAttribute("aria-pressed", String(out));
+      button.classList.toggle("is-back", !out);
+      const p = contextProbability(context, extras.overlay, playing);
+      const target = block.querySelector("[data-ctx-prob]");
+      if (target) target.textContent = `${Math.round(p * 100)}%`;
+    }));
+  });
+}
+
+function gameCard(game, outByTeam, favorite, extras = { context: {}, forecasts: {}, market: {} }) {
   const homePalette = teamColor(game.home.teamId);
   const awayPalette = teamColor(game.away.teamId);
   const pair = clashingPair(homePalette, awayPalette);
@@ -184,8 +288,9 @@ function gameCard(game, outByTeam, favorite) {
       ? `<p class="stamp stamp--tilt game-stamp">Upset · ${Math.round(game.winner_pregame_probability * 100)}% shot</p>`
       : `<p class="stamp game-stamp ${game.model_correct ? "stamp--ink" : ""}">${game.model_correct ? "Pick ✓" : "Pick ✗"}</p>`
     : "";
-  const injuries = [injuryLine(outByTeam[game.away.teamId], game.away.abbreviation),
-    injuryLine(outByTeam[game.home.teamId], game.home.abbreviation)].join("");
+  const hasContext = Boolean(extras.context[game.gameId]);
+  const injuries = [injuryLine(outByTeam[game.away.teamId], game.away.abbreviation, { skipOut: hasContext }),
+    injuryLine(outByTeam[game.home.teamId], game.home.abbreviation, { skipOut: hasContext })].join("");
   return `
     <article class="game-card lift ${final ? "is-final" : ""} ${game.upset ? "is-upset" : ""} ${isFavoriteTeam ? "is-favorite" : ""}"
       data-game="${game.gameId}" data-home="${game.home.teamId}" data-away="${game.away.teamId}"
@@ -206,17 +311,25 @@ function gameCard(game, outByTeam, favorite) {
       </div>
       <p class="game-pick">Pick: <b>${escapeHtml(pick.name)}</b> · ${Math.round(confidence * 100)}%${game.probability_source === "frozen" ? "" : " <span class=\"text-muted\">(pregame)</span>"}</p>
       ${scoreLine}
+      ${marketLine(game, extras)}
       <div class="game-live" data-live hidden></div>
       ${verdict}
+      ${contextBlock(game, extras)}
       ${injuries ? `<ul class="game-injuries" aria-label="Injury report">${injuries}</ul>` : ""}
+      ${final ? "" : watchList(game, extras)}
       <footer class="game-actions">
         <a class="link-btn" href="/matchups?home=${game.home.teamId}&away=${game.away.teamId}">Full matchup ▸</a>
-        <button type="button" class="link-btn" data-share="${game.gameId}">Share</button>
+        <span><button type="button" class="link-btn" data-embed="${game.gameId}">Embed</button>
+        <button type="button" class="link-btn" data-share="${game.gameId}">Share</button></span>
       </footer>
     </article>`;
 }
 
 function wireCards(grid, games) {
+  grid.querySelectorAll("[data-embed]").forEach((button) => button.addEventListener("click", () => {
+    const game = games.find((g) => String(g.gameId) === button.dataset.embed);
+    if (game) openEmbedDialog("game", { home: game.home.teamId, away: game.away.teamId }, `${game.away.name} at ${game.home.name}`);
+  }));
   grid.querySelectorAll("[data-share]").forEach((button) => button.addEventListener("click", () => {
     const game = games.find((g) => String(g.gameId) === button.dataset.share);
     if (!game) return;

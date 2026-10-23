@@ -46,6 +46,7 @@ def test_extract_team_ids_prefers_full_franchise_phrase():
     ]
 
 
+@pytest.mark.real_data
 def test_extract_player_ids_finds_nba_player():
     matches = extract_player_ids("What does the diagnostic say about Steven Adams?")
     assert 203500 in matches
@@ -62,6 +63,7 @@ def test_load_team_labels_covers_current_franchises():
 # Intent routing
 # ---------------------------------------------------------------------------
 
+@pytest.mark.real_data
 def test_routes_head_to_head_before_record():
     tool, params = resolve_intent(
         "What is the head to head record between Boston and LA Lakers?"
@@ -114,6 +116,7 @@ def test_routes_team_projection_wins():
     assert params["team_id"] == 1610612760
 
 
+@pytest.mark.real_data
 def test_routes_player_impact():
     tool, params = resolve_intent(
         "What does the player-impact diagnostic say about Steven Adams?"
@@ -122,6 +125,7 @@ def test_routes_player_impact():
     assert params["person_id"] == 203500
 
 
+@pytest.mark.real_data
 def test_routes_player_scenario():
     tool, params = resolve_intent(
         "How does Steven Adams change the Celtics vs Lakers scenario?"
@@ -142,6 +146,7 @@ def test_routes_resolve_team_name():
 # Ambiguity and unsupported questions
 # ---------------------------------------------------------------------------
 
+@pytest.mark.real_data
 def test_rejects_ambiguous_city_only_question():
     # "Los Angeles" is ambiguous (Lakers and Clippers), so it resolves to
     # neither team, leaving only Denver -> the matchup cannot be completed.

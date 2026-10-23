@@ -17,6 +17,7 @@ import { pairLineChart, pairLineTooltip, wireChartTooltips } from "../components
 import { tornPhoto, wireTornPhoto } from "../components/tornPhoto.js";
 import { shareImage, shareButton } from "../components/share.js";
 import { uncrumple } from "../components/motion.js";
+import { versus as versusSound } from "../components/sfx.js";
 import { errorBanner, escapeHtml, fixed, safe, seasonLabel, signed, unwrap } from "../components/format.js";
 
 export const meta = {
@@ -247,6 +248,7 @@ async function renderVersus(container, ctx, params) {
   wireTornPhoto(container);
   const arena = container.querySelector("#vs-arena");
   uncrumple(arena.querySelector(".vs-splat"), { seed: params.a + params.b, duration: 900, delay: 250 });
+  versusSound();
   container.querySelectorAll("[data-slot]").forEach((select) => select.addEventListener("change", () =>
     go(select.dataset.slot === "left" ? { as: Number(select.value) } : { bs: Number(select.value) })));
   container.querySelector("#vs-swap").addEventListener("click", () =>

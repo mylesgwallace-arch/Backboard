@@ -9,6 +9,9 @@
 const BASE = ""; // same-origin: served by src/api.py at http://127.0.0.1:8000/
 
 async function parseResponse(response) {
+  // The service worker answers from its saved copy when the network is down.
+  const offline = response.headers?.get?.("X-Backboard-Offline");
+  if (offline) window.dispatchEvent(new CustomEvent("backboard:offline", { detail: offline }));
   const text = await response.text();
   let data = null;
   if (text) {
@@ -294,4 +297,58 @@ export function getSimilarPlayers({ personId, season, limit, anyAge } = {}) {
   if (limit != null) parameters.limit = limit;
   if (anyAge) parameters.any_age = true;
   return runTool("similar_players", parameters);
+}
+
+export function getGameContext(date) {
+  return runTool("game_context", date ? { date } : {});
+}
+
+export function getPlayerForecast({ personId, date, opponentId } = {}) {
+  const parameters = { person_id: personId };
+  if (date) parameters.date = date;
+  if (opponentId != null) parameters.opponent_id = opponentId;
+  return runTool("player_game_forecast", parameters);
+}
+
+export function getSlateForecasts(date, perTeam) {
+  const parameters = {};
+  if (date) parameters.date = date;
+  if (perTeam != null) parameters.per_team = perTeam;
+  return runTool("slate_player_forecasts", parameters);
+}
+
+export function getModelVsMarket({ date, season } = {}) {
+  const parameters = {};
+  if (date) parameters.date = date;
+  if (season != null) parameters.season = season;
+  return runTool("model_vs_market", parameters);
+}
+
+export function getAwardsRace({ season, asOf } = {}) {
+  const parameters = {};
+  if (season != null) parameters.season = season;
+  if (asOf) parameters.as_of = asOf;
+  return runTool("awards_race", parameters);
+}
+
+export function getDraftLottery({ season, asOf, nSimulations } = {}) {
+  const parameters = {};
+  if (season != null) parameters.season = season;
+  if (asOf) parameters.as_of = asOf;
+  if (nSimulations != null) parameters.n_simulations = nSimulations;
+  return runTool("draft_lottery", parameters);
+}
+
+export function getRivalry({ teamAId, teamBId }) {
+  return runTool("rivalry", { team_a_id: teamAId, team_b_id: teamBId });
+}
+
+export function getSeasonRecap(season) {
+  return runTool("season_recap", season != null ? { season } : {});
+}
+
+export function getCareerArc({ personId, season } = {}) {
+  const parameters = { person_id: personId };
+  if (season != null) parameters.season = season;
+  return runTool("career_arc", parameters);
 }

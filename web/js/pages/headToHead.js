@@ -1,314 +1,155 @@
-// pages/headToHead.js — Head-to-Head: a standalone version of Team Explorer's
-// Head-to-Head tab, promoted per the roadmap's "only worth promoting if it
-// needs deeper treatment" note — the deeper treatment here is a season-by-
-// season trend, not just the all-time total. Consumes the existing
-// head_to_head tool (unchanged) once for the all-time total and once per
-// season for the trend; nothing is computed client-side beyond summing the
-// backend's own per-season win counts for the chart bar widths.
+// pages/headToHead.js — Head-to-Head: a whole rivalry in one view. Every
+// meeting since the franchises first played (regular season, play-in and
+// playoffs), the all-time tally, streaks, the biggest wins, season-by-season
+// bars, playoff series, and the production model's record on these games.
+// Deep links: /head-to-head?a=<teamId>&b=<teamId>.
+//
+// Every number comes from the rivalry tool.
 
-import { getHeadToHead } from "../api.js";
+import { getRivalry } from "../api.js";
 import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
-import { renderComparisonRow } from "../components/comparisonBar.js";
 import { teamColor } from "../teamColors.js";
-import { clashingPair, teamSlabStyle } from "../colorInk.js";
+import { clashingPair, readableInk } from "../colorInk.js";
+import { favoriteTeam } from "../components/prefs.js";
+import { csvButton, wireCsv } from "../components/csv.js";
+import { emptyState, errorBanner, escapeHtml, fixed, safe, signed, unwrap } from "../components/format.js";
 
 export const meta = {
   title: "Head-to-Head",
-  subtitle: "Compare any two franchises' regular-season record, all-time and season by season.",
+  subtitle: "Any two franchises: every meeting, the streaks, the playoff series, and how the model called them.",
 };
 
-// Bounded lookback window for the season-by-season trend: one head_to_head
-// call per season (factual DB query, near-instant per Team Explorer's
-// measured timings), run in parallel. 20 seasons keeps the request count
-// small while covering the current core of most franchises' rivalries; this
-// is a stated window, not a claim of full franchise history.
-const CURRENT_SEASON = 2025;
-const TREND_SEASONS = 20;
+const SHOWN_MEETINGS = 25;
 
 export function render(container, ctx = {}) {
   container.innerHTML = `
     <div class="card fade-in">
-      <div class="card-header">
-        <div>
-          <h2>Compare two teams</h2>
-          <p class="card-subtitle">
-            Pulls the factual regular-season record straight from the database &mdash;
-            the same <code>head_to_head</code> tool Team Explorer uses.
-          </p>
-        </div>
-      </div>
       <div id="h2h-form-mount"></div>
       <div id="h2h-error-mount" class="mt-1"></div>
-      <div class="predict-actions">
-        <button class="btn" id="h2h-compare-btn" disabled>Compare</button>
-        <span id="h2h-status" class="text-muted"></span>
-      </div>
     </div>
-    <div id="h2h-result-mount"></div>
-  `;
-
+    <div id="h2h-result-mount"></div>`;
   const formMount = container.querySelector("#h2h-form-mount");
-  const errorMount = container.querySelector("#h2h-error-mount");
   const resultMount = container.querySelector("#h2h-result-mount");
-  const compareBtn = container.querySelector("#h2h-compare-btn");
-  const statusEl = container.querySelector("#h2h-status");
+  const teamA = createTeamSelect({ id: "h2h-a", labelText: "Team", placeholder: "Select a team…" });
+  const teamB = createTeamSelect({ id: "h2h-b", labelText: "Opponent", placeholder: "Select an opponent…" });
+  const grid = document.createElement("div");
+  grid.className = "matchup-form-grid";
+  const swap = document.createElement("button");
+  swap.type = "button";
+  swap.className = "swap-btn";
+  swap.title = "Swap teams";
+  swap.setAttribute("aria-label", "Swap the two teams");
+  swap.textContent = "⇄";
+  grid.append(teamA.root, swap, teamB.root);
+  formMount.appendChild(grid);
 
-  const teamA = createTeamSelect({ id: "h2h-team-a-select", labelText: "Team", placeholder: "Select a team…" });
-  const teamB = createTeamSelect({ id: "h2h-team-b-select", labelText: "Opponent", placeholder: "Select an opponent…" });
-
-  const formGrid = document.createElement("div");
-  formGrid.className = "matchup-form-grid";
-
-  const swapBtn = document.createElement("button");
-  swapBtn.type = "button";
-  swapBtn.className = "swap-btn";
-  swapBtn.title = "Swap teams";
-  swapBtn.setAttribute("aria-label", "Swap the two teams");
-  swapBtn.textContent = "⇄";
-
-  formGrid.appendChild(teamA.root);
-  formGrid.appendChild(swapBtn);
-  formGrid.appendChild(teamB.root);
-  formMount.appendChild(formGrid);
-
-  let teams = [];
-
-  function refreshCompareAvailability() {
-    const aVal = teamA.selectEl.value;
-    const bVal = teamB.selectEl.value;
-    compareBtn.disabled = !(aVal && bVal && aVal !== bVal);
-  }
-
-  teamA.selectEl.addEventListener("change", refreshCompareAvailability);
-  teamB.selectEl.addEventListener("change", refreshCompareAvailability);
-
-  swapBtn.addEventListener("click", () => {
-    const tmp = teamA.selectEl.value;
+  const go = () => {
+    const a = teamA.selectEl.value;
+    const b = teamB.selectEl.value;
+    if (a && b && a !== b) ctx.navigate("/head-to-head", { a, b });
+  };
+  teamA.selectEl.addEventListener("change", go);
+  teamB.selectEl.addEventListener("change", go);
+  swap.addEventListener("click", () => {
+    const a = teamA.selectEl.value;
     teamA.selectEl.value = teamB.selectEl.value;
-    teamB.selectEl.value = tmp;
-    refreshCompareAvailability();
+    teamB.selectEl.value = a;
+    go();
   });
 
-  statusEl.textContent = "Loading teams…";
-  fetchTeams()
-    .then((fetchedTeams) => {
-      teams = fetchedTeams;
-      teamA.setTeams(teams);
-      teamB.setTeams(teams);
-      statusEl.textContent = "";
+  fetchTeams().then((teams) => {
+    teamA.setTeams(teams);
+    teamB.setTeams(teams);
+    const has = (id) => id && teams.some((t) => String(t.team_id) === String(id));
+    const a = ctx.query?.get?.("a") || favoriteTeam();
+    const b = ctx.query?.get?.("b");
+    if (has(a)) teamA.selectEl.value = String(a);
+    if (has(b)) teamB.selectEl.value = String(b);
+    if (has(a) && has(b) && String(a) !== String(b)) load(resultMount, Number(a), Number(b));
+    else resultMount.innerHTML = emptyState("Pick two teams to see their whole history.");
+  }).catch((err) => {
+    container.querySelector("#h2h-error-mount").innerHTML = errorBanner(`Could not load the team list: ${err.message}`);
+  });
+}
 
-      // Deep-link support (e.g. from Team Explorer's Head-to-Head tab):
-      // #/head-to-head?a=<teamId>&b=<teamId>
-      const presetA = ctx.query?.get ? ctx.query.get("a") : null;
-      const presetB = ctx.query?.get ? ctx.query.get("b") : null;
-      if (presetA && teams.some((t) => String(t.team_id) === presetA)) {
-        teamA.selectEl.value = presetA;
-      }
-      if (presetB && teams.some((t) => String(t.team_id) === presetB)) {
-        teamB.selectEl.value = presetB;
-      }
-      refreshCompareAvailability();
-      if (presetA && presetB && !compareBtn.disabled) {
-        runComparison();
-      }
-    })
-    .catch((err) => {
-      statusEl.textContent = "";
-      errorMount.innerHTML = errorBanner(`Could not load the team list: ${err.message}`);
-    });
-
-  compareBtn.addEventListener("click", runComparison);
-
-  async function runComparison() {
-    errorMount.innerHTML = "";
-    const teamAId = Number(teamA.selectEl.value);
-    const teamBId = Number(teamB.selectEl.value);
-
-    compareBtn.disabled = true;
-    const originalLabel = compareBtn.textContent;
-    compareBtn.innerHTML = '<span class="spinner"></span> Comparing…';
-    resultMount.innerHTML = renderSkeleton();
-
-    let allTimeRes;
-    try {
-      allTimeRes = await getHeadToHead({ teamAId, teamBId });
-    } catch (err) {
-      resultMount.innerHTML = "";
-      errorMount.innerHTML = errorBanner(`Network error while contacting the API: ${err.message}`);
-      compareBtn.textContent = originalLabel;
-      refreshCompareAvailability();
-      return;
-    }
-
-    if (!allTimeRes.ok || allTimeRes.data?.status !== "success") {
-      resultMount.innerHTML = "";
-      errorMount.innerHTML = errorBanner(
-        allTimeRes.data?.error?.message || "The head-to-head request failed. Please try again."
-      );
-      compareBtn.textContent = originalLabel;
-      refreshCompareAvailability();
-      return;
-    }
-
-    const teamAInfo = teams.find((t) => t.team_id === teamAId);
-    const teamBInfo = teams.find((t) => t.team_id === teamBId);
-
-    resultMount.innerHTML = renderAllTime({
-      allTime: allTimeRes.data.data,
-      teamAId,
-      teamBId,
-      teamAInfo,
-      teamBInfo,
-    });
-    wireTeamLinks(resultMount, ctx);
-    compareBtn.textContent = originalLabel;
-    refreshCompareAvailability();
-
-    // Season-by-season trend: one call per season in the lookback window,
-    // in parallel. Rendered into its own mount so the (fast) all-time total
-    // above isn't blocked waiting on the (slightly slower, 20-call) trend.
-    const trendMount = resultMount.querySelector("#h2h-trend-mount");
-    trendMount.innerHTML = `<div class="skeleton" style="height:160px;"></div>`;
-    const seasons = Array.from({ length: TREND_SEASONS }, (_, i) => CURRENT_SEASON - i);
-    let seasonResults;
-    try {
-      seasonResults = await Promise.all(
-        seasons.map((season) => getHeadToHead({ teamAId, teamBId, season }))
-      );
-    } catch (err) {
-      trendMount.innerHTML = errorBanner(`Could not load the season-by-season trend: ${err.message}`);
-      return;
-    }
-
-    const trendRows = seasons
-      .map((season, i) => ({ season, res: seasonResults[i] }))
-      .filter(({ res }) => res.ok && res.data?.status === "success" && res.data.data.games > 0)
-      .map(({ season, res }) => ({ season, ...res.data.data }));
-
-    trendMount.innerHTML = renderTrend({
-      trendRows,
-      teamAInfo,
-      teamBInfo,
-      teamAId,
-      teamBId,
-    });
+async function load(mount, a, b) {
+  mount.innerHTML = `<div class="card"><div class="skeleton" style="height:360px;"></div></div>`;
+  const res = unwrap(await safe(getRivalry({ teamAId: a, teamBId: b })));
+  if (!mount.isConnected) return;
+  if (!res.data) {
+    mount.innerHTML = errorBanner(res.message);
+    return;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Rendering
-// ---------------------------------------------------------------------------
-
-function renderSkeleton() {
-  return `
-    <div class="card fade-in">
-      <div class="skeleton" style="height:90px;"></div>
-    </div>
-  `;
-}
-
-function renderAllTime({ allTime, teamAId, teamBId, teamAInfo, teamBInfo }) {
-  const teamAName = teamAInfo?.full_name || `Team ${teamAId}`;
-  const teamBName = teamBInfo?.full_name || `Team ${teamBId}`;
-  const { first: colorA, second: colorB } = clashingPair(teamColor(teamAId), teamColor(teamBId));
-
-  return `
-    <div class="card fade-in">
-      <div class="compare-legend">
-        <span class="team-chip" style="${teamSlabStyle(colorA)}" data-team-link="${teamAId}" role="link" tabindex="0">${escapeHtml(teamAName)}</span>
-        <span class="team-chip" style="${teamSlabStyle(colorB)}" data-team-link="${teamBId}" role="link" tabindex="0">${escapeHtml(teamBName)}</span>
+  const data = res.data;
+  document.title = `${data.team_a.abbreviation} vs ${data.team_b.abbreviation} · Head-to-Head · Backboard`;
+  if (!data.games) {
+    mount.innerHTML = emptyState(`${data.team_a.name} and ${data.team_b.name} have no recorded meetings.`);
+    return;
+  }
+  const pair = clashingPair(teamColor(a), teamColor(b));
+  const colors = { A: pair.first, B: pair.second };
+  const name = { A: data.team_a, B: data.team_b };
+  const s = data.summary;
+  const streak = s.streaks.current;
+  const total = s.a_wins + s.b_wins;
+  mount.style.cssText = `--a:${colors.A}; --a-ink:${readableInk(colors.A)}; --b:${colors.B}; --b-ink:${readableInk(colors.B)}`;
+  mount.innerHTML = `
+    <section class="card fade-in h2h-hero">
+      <div class="h2h-sides">
+        <a class="h2h-side h2h-side--a" href="/teams?team=${a}"><span class="h2h-abbr">${escapeHtml(data.team_a.abbreviation)}</span>
+          <b class="h2h-wins" data-count="${s.a_wins}">${s.a_wins}</b><span>${escapeHtml(data.team_a.name)}</span></a>
+        <span class="h2h-vs" aria-hidden="true">vs</span>
+        <a class="h2h-side h2h-side--b" href="/teams?team=${b}"><span class="h2h-abbr">${escapeHtml(data.team_b.abbreviation)}</span>
+          <b class="h2h-wins" data-count="${s.b_wins}">${s.b_wins}</b><span>${escapeHtml(data.team_b.name)}</span></a>
       </div>
-      ${renderComparisonRow({
-        label: `All-time regular-season head-to-head (${allTime.games} games)`,
-        homeValue: allTime.team_a_wins,
-        awayValue: allTime.team_b_wins,
-        homeColor: colorA,
-        awayColor: colorB,
-        formatValue: (v) => `${v} wins`,
-      })}
-      <p class="text-muted mt-1" style="font-size:0.76rem;">
-        Regular-season games only, from the repository database. Click either team name to open its full profile in Team Explorer.
-      </p>
+      <div class="h2h-split" role="img" aria-label="${s.a_wins} wins to ${s.b_wins}">
+        <span style="flex:${s.a_wins || 0.001}; background:var(--a)"></span><span style="flex:${s.b_wins || 0.001}; background:var(--b)"></span></div>
+      <ul class="h2h-facts">
+        <li><b>${total}</b> meetings since ${escapeHtml(s.first_meeting.slice(0, 4))}</li>
+        <li>Regular season <b>${s.regular_season.a_wins}–${s.regular_season.b_wins}</b></li>
+        ${s.playoffs.a_wins + s.playoffs.b_wins ? `<li>Playoffs <b>${s.playoffs.a_wins}–${s.playoffs.b_wins}</b></li>` : ""}
+        <li>Average margin <b>${signed(s.mean_margin)}</b> ${escapeHtml(data.team_a.abbreviation)}</li>
+        ${streak ? `<li>Streak <b>${escapeHtml(name[streak.side].abbreviation)} ${streak.games}</b></li>` : ""}
+        <li>Longest runs <b>${escapeHtml(data.team_a.abbreviation)} ${s.streaks.longest.A}</b> · <b>${escapeHtml(data.team_b.abbreviation)} ${s.streaks.longest.B}</b></li>
+      </ul>
+    </section>
+    <div class="grid-2">
+      <section class="card fade-in"><h2>Season by season</h2>
+        <div class="h2h-seasons">${data.seasons.slice(-20).map((season) => {
+          const n = season.a_wins + season.b_wins;
+          return `<div class="h2h-season" title="${escapeHtml(season.label)}: ${season.a_wins}-${season.b_wins}${season.mean_margin != null ? `, avg ${signed(season.mean_margin)}` : ""}">
+            <span class="h2h-season-label">${escapeHtml(season.label.slice(2))}</span>
+            <span class="h2h-season-bar"><i style="height:${(season.a_wins / Math.max(n, 1)) * 100}%; background:var(--a)"></i></span>
+            <small>${season.a_wins}-${season.b_wins}</small></div>`;
+        }).join("")}</div>
+        <p class="table-note">Share of each season's meetings won by ${escapeHtml(data.team_a.abbreviation)} (last 20 seasons).</p>
+      </section>
+      <section class="card fade-in"><h2>The model on this rivalry</h2>
+        ${s.model.games ? `<p class="h2h-model"><b data-count="${s.model.correct}">${s.model.correct}</b> of ${s.model.games} picked right
+          <span class="text-muted">(${Math.round(s.model.accuracy * 100)}%, Brier ${fixed(s.model.brier, 3)})</span></p>
+          <p class="text-muted">Graded on the games with a stored pregame probability.</p>` : `<p class="text-muted">No meeting has a stored pregame probability.</p>`}
+        ${["A", "B"].map((side) => s.biggest_win[side] ? `<p class="h2h-big"><span class="kicker">Biggest ${escapeHtml(name[side].abbreviation)} win</span>
+          <b>${Math.abs(s.biggest_win[side].margin)} points</b> · ${escapeHtml(s.biggest_win[side].date)} (${s.biggest_win[side].a_score}-${s.biggest_win[side].b_score})</p>` : "").join("")}
+        ${data.series.length ? `<div class="section-title mt-1">Playoff series</div><ul class="plain-list">${data.series.map((series) =>
+          `<li><b>${escapeHtml(series.label)}</b> ${escapeHtml(series.round || "")}: ${escapeHtml(name[series.winner].name)} ${Math.max(series.a_wins, series.b_wins)}-${Math.min(series.a_wins, series.b_wins)}</li>`).join("")}</ul>` : ""}
+      </section>
     </div>
-
-    <div class="card fade-in">
-      <div class="section-title">Season-by-season (last ${TREND_SEASONS} seasons)</div>
-      <div id="h2h-trend-mount"></div>
-    </div>
-  `;
-}
-
-function renderTrend({ trendRows, teamAInfo, teamBInfo, teamAId, teamBId }) {
-  if (trendRows.length === 0) {
-    return `<div class="empty-state">These teams have not met in the regular season in the last ${TREND_SEASONS} seasons.</div>`;
-  }
-  const teamAName = teamAInfo?.full_name || `Team ${teamAId}`;
-  const teamBName = teamBInfo?.full_name || `Team ${teamBId}`;
-  const maxWins = Math.max(...trendRows.map((r) => Math.max(r.team_a_wins, r.team_b_wins)), 1);
-
-  return `
-    <table class="data-table h2h-trend-table">
-      <thead>
-        <tr>
-          <th scope="col">Season</th>
-          <th scope="col" class="num">${escapeHtml(teamAName)}</th>
-          <th scope="col" class="num">${escapeHtml(teamBName)}</th>
-          <th scope="col">Series</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${trendRows
-          .map((row) => {
-            const aShare = (row.team_a_wins / maxWins) * 100;
-            const bShare = (row.team_b_wins / maxWins) * 100;
-            return `
-              <tr>
-                <td>${row.season}</td>
-                <td class="num">${row.team_a_wins}</td>
-                <td class="num">${row.team_b_wins}</td>
-                <td>
-                  <div class="h2h-trend-bars">
-                    <div class="h2h-trend-bar" style="width:${aShare}%; background:${teamColor(teamAId).primary};"></div>
-                    <div class="h2h-trend-bar" style="width:${bShare}%; background:${teamColor(teamBId).primary};"></div>
-                  </div>
-                </td>
-              </tr>
-            `;
-          })
-          .join("")}
-      </tbody>
-    </table>
-    <p class="text-muted mt-1" style="font-size:0.76rem;">
-      Only seasons with at least one regular-season meeting are shown.
-    </p>
-  `;
-}
-
-// ---------------------------------------------------------------------------
-// Interaction wiring
-// ---------------------------------------------------------------------------
-
-function wireTeamLinks(resultMount, ctx) {
-  if (!ctx.navigate) return;
-  resultMount.querySelectorAll("[data-team-link]").forEach((el) => {
-    el.addEventListener("click", () => {
-      ctx.navigate("/teams", { team: el.dataset.teamLink });
-    });
-    el.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        ctx.navigate("/teams", { team: el.dataset.teamLink });
-      }
-    });
+    <section class="card fade-in" aria-labelledby="h2h-games-title">
+      <div class="card-header"><div><h2 id="h2h-games-title">Every meeting</h2>
+        <p class="card-subtitle">Newest first. Model: ${escapeHtml(data.team_a.abbreviation)}'s pregame win chance.</p></div>
+        <div class="card-tools">${csvButton("h2h-csv")}</div></div>
+      <div class="table-scroll"><table class="data-table compact-table" id="h2h-table"><thead><tr><th>Date</th><th>Type</th><th>Where</th><th class="num">Score</th><th class="num">Model</th><th></th></tr></thead>
+        <tbody>${data.meetings.map((m, i) => `<tr class="${i >= SHOWN_MEETINGS ? "is-extra" : ""}" ${i >= SHOWN_MEETINGS ? "hidden" : ""}>
+          <td>${escapeHtml(m.date)}</td><td>${escapeHtml(m.game_type === "Regular Season" ? "Regular" : m.game_type)}${m.label ? ` <small>${escapeHtml(m.label)}</small>` : ""}</td>
+          <td>${m.a_home ? "Home" : "Away"}</td>
+          <td class="num"><b style="color:${m.winner === "A" ? "inherit" : "var(--fg-3)"}">${m.a_score}</b>–<b style="color:${m.winner === "B" ? "inherit" : "var(--fg-3)"}">${m.b_score}</b></td>
+          <td class="num">${m.model_p_a == null ? "—" : `${Math.round(m.model_p_a * 100)}%`}</td>
+          <td>${m.model_correct == null ? "" : m.model_correct ? "✓" : "✗"}</td></tr>`).join("")}</tbody></table></div>
+      ${data.meetings.length > SHOWN_MEETINGS ? `<button type="button" class="btn btn-secondary mt-1" id="h2h-more">Show all ${data.meetings.length}</button>` : ""}
+    </section>`;
+  mount.querySelector("#h2h-more")?.addEventListener("click", (event) => {
+    mount.querySelectorAll("tr.is-extra").forEach((row) => { row.hidden = false; });
+    event.target.remove();
   });
-}
-
-function errorBanner(message) {
-  return `<div class="error-banner">⚠ ${escapeHtml(message)}</div>`;
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (c) => (
-    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
-  ));
+  wireCsv(mount.querySelector("#h2h-csv"), mount.querySelector("#h2h-table"), `backboard-${data.team_a.abbreviation}-vs-${data.team_b.abbreviation}`.toLowerCase());
 }

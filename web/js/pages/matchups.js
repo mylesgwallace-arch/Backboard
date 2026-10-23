@@ -6,6 +6,7 @@
 
 import { uncrumple } from "../components/motion.js";
 import { shareButton, shareImage } from "../components/share.js";
+import { openEmbedDialog } from "../components/embedDialog.js";
 import { setQuery } from "../router.js";
 import { predictMatchup, predictMargin } from "../api.js";
 import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
@@ -210,7 +211,10 @@ export function render(container, ctx = {}) {
     resultMount.innerHTML = renderResult({ prediction, homeTeam, awayTeam, swing });
     setQuery({ home: homeTeamId, away: awayTeamId, ...(gameDate ? { date: gameDate } : {}) });
     const verdict = resultMount.firstElementChild;
-    verdict?.insertAdjacentHTML("beforeend", `<div class="toolbar mt-1">${shareButton("matchup-share")}</div>`);
+    verdict?.insertAdjacentHTML("beforeend", `<div class="toolbar mt-1">${shareButton("matchup-share")}
+      <button type="button" class="btn btn-secondary" id="matchup-embed">Embed</button></div>`);
+    verdict?.querySelector("#matchup-embed")?.addEventListener("click", () => openEmbedDialog("game",
+      { home: homeTeamId, away: awayTeamId }, `${awayTeam?.full_name || "Away"} at ${homeTeam?.full_name || "Home"}`));
     verdict?.querySelector("#matchup-share")?.addEventListener("click", () => {
       const pHome = prediction.home_win_probability;
       shareImage({

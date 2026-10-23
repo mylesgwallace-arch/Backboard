@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backboard widget</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;700;800&family=Courier+Prime:wght@700&display=swap">
+  <style>
+    /* A Backboard widget: one card, readable on a dark or light host page
+       (?theme=light). Kept apart from styles.css so an embed stays small. */
+    :root { --bg: #141414; --card: #fbfaf6; --ink: #101010; --muted: #5d5a52; --line: rgba(16, 16, 16, 0.18); --red: #ee3a1f; color-scheme: dark; }
+    :root[data-theme="light"] { --bg: transparent; color-scheme: light; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); font: 400 14px/1.4 "Archivo", system-ui, sans-serif; color: var(--ink); }
+    .w { margin: 6px; padding: 12px 14px 10px; background: var(--card); clip-path: polygon(0 2%, 2% 0, 98% 2%, 100% 0, 100% 98%, 98% 100%, 2% 98%, 0 100%); }
+    .k { display: inline-block; padding: 1px 6px; background: var(--ink); color: #f3e32a; font: 700 10px "Courier Prime", monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+    .h { margin: 6px 0 8px; font: 400 26px/1 "Anton", Impact, sans-serif; text-transform: uppercase; }
+    .slab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 8px 10px; color: var(--slab-ink); background: radial-gradient(circle, rgba(0,0,0,.16) 0 1.3px, transparent 1.7px) 0 0 / 7px 7px, var(--slab); }
+    .slab b { font: 400 30px/1 "Anton", Impact, sans-serif; }
+    .row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: stretch; }
+    .row .slab { flex-direction: column; align-items: flex-start; }
+    .at { align-self: center; font: 700 11px "Courier Prime", monospace; color: var(--muted); }
+    .bar { display: flex; height: 10px; margin: 8px 0; gap: 2px; }
+    .bar span { height: 100%; }
+    .facts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; }
+    .facts b { font-weight: 800; }
+    .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); font: 700 10px "Courier Prime", monospace; text-transform: uppercase; color: var(--muted); }
+    .foot a { color: var(--ink); text-decoration-color: var(--red); text-decoration-thickness: 2px; }
+    .err { padding: 12px; color: var(--ink); }
+    svg { display: block; width: 100%; height: 70px; }
+  </style>
+</head>
+<body>
+  <div id="w" class="w" aria-live="polite"><p class="err">Loading…</p></div>
+  <script type="module" src="/js/embed.js"></script>
+</body>
+</html>

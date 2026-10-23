@@ -7,6 +7,10 @@
 // 1P mode (the Players page) calls onSelect(card). 2P mode (Compare) locks
 // P1, hands the cursor to P2, and calls onComplete(p1, p2).
 //
+// The stage takes the hovered player's team colors too: two spotlights sweep
+// in them and the team's letters stand huge behind the preview. Arcade
+// sounds (components/sfx.js) play when the viewer turns them on.
+//
 // Ratings are the player_cards tool's: percentiles among the season's
 // qualified players (shown as 0-99), not a new model. Players outside the
 // season grid are one search away (resolve_player, any era).
@@ -17,6 +21,8 @@ import { readableInk } from "../colorInk.js";
 import { fetchTeams } from "./teamSelect.js";
 import { playerThumb, tornPhoto, wireTornPhoto } from "./tornPhoto.js";
 import { reduceMotion } from "./motion.js";
+import { setSound, soundOn } from "./prefs.js";
+import * as sfx from "./sfx.js";
 import { debounce, errorBanner, escapeHtml, safe, seasonLabel, unwrap } from "./format.js";
 
 const GRID_LIMIT = 48;
@@ -71,6 +77,8 @@ export function mountCharacterSelect(root, options = {}) {
   root.innerHTML = `
     <section class="cs-arena" data-mode="${mode}" aria-labelledby="cs-title">
       <div class="cs-bg" aria-hidden="true"></div>
+      <div class="cs-lights" aria-hidden="true"><i></i><i></i></div>
+      <div class="cs-bigname" id="cs-bigname" aria-hidden="true"></div>
       <div class="cs-flash" aria-hidden="true"></div>
       <header class="cs-head">
         <div>
@@ -86,6 +94,8 @@ export function mountCharacterSelect(root, options = {}) {
             <select class="select cs-season" id="cs-season"><option>…</option></select></div>
           <button type="button" class="btn btn-secondary cs-random" id="cs-random" title="Random player (R)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.4"/><circle cx="16" cy="16" r="1.4"/><circle cx="12" cy="12" r="1.4"/></svg>Random</button>
+          <button type="button" class="btn btn-secondary cs-sound" id="cs-sound" aria-pressed="${soundOn()}" title="Arcade sounds">
+            ${soundOn() ? "Sound on" : "Sound off"}</button>
         </div>
       </header>
       <div class="cs-teams" id="cs-teams" role="toolbar" aria-label="Filter by team"></div>
@@ -221,13 +231,14 @@ export function mountCharacterSelect(root, options = {}) {
     cursor.style.transform = `translate(${rect.left - wrap.left}px, ${rect.top - wrap.top}px)`;
   }
 
-  function focusTile(index, { focus = true, instant = false } = {}) {
+  function focusTile(index, { focus = true, instant = false, silent = false } = {}) {
     const tiles = grid.querySelectorAll(".cs-tile");
     const el = tiles[index];
     if (!el) return;
     if (tiles[state.index]) tiles[state.index].tabIndex = -1;
     el.tabIndex = 0;
     const changed = index !== state.index || instant;
+    if (index !== state.index && !instant && !silent) sfx.move();
     state.index = index;
     if (focus) el.focus({ preventScroll: false });
     moveCursor(el, instant);
@@ -332,6 +343,13 @@ export function mountCharacterSelect(root, options = {}) {
       arena.style.setProperty("--sel2", colors.primary);
     }
     arena.dataset.shown = "1";
+    const big = arena.querySelector("#cs-bigname");
+    if (big && big.textContent !== (card.team || "")) {
+      big.textContent = card.team || "";
+      big.classList.remove("is-new");
+      void big.offsetWidth;
+      big.classList.add("is-new");
+    }
     mount.innerHTML = previewMarkup(card, slot);
     mount.style.setProperty("--team", colors.primary);
     mount.style.setProperty("--team-alt", colors.secondary);
@@ -363,6 +381,7 @@ export function mountCharacterSelect(root, options = {}) {
     wireTornPhoto(mount);
     grid.querySelectorAll(".cs-tile")[index]?.classList.add(`is-locked-p${slot}`, "is-picked");
     flash();
+    sfx.lock();
     const wait = reduceMotion() ? 0 : 650;
     setTimeout(() => {
       state.busy = false;
@@ -411,7 +430,8 @@ export function mountCharacterSelect(root, options = {}) {
     const steps = 14;
     const spin = () => {
       const index = step === steps ? target : Math.floor(Math.random() * count);
-      focusTile(index, { focus: false });
+      focusTile(index, { focus: false, silent: true });
+      sfx.tick(step);
       step += 1;
       if (step <= steps) setTimeout(spin, 40 + step * step * 1.3);
       else {
@@ -472,6 +492,12 @@ export function mountCharacterSelect(root, options = {}) {
     load();
   });
   root.querySelector("#cs-random").addEventListener("click", random);
+  root.querySelector("#cs-sound").addEventListener("click", (event) => {
+    setSound(!soundOn());
+    event.currentTarget.setAttribute("aria-pressed", String(soundOn()));
+    event.currentTarget.textContent = soundOn() ? "Sound on" : "Sound off";
+    if (soundOn()) sfx.lock();
+  });
 
   if (state.locked.length && mode === "2p") {
     const mount = root.querySelector("#cs-p1");

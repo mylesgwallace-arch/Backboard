@@ -27,6 +27,7 @@ import {
   debounce, emptyState, errorBanner, escapeHtml, fixed, pct, safe, seasonLabel, shootingPct,
   signed, signedPoints, thousands, unwrap,
 } from "../components/format.js";
+import { renderCareerArc, renderNextGame } from "../components/playerExtras.js";
 
 export const meta = {
   title: "Players",
@@ -39,6 +40,8 @@ const TABS = [
   ["log", "Game log"],
   ["splits", "Splits"],
   ["outlook", "Outlook"],
+  ["next", "Next game"],
+  ["arc", "Career arc"],
   ["trade", "Trade & simulate"],
 ];
 const STAT_VIEWS = [
@@ -191,10 +194,17 @@ function renderPlayer(body, ctx) {
   renderPanel(body.querySelector("#pl-panel"), ctx);
 }
 
+/** A guard for async tabs: still this player and this tab? */
+function current(snapshot, tab) {
+  return () => state === snapshot && state.tab === tab;
+}
+
 function renderPanel(panel, ctx) {
   const renderers = {
     overview: renderOverview, stats: renderStats, log: renderLog, splits: renderSplits, outlook: renderOutlook,
     trade: renderTrade,
+    next: (target) => renderNextGame(target, state.personId, current(state, "next")),
+    arc: (target) => renderCareerArc(target, state.personId, current(state, "arc")),
   };
   renderers[state.tab](panel, ctx);
 }

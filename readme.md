@@ -95,6 +95,28 @@ Test files (8, ~114 test functions): `test_baseline_model.py` (29), `test_simula
 
 ## 3. Exact Command Reference
 
+### Quick start on Windows (one command)
+
+Double-click `setup.bat` in the repo folder (or run
+`powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1`). Each
+step is safe to repeat, so the same command also updates and starts the site
+later:
+
+1. **Update the code** (`git pull --ff-only`). Local edits are stashed and
+   put back; if they clash with the update, they stay in the stash and the
+   script says how to look at them or drop them.
+2. **Create `.venv` and install `requirements.txt`**, again only when it
+   changes.
+3. **Check `data\database\nba.db`.** `-TestData` builds a made-up league
+   instead, so the site runs without the real download.
+4. **Build the model inputs** (`data\processed\game_features.csv`) if they
+   are missing or stale.
+5. **Fit the injury overlay and the player-forecast ranges.**
+6. **Register the daily refresh** in Task Scheduler (06:00).
+7. **Start the server** and open `http://127.0.0.1:8000` (Ctrl+C stops it).
+
+Options: `-NoUpdate`, `-NoSchedule`, `-NoStart`, `-TestData`, `-Port 8000`.
+
 All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. For each: what it does, write side-effects, and status.
 
 ### Prediction (recommended path — `src/main.py`)
@@ -162,6 +184,38 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 .\.venv\Scripts\python src\tools.py --tool model_report_card --params '{"season": 2025}'
 .\.venv\Scripts\python src\tools.py --tool stat_leaders --params '{"stat": "ts", "season": 2025}'
 ```
+
+- Game context, forecasts and history (added 2026-10-23; `src/game_context.py`,
+  `src/player_forecast.py`, `src/market_lines.py`, `src/awards.py`,
+  `src/lottery.py`, `src/history_views.py`):
+  - **`game_context`**: for one day, the rotation players who are out and
+    what each is worth in points, plus schedule spots (back-to-backs, 3
+    games in 4 nights, kilometres flown, time zones, road trips). It gives
+    the model's number with and without a small overlay for both. The
+    overlay keeps the frozen model's log-odds as an offset, is fitted on
+    seasons before 2022 and graded on 2022 onward; `model.test` and
+    `beats_plain_model` report whether it helped. `python -m
+    src.game_context fit` writes `models/game_context_model.json`.
+  - **`player_game_forecast`** and **`slate_player_forecasts`**: points,
+    rebounds, assists and threes for a player's next game, from expected
+    minutes × a blended per-minute rate × the opponent's recent allowed
+    rate, with an 80% range. `python -m src.player_forecast backtest`
+    grades the method against season averages on held-out seasons.
+  - **`model_vs_market`**: the model next to the sportsbooks' lines (stored
+    daily from ESPN, vig removed). It shows the day's biggest gaps and the
+    season's scorecard of whose numbers were closer.
+  - **`awards_race`**: MVP, rookie, sixth man and most improved, ranked by
+    points of margin added above replacement, with a weekly replay.
+  - **`draft_lottery`**: exact 2019-rules odds for every pick, over the
+    final or projected standings.
+  - **`rivalry`**: every meeting between two franchises, with streaks,
+    playoff series and the model's record on them.
+  - **`season_recap`**: champion, upsets, the model's best and worst calls,
+    preseason surprises and turning points in the stored odds.
+  - **`career_arc`**: box impact by season against the most similar
+    players' careers, with the band they went on to.
+
+  None of these changes the production model.
 
 ### Web front end (dashboard + API server)
 
@@ -328,6 +382,48 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
   team's title / finals / playoff odds by date, the followed team in red.
   The Season Simulator and League Predictions include the season in
   progress, projected forward from today.
+- **Tonight** now also shows each game's context (`game_context`): who is
+  out (tap a name to put them back in), schedule flags, and the model's
+  number with and without injuries and schedule. It also shows the market's
+  line and a "players to watch" list with forecast ranges.
+- **Players** has two more tabs. **Next game** shows the forecast line with
+  80% ranges against the last ten games. **Career arc** shows box impact
+  against the eight most similar careers, plus the band their next five
+  seasons took.
+- **Model vs Market** (`/market`), **Awards Race** (`/awards`), **Draft
+  Lottery** (`/lottery`, with a lottery machine that runs the draw in the
+  browser), **Season Recap** (`/recap`) and **Pick'em** (`/pickem`) are new
+  pages:
+  - **Pick'em:** you pick winners against the model. Picks stay in this
+    browser, and results score themselves once games are final, with a
+    bonus point for beating the model's pick.
+  - **Head-to-Head** now uses `rivalry`: every meeting, streaks, series and
+    the model's record.
+- **Character select:**
+  - team-coloured spotlights sweep the arena, and the hovered player's team
+    letters stand huge behind it;
+  - **Sound** turns on synthesized arcade sounds (cursor, roulette, lock-in,
+    the VS slam). They are off by default and silent under reduced motion.
+- **Installable and offline** (`web/manifest.webmanifest`, `web/sw.js`):
+  - Backboard installs as an app.
+  - The service worker keeps the last answer for every tool call, so pages
+    you have opened still work offline. A bar says how old that data is.
+  - Scripts are network-first, so an update never mixes old and new
+    modules.
+- **Alerts** (More menu, or the command palette): while the site or the app
+  is open, it alerts on close finishes (within 5 points in the last 5
+  minutes; every game or only your team) and on a 10-point daily move in
+  your team's playoff odds. These are browser notifications, with an
+  on-page fallback.
+- **Embeds:** `/embed/team?team=<id>` and `/embed/game?home=<id>&away=<id>`
+  are widgets for other sites, with `?theme=light` for light pages. The
+  **Embed** buttons on Teams, Matchups and Tonight show a preview and the
+  `<iframe>` code to copy.
+- **Command palette** (`/` or Ctrl/⌘-K):
+  - "Celtics vs Knicks" (or "BOS @ NYK") offers the matchup and the rivalry;
+  - a longer phrase can be sent to the assistant (`/assistant?q=…`);
+  - `>` lists commands: theme, alerts, sounds, your team, copy link,
+    print, install.
 - **Site-wide:** `/` or Ctrl/⌘-K opens one search box for players (any era),
   teams and pages; the More menu groups the remaining pages with a line on
   what each is for; the sun/moon button switches between the black (night)
@@ -348,8 +444,13 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
   (`BACKBOARD_LLM_DAILY_LIMIT`, default 300), after which the deterministic
   planner answers with a notice.
 - On start the server warms the slow caches in a background thread (player
-  tables, Sandbox engine, model inputs, next-season schedule, then every
-  game's pregame probability, about a minute); pass `--no-warm` to skip it.
+  tables, Sandbox engine, model inputs, next-season schedule, every game's
+  pregame probability, the injury overlay and the forecast ranges); pass
+  `--no-warm` to skip it. The daily refresh now saves the pregame
+  probabilities to `data/cache/` right after rebuilding the features, and
+  refits the two overlays weekly. The server's warm-up after a refresh is
+  therefore a quick load, not a minute of recomputing. The page shell's
+  modules are preloaded in parallel.
 - **Writes nothing** beyond what the underlying tools already write (e.g. `/ingest` with `dry_run: false`).
 
 ### Player-impact diagnostics
@@ -410,6 +511,11 @@ All commands run from `C:\Users\myles\Git NBA Proj`. `.venv` confirmed present. 
 - **Source:** ESPN's public scoreboard JSON (`site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard`), one request per day. It is unofficial and undocumented, so the refresh fails loudly (database unchanged, exit code 1) rather than writing partial data if the feed changes or disappears.
 - **What it updates:** final scores and winners (only where no result is recorded yet; a disagreeing result is counted as a conflict and left alone) and scheduled games the database lacks (inserted with an ESPN placeholder id, replaced when a schedule file with the NBA id is ingested). Until about the whole upcoming regular season (90% of 1,230 games) is on file, each run backfills the rest of the schedule; afterwards it looks 14 days ahead.
 - **Box scores and model inputs:** for every newly played game it also fetches ESPN's box score (team and player stats), writes it to `team_statistics` / `player_statistics`, and rebuilds `data/processed/game_features.csv` (about 4 minutes), so rolling form, Elo and win probabilities move forward with the season. The frozen production model itself is not retrained, and its published holdout metrics are unchanged. Players are matched to existing NBA ids by name; unmatched players (mostly rookies) get a stable negative id. A game whose box score fails validation (scores disagree with the schedule, points do not add up) is skipped and reported, never half-written. `--no-box-scores` skips this step.
+- **Lines and refits:** the same run also stores today's and tomorrow's
+  pregame betting lines (`market_lines`; `--no-market-lines` skips this).
+  Once a week it refits the injury/schedule overlay and the player-forecast
+  backtest (`--no-refit` skips this). After a feature rebuild it saves the
+  pregame probabilities for the server.
 - **Injuries and odds:** the same run replaces the stored injury report (ESPN's injuries JSON, all-or-nothing, logged as entity `injuries`; players matched to NBA ids by name) and, during the season, stores the day's playoff/title odds snapshot for the odds-history charts. Both are optional extras (`--no-injuries`, `--no-odds-snapshot`) and fail soft: an error there is reported without undoing the results already written. To chart a past season, replay it: `python -m src.odds_history backfill --season 2025 --every 7`.
 - **Not covered:** roster moves and the Players/Sandbox season tables (`player_team_seasons*.csv`) still come from the last data export.
 - **Stale notice:** during October to June the pages warn when no successful refresh has run in the last 2 days.
@@ -420,6 +526,23 @@ schtasks /Create /SC DAILY /ST 06:00 /TN "Backboard live refresh" /TR "powershel
 ```
   Output is appended to `data\refresh.log`. The running API server reloads the model inputs by itself when the feature file changes, so no restart is needed.
 - **Scheduling (Linux/macOS):** `scripts/refresh_live_data.sh` does the same; add `0 6 * * * <repo path>/scripts/refresh_live_data.sh` to the crontab.
+
+### Tests and CI
+
+```
+python -m pytest -q                       # everything (the real database is needed for tests marked real_data)
+python -m pytest -q -m "not real_data"    # what CI runs
+python scripts/make_test_league.py --out data/database/nba.db   # a made-up league (never replaces a real database)
+node tests/e2e/smoke.cjs http://127.0.0.1:8000                   # every page in Chromium, desktop and phone
+```
+- **GitHub Actions** (`.github/workflows/ci.yml`) runs on every pull request
+  and push to `main`. It builds the made-up test league and its features,
+  runs the Python tests, starts the server and loads every page (plus the
+  embeds) in Chromium at desktop and phone widths. A script error or an
+  error banner fails the run.
+- Tests that check facts of the real data (real players, exact row counts,
+  the raw source files) are marked `real_data`. They run on a machine with
+  the real database and are skipped in CI.
 
 ### Running it as a service
 

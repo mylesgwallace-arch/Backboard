@@ -1,0 +1,72 @@
+# CI: the Python tests and a browser smoke test of every page, both against a
+# generated test league (scripts/make_test_league.py), since the real NBA
+# database is not in the repository. Tests marked real_data need the real
+# database and run only on a machine that has it.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Build the test league and its features
+        run: |
+          python scripts/make_test_league.py --out data/database/nba.db
+          python src/build_features.py > /dev/null
+      - name: Tests
+        run: python -m pytest -q -m "not real_data"
+
+  browser:
+    name: Every page loads
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -r requirements.txt
+      - name: Build the test league and its features
+        run: |
+          python scripts/make_test_league.py --out data/database/nba.db
+          python src/build_features.py > /dev/null
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start the server
+        run: |
+          python src/api.py --host 127.0.0.1 --port 8000 > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8000/health > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:8000/health > /dev/null || { cat server.log; exit 1; }
+      - name: Fit the overlay models once (so pages do not wait on them)
+        run: |
+          for tool in game_context slate_player_forecasts awards_race; do
+            curl -sf -X POST -H "Content-Type: application/json" -d '{"parameters": {}}' \
+              http://127.0.0.1:8000/tools/$tool > /dev/null
+          done
+      - name: Load every page
+        run: node tests/e2e/smoke.cjs http://127.0.0.1:8000
+      - name: Server log
+        if: failure()
+        run: cat server.log

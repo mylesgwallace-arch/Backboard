@@ -11,7 +11,9 @@
 import { startRouter, onRouteChange, navigate, currentQuery } from "./router.js";
 import { getHealth } from "./api.js";
 import { initSearch, openSearch } from "./components/search.js";
-import { applyTheme, setTheme, theme } from "./components/prefs.js";
+import { applyTheme, favoriteTeam, setSound, setTheme, soundOn, theme } from "./components/prefs.js";
+import { alertsOn, initAlerts, openAlertSettings, toggleAlerts } from "./components/alerts.js";
+import { toast } from "./components/toast.js";
 import { countUpAll, reduceMotion, reveal } from "./components/motion.js";
 
 const icon = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${d}</svg>`;
@@ -37,6 +39,12 @@ const ICONS = {
   compare: icon('<path d="M8 3 3 8l5 5M16 11l5 5-5 5"/><path d="M3 8h13M21 16H8"/>'),
   report: icon('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"/><path d="m9 10 2 2 4-4M9 15h6"/>'),
   gallery: icon('<rect x="3" y="4" width="8" height="7"/><rect x="13" y="4" width="8" height="7"/><rect x="3" y="13" width="8" height="7"/><rect x="13" y="13" width="8" height="7"/>'),
+  market: icon('<path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/><path d="M3 21h18"/>'),
+  awards: icon('<circle cx="12" cy="9" r="5.5"/><path d="m9 14-1.5 7L12 19l4.5 2L15 14"/><path d="m12 6.5.9 1.8 2 .3-1.4 1.4.3 2-1.8-1-1.8 1 .3-2-1.4-1.4 2-.3Z"/>'),
+  lottery: icon('<circle cx="12" cy="11" r="7.5"/><circle cx="9.5" cy="9.5" r="1.6"/><circle cx="14" cy="12.5" r="1.6"/><circle cx="10" cy="14" r="1.2"/><path d="M12 18.5V22M9 22h6"/>'),
+  recap: icon('<path d="M5 3h11l3 3v15H5Z"/><path d="M8 8h7M8 12h8M8 16h5"/>'),
+  pickem: icon('<path d="M4 12.5 9 17 20 6"/><circle cx="12" cy="12" r="10"/>'),
+  bell: icon('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4Z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
   search: icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/>'),
   sun: icon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   moon: icon('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/>'),
@@ -92,9 +100,21 @@ const ROUTES = [
   { path: "/simulator", label: "Season Simulator", icon: ICONS.season, group: "League",
     description: "Run the season yourself: replay or project from a date",
     load: lazy(() => import("./pages/simulator.js")) },
+  { path: "/market", label: "Model vs Market", icon: ICONS.market, group: "League",
+    description: "The model against the sportsbooks: gaps and a running score",
+    load: lazy(() => import("./pages/market.js")) },
+  { path: "/lottery", label: "Draft Lottery", icon: ICONS.lottery, group: "League",
+    description: "Odds at every pick, and a lottery machine to run the draw",
+    load: lazy(() => import("./pages/lottery.js")) },
+  { path: "/recap", label: "Season Recap", icon: ICONS.recap, group: "League",
+    description: "The season in data: upsets, surprises, best and worst calls",
+    load: lazy(() => import("./pages/recap.js")) },
   { path: "/compare", label: "Compare Players", icon: ICONS.compare, group: "Players",
     description: "Two players, VS screen: ratings, numbers, career arcs",
     load: lazy(() => import("./pages/compare.js")) },
+  { path: "/awards", label: "Awards Race", icon: ICONS.awards, group: "Players",
+    description: "MVP, rookie, sixth man and most improved, week by week",
+    load: lazy(() => import("./pages/awards.js")) },
   { path: "/player-impact", label: "Player Impact", icon: ICONS.playerImpact, group: "Players",
     description: "With and without a player (a diagnostic, not a forecast)",
     load: lazy(() => import("./pages/playerImpact.js")) },
@@ -102,11 +122,14 @@ const ROUTES = [
     description: "Quick swap: one player's season, any era, on one team",
     load: lazy(() => import("./pages/whatIf.js")) },
   { path: "/head-to-head", label: "Head-to-Head", icon: ICONS.headToHead, group: "Teams",
-    description: "A rivalry season by season (Teams has the summary)",
+    description: "A whole rivalry: every meeting, streaks, series, the model's record",
     load: lazy(() => import("./pages/headToHead.js")) },
   { path: "/gallery", label: "Scenario Gallery", icon: ICONS.gallery, group: "Sandbox",
     description: "Ready-made scenarios and the ones you saved",
     load: lazy(() => import("./pages/gallery.js")) },
+  { path: "/pickem", label: "Pick'em", icon: ICONS.pickem, group: "Play",
+    description: "Pick the night's winners against the model",
+    load: lazy(() => import("./pages/pickem.js")) },
 ];
 
 const BAR = ROUTES.filter((route) => route.bar);
@@ -131,6 +154,7 @@ function buildNav() {
   document.body.insertAdjacentHTML("beforeend", `<div class="zmenu" id="zmenu" hidden>
     <button type="button" class="zmenu-search" data-action="search">${ICONS.search}<span>Search players, teams, pages</span><kbd>/</kbd></button>
     <button type="button" class="zmenu-search zmenu-theme" data-action="theme">${ICONS.sun}<span>Switch edition (day / night)</span></button>
+    <button type="button" class="zmenu-search zmenu-alerts" data-action="alerts">${ICONS.bell}<span>Alerts: close finishes, your team's odds</span></button>
     <div class="zmenu-groups">
       ${GROUPS.map((group) => `<section class="zmenu-group" aria-label="${group}">
         <h3>${group}</h3>
@@ -151,6 +175,10 @@ function buildNav() {
   document.querySelector('.zmenu-search[data-action="theme"]').addEventListener("click", () => {
     closeMenu();
     document.querySelector("#ztheme")?.click();
+  });
+  document.querySelector('.zmenu-search[data-action="alerts"]').addEventListener("click", () => {
+    closeMenu();
+    openAlertSettings();
   });
 
   const more = document.querySelector("#zmore");
@@ -386,12 +414,70 @@ function buildBackToTop() {
   }, { passive: true });
 }
 
+// ---------------------------------------------------------------------------
+// Installable app and offline: the service worker (web/sw.js) keeps the last
+// data each page loaded; when it answers from that copy, a bar says so.
+// ---------------------------------------------------------------------------
+
+let installPrompt = null;
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    installPrompt = event;
+  });
+}
+
+function watchConnection() {
+  let bar = null;
+  const show = (text) => {
+    bar ||= Object.assign(document.createElement("div"), { className: "offline-bar", role: "status" });
+    bar.textContent = text;
+    if (!bar.isConnected) document.body.appendChild(bar);
+  };
+  const hide = () => bar?.remove();
+  window.addEventListener("backboard:offline", (event) => {
+    const saved = Date.parse(event.detail);
+    const when = Number.isFinite(saved) ? new Date(saved).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "earlier";
+    show(`Offline · showing data saved ${when}`);
+  });
+  window.addEventListener("offline", () => show("Offline · pages you have opened still work"));
+  window.addEventListener("online", hide);
+  onRouteChange(() => { if (navigator.onLine) hide(); });
+}
+
+/** Commands in the palette (type ">" to list them). */
+function paletteCommands() {
+  return [
+    { label: () => (theme() === "light" ? "Switch to the night edition" : "Switch to the day edition"), keywords: "theme dark light mode",
+      run: () => document.querySelector("#ztheme")?.click() },
+    { label: () => (alertsOn() ? "Turn alerts off" : "Turn alerts on"), keywords: "notifications alerts close games", run: () => toggleAlerts() },
+    { label: "Alert settings…", keywords: "notifications alerts", run: openAlertSettings },
+    { label: () => (soundOn() ? "Turn arcade sounds off" : "Turn arcade sounds on"), keywords: "sound audio mute",
+      run: () => { setSound(!soundOn()); toast(soundOn() ? "Sounds on." : "Sounds off."); } },
+    { label: "Go to my team", keywords: "favorite favourite", when: () => Boolean(favoriteTeam()),
+      run: () => navigate("/teams", { team: favoriteTeam() }) },
+    { label: "Copy a link to this page", keywords: "share url",
+      run: () => navigator.clipboard?.writeText(location.href).then(() => toast("Link copied."), () => toast("Could not copy the link.", { tone: "warn" })) },
+    { label: "Print this page", keywords: "pdf paper", run: () => window.print() },
+    { label: "Install Backboard as an app", keywords: "pwa install home screen", when: () => Boolean(installPrompt),
+      run: async () => { installPrompt.prompt(); await installPrompt.userChoice.catch(() => null); installPrompt = null; } },
+    { label: "Run the draft lottery", keywords: "lottery draft", run: () => navigate("/lottery") },
+    { label: "Make tonight's picks", keywords: "pickem pick em game", run: () => navigate("/pickem") },
+  ];
+}
+
 function init() {
   applyTheme();
   buildNav();
   buildTools();
   buildBackToTop();
-  initSearch({ routes: ROUTES, navigate });
+  initSearch({ routes: ROUTES, navigate, actions: paletteCommands() });
+  registerServiceWorker();
+  watchConnection();
+  initAlerts();
   loadStatus();
   watchContent();
   onRouteChange((path, kind) => mountRoute(path, kind));
