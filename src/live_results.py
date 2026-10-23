@@ -517,6 +517,10 @@ def parse_args(argv=None):
                         help="Fetch and validate, then roll back without writing.")
     parser.add_argument("--no-box-scores", action="store_true",
                         help="Skip box scores and the feature rebuild (schedule and results only).")
+    parser.add_argument("--no-injuries", action="store_true",
+                        help="Skip the injury report.")
+    parser.add_argument("--no-odds-snapshot", action="store_true",
+                        help="Skip storing today's playoff/title odds for the odds history chart.")
     return parser.parse_args(argv)
 
 
@@ -548,10 +552,17 @@ def features_lag(db_path=DB_PATH, features_path=None):
 
 
 def run_all(db_path=DB_PATH, since=None, through=None, dry_run=False, box_scores=True,
-            features_path=None):
-    """Refresh schedule + results, then box scores, then rebuild features if needed."""
+            features_path=None, injuries=True, odds_snapshot=True):
+    """Refresh schedule + results, then box scores, then rebuild features if needed.
+
+    The injury report and the day's odds snapshot run last. Each is optional
+    and fails soft: its error is reported, and the results already written
+    stay written.
+    """
     manifest = refresh(db_path, since, through, dry_run)
     report = {"results": manifest}
+    if injuries:
+        report["injuries"] = _soft(lambda: _ingest_injuries(db_path, dry_run))
     if dry_run or not box_scores:
         return report
     try:
@@ -567,13 +578,56 @@ def run_all(db_path=DB_PATH, since=None, through=None, dry_run=False, box_scores
         report["features_rebuilt"] = True
     else:
         report["features_rebuilt"] = False
+    if odds_snapshot:
+        report["odds_snapshot"] = _soft(lambda: _store_odds_snapshot(db_path))
     return report
+
+
+def _soft(step):
+    try:
+        return step()
+    except Exception as exc:  # optional extras never undo the refresh
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def _ingest_injuries(db_path, dry_run):
+    try:
+        from src.injuries import ingest_injuries
+    except ImportError:  # pragma: no cover - direct-script support
+        from injuries import ingest_injuries
+    return ingest_injuries(db_path, dry_run=dry_run)
+
+
+def _store_odds_snapshot(db_path, today=None):
+    """Today's playoff/title odds for the season in progress (skipped in the offseason)."""
+    try:
+        from src.forward_projection import load_model_inputs
+        from src.odds_history import snapshot
+    except ImportError:  # pragma: no cover - direct-script support
+        from forward_projection import load_model_inputs
+        from odds_history import snapshot
+    today = today or datetime.now(EASTERN).date()
+    season = today.year if today.month >= 9 else today.year - 1
+    conn = sqlite3.connect(db_path)
+    try:
+        remaining = conn.execute(
+            "SELECT COUNT(*) FROM games WHERE gameType = 'Regular Season' AND winner IS NULL "
+            "AND gameDateTimeEst >= ? AND gameDateTimeEst < ?",
+            (str(today), f"{season + 1}-07-01"),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    if not remaining:
+        return {"skipped": "no regular-season games left this season"}
+    rows = snapshot(season, str(today), load_model_inputs(), db_path)
+    return {"season": season, "as_of": str(today), "rows": rows}
 
 
 def main(argv=None):
     args = parse_args(argv)
     try:
-        report = run_all(args.db, args.since, args.through, args.dry_run, not args.no_box_scores)
+        report = run_all(args.db, args.since, args.through, args.dry_run, not args.no_box_scores,
+                         injuries=not args.no_injuries, odds_snapshot=not args.no_odds_snapshot)
     except RefreshError as exc:
         print(f"Refresh failed, database unchanged: {exc}")
         return 1
@@ -586,6 +640,11 @@ def main(argv=None):
         for key, value in report["box_scores"].items():
             print(f"  {key}: {value}")
         print(f"  features_rebuilt: {report['features_rebuilt']}")
+    for extra in ("injuries", "odds_snapshot"):
+        if extra in report:
+            print(extra.replace("_", " ").capitalize())
+            for key, value in report[extra].items():
+                print(f"  {key}: {value}")
     return 0
 
 

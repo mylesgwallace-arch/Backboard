@@ -1,7 +1,7 @@
 // components/scenario.js — Sandbox scenarios as shareable URL text.
 //
-// A scenario is { mode, season, moves }. It travels in the hash query
-// (`#/sandbox?s=<text>`) as base64url-encoded UTF-8 JSON, so a link opens the
+// A scenario is { mode, season, moves }. It travels in the query string
+// (`/sandbox?s=<text>`) as base64url-encoded UTF-8 JSON, so a link opens the
 // same moves on any machine running Backboard.
 
 export function encodeScenario(scenario) {
@@ -29,3 +29,28 @@ export function apiMoves(moves) {
     return copy;
   });
 }
+
+// Hand-picked scenarios for the next-season mode (ids from the 2025-26
+// rosters). The Sandbox offers them as chips; the gallery shows the ones
+// whose players are on the current rosters.
+export const FEATURED_SCENARIOS = [
+  {
+    label: "Jokic ↔ Giannis",
+    moves: [{ type: "trade", assets: [
+      { person_id: 203999, from_team_id: 1610612743, to_team_id: 1610612749 },
+      { person_id: 203507, from_team_id: 1610612749, to_team_id: 1610612743 },
+    ] }],
+  },
+  {
+    label: "1990-91 Jordan joins the Spurs",
+    moves: [{ type: "sign", person_id: 893, to_team_id: 1610612759, from_season: 1990 }],
+  },
+  {
+    label: "Wembanyama to the Knicks",
+    moves: [{ type: "trade", assets: [{ person_id: 1641705, from_team_id: 1610612759, to_team_id: 1610612752 }] }],
+  },
+  {
+    label: "SGA misses half the season",
+    moves: [{ type: "injury", person_id: 1628983, team_id: 1610612760, games_missed: 41 }],
+  },
+];

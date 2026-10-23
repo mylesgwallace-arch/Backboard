@@ -1,4 +1,5 @@
-// pages/players.js — the player page: search any player, then read what the
+// pages/players.js — the player page: choose a player on the character-select
+// screen (or search any era), then read what the
 // database records (bio, every season, game logs, splits, career highs), the
 // standard rates calculated from it, and the derived layer: league
 // percentiles, box impact (the same box-score model the Sandbox uses), the
@@ -16,6 +17,7 @@ import {
 import { teamColor } from "../teamColors.js";
 import { readableInk, teamSlabStyle } from "../colorInk.js";
 import { apiMoves, encodeScenario } from "../components/scenario.js";
+import { mountCharacterSelect } from "../components/characterSelect.js";
 import { playerThumb, tornPhoto, wireTornPhoto } from "../components/tornPhoto.js";
 import {
   agingCurveChart, agingCurveTooltip, careerArcChart, careerArcTooltip, gameTrendChart,
@@ -31,14 +33,6 @@ export const meta = {
   subtitle: "Every season, every game, and what the numbers say comes next.",
 };
 
-const QUICK_PICKS = [
-  { id: 1641705, name: "Victor Wembanyama" },
-  { id: 203999, name: "Nikola Jokic" },
-  { id: 1628983, name: "Shai Gilgeous-Alexander" },
-  { id: 201939, name: "Stephen Curry" },
-  { id: 2544, name: "LeBron James" },
-  { id: 893, name: "Michael Jordan" },
-];
 const TABS = [
   ["overview", "Overview"],
   ["stats", "Season stats"],
@@ -59,22 +53,31 @@ const STAT_VIEWS = [
 let state = null;
 
 export function render(container, ctx = {}) {
+  const presetId = Number(ctx.query?.get?.("id"));
+  if (!presetId) {
+    // No player chosen: the character-select screen.
+    state = null;
+    ctx.setHeadless?.(true);
+    container.innerHTML = `<div id="pl-select"></div>`;
+    mountCharacterSelect(container.querySelector("#pl-select"), {
+      mode: "1p",
+      season: Number(ctx.query?.get?.("season")) || null,
+      onSelect: (card) => openPlayer(ctx, card.person_id),
+      onPickAllTime: (personId) => openPlayer(ctx, personId),
+    });
+    return;
+  }
   container.innerHTML = `
-    <div class="card fade-in player-search-card">
-      <div class="card-header"><div><h2>Find a player</h2>
-        <p class="card-subtitle">Any player in the database, from 1946-47 to today. Full or partial names work
-          ("wemby" won't, "wembanyama" will). If several players match, you choose.</p></div></div>
+    <div class="player-switch fade-in">
+      <a class="btn btn-secondary" href="/players" id="pl-back">◂ Choose another player</a>
       <form id="pl-form" class="player-search" role="search" autocomplete="off">
         <label class="sr-only" for="pl-name">Player name</label>
-        <input class="input" id="pl-name" placeholder="Search players, e.g. Jokic" aria-controls="pl-results">
-        <button class="btn" type="submit">Search</button>
+        <input class="input" id="pl-name" placeholder="Jump to a player, any era" aria-controls="pl-results">
+        <button class="btn btn-secondary" type="submit">Search</button>
       </form>
-      <div id="pl-results" class="player-results" aria-live="polite"></div>
-      <div class="quick-picks" aria-label="Quick picks">
-        <span class="text-muted">Try</span>
-        ${QUICK_PICKS.map((p) => `<button type="button" class="chip chip-btn" data-person="${p.id}">${escapeHtml(p.name)}</button>`).join("")}
-      </div>
+      <a class="link-btn" href="/compare?a=${presetId}">Compare with… ▸</a>
     </div>
+    <div id="pl-results" class="player-results" aria-live="polite"></div>
     <div id="pl-body"></div>
   `;
 
@@ -100,17 +103,7 @@ export function render(container, ctx = {}) {
     event.preventDefault();
     search(input.value, true);
   });
-  container.querySelectorAll(".quick-picks [data-person]").forEach((button) =>
-    button.addEventListener("click", () => openPlayer(ctx, Number(button.dataset.person))));
-
-  const presetId = Number(ctx.query?.get?.("id"));
-  if (presetId) {
-    loadPlayer(body, presetId, ctx, ctx.query.get("tab"));
-  } else if (state?.personId) {
-    loadPlayer(body, state.personId, ctx);
-  } else {
-    body.innerHTML = emptyState("Search for a player, or pick one above.");
-  }
+  loadPlayer(body, presetId, ctx, ctx.query.get("tab"));
 }
 
 function openPlayer(ctx, personId) {

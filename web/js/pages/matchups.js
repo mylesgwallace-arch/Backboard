@@ -4,6 +4,9 @@
 // elo_boosted_ensemble model). No prediction logic is duplicated here — this
 // module only renders whatever the backend envelope returns.
 
+import { uncrumple } from "../components/motion.js";
+import { shareButton, shareImage } from "../components/share.js";
+import { setQuery } from "../router.js";
 import { predictMatchup, predictMargin } from "../api.js";
 import { fetchTeams, createTeamSelect } from "../components/teamSelect.js";
 import { renderProbabilityBar } from "../components/probabilityBar.js";
@@ -150,6 +153,8 @@ export function render(container, ctx = {}) {
         away.selectEl.value = presetAway;
       }
       refreshPredictAvailability();
+      // Both teams in the link (e.g. from Tonight): show the result straight away.
+      if (home.selectEl.value && away.selectEl.value && !predictBtn.disabled) predictBtn.click();
     })
     .catch((err) => {
       statusEl.textContent = "";
@@ -203,6 +208,20 @@ export function render(container, ctx = {}) {
     const awayTeam = teams.find((t) => t.team_id === awayTeamId);
     const swing = trackSwing(prediction);
     resultMount.innerHTML = renderResult({ prediction, homeTeam, awayTeam, swing });
+    setQuery({ home: homeTeamId, away: awayTeamId, ...(gameDate ? { date: gameDate } : {}) });
+    const verdict = resultMount.firstElementChild;
+    verdict?.insertAdjacentHTML("beforeend", `<div class="toolbar mt-1">${shareButton("matchup-share")}</div>`);
+    verdict?.querySelector("#matchup-share")?.addEventListener("click", () => {
+      const pHome = prediction.home_win_probability;
+      shareImage({
+        kicker: `Matchup${gameDate ? ` · ${gameDate}` : ""}`,
+        title: `${awayTeam?.full_name || "Away"} at ${homeTeam?.full_name || "Home"}`,
+        left: { name: awayTeam?.full_name || "Away", sub: "Away", value: `${Math.round((1 - pHome) * 100)}%`, label: "chance to win", color: teamColor(awayTeamId).primary },
+        right: { name: homeTeam?.full_name || "Home", sub: "Home", value: `${Math.round(pHome * 100)}%`, label: "chance to win", color: teamColor(homeTeamId).primary },
+        lines: [`Production model (${prediction.model || "elo_boosted_ensemble"}), each team's latest data.`],
+      }, { filename: `backboard-${awayTeam?.abbreviation || "away"}-at-${homeTeam?.abbreviation || "home"}.png`.toLowerCase() });
+    });
+    uncrumple(verdict, { seed: homeTeamId * 31 + awayTeamId });
     loadMarginCard(resultMount.querySelector("#margin-card-mount"), {
       homeTeamId, awayTeamId, gameDate, homeTeam, awayTeam,
     });

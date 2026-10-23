@@ -80,16 +80,47 @@ sets `--fg` to the team's computed ink (`colorInk.js`).
 6. **Charts take colors from tokens** (`.c-grid`, `.c-base`, `.c-accent`,
    `.c-pos`, `.c-neg`): gray vs red for two series, green vs red for
    polarity, validated for color-vision deficiency on both paper and black.
+   Many series (30 teams' odds) are never 30 colors: every line is a faint
+   gray and the followed one is red, with end labels (`emphasisLineChart`).
 7. **Motion is a thunk**: stamps thunk in once, the nav light slides, numbers
-   count up once on Home; all of it is off under `prefers-reduced-motion`,
-   and the cover footage never starts itself there or under Save-Data.
+   count up once (`data-count`), sheets below the fold drop onto the page as
+   they scroll in, pages turn with a short slide (View Transitions), and a
+   result the page wants to land (the matchup verdict, the report card, the
+   VS splat, an upset) **uncrumples**: a wad of paper pulls open into the
+   sheet while flat-shaded fold facets fade (`components/motion.js`;
+   transform, clip-path and opacity only). All of it is off under
+   `prefers-reduced-motion`, and the cover footage never starts itself there
+   or under Save-Data.
 8. **Focus is always visible**: yellow on black, ink on paper and scraps.
    Tap targets are 44px or more.
 
 ## 7. Navigation
 
-The Limelight bar shows Home, Matchups, Teams, Players, Sandbox, Season,
-Playoffs and Ask; Current Season, Head-to-Head, League Predictions, Player
-Impact and the What-if Lab live under "More" (a torn paper slip). The light
-sits on the active page, or on More for pages listed there. Below 600px the
-bar shows icons only (each has a title and the page head names the page).
+The Limelight bar shows Home, Tonight, Matchups, Teams, Players, Sandbox,
+Playoffs and Ask. Everything else lives under "More" (a torn paper slip),
+grouped (League, Players, Teams, Sandbox) with one line on what each page is
+for, so neighbours are told apart (the What-if Lab is the one-swap version of
+the Sandbox; Head-to-Head is the season-by-season version of the Teams tab).
+The light sits on the active page, or on More for pages listed there. Below
+600px the bar shows icons only (each has a title and the page head names the
+page). Search (`/` or Ctrl/⌘-K) and the edition switch sit at the right of the
+bar; on phones search is a red button in the bottom corner and the edition
+switch is in the More slip.
+
+## 8. The arena (character select, VS)
+
+The two full-bleed black screens (`.cs-arena`, `.vs-arena`) are the one place
+the zine turns into a game: the arena takes the hovered player's team colors
+(`--sel` / `--sel-alt`, registered with `@property` so they glide), speed
+lines and scanlines sit behind slanted portrait tiles, the cursor (red P1,
+yellow P2) slides between tiles, and the preview's name slams in with its
+ratings bars filling. The type, stamps, torn photos and ink rules are the
+zine's own; ratings are always labeled as percentiles.
+
+## 9. Editions and print
+
+The **night edition** (default) is the black ground. The **day edition**
+(`:root[data-theme="light"]`) is newsprint (`--ground: #e9e5da`) with ink
+frame text and a soft shadow under each torn sheet; the masthead bar, the
+home cover and the arena stay black. **Print** is ink on white: no chrome,
+sheets become plain bordered boxes, nothing animates.

@@ -7,6 +7,10 @@
   <meta name="description" content="Backboard: NBA win probabilities, team and player analytics, season simulations and a what-if Sandbox, from a validated prediction engine that shows its work.">
   <meta name="theme-color" content="#141414">
   <meta name="color-scheme" content="dark">
+  <!-- page-meta -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' fill='%23141414'/%3E%3Crect x='6' y='6' width='36' height='24' fill='none' stroke='%23ecebe5' stroke-width='4'/%3E%3Crect x='17' y='13' width='14' height='10' fill='none' stroke='%23ee3a1f' stroke-width='4'/%3E%3Cellipse cx='24' cy='35' rx='10' ry='3' fill='none' stroke='%23ee3a1f' stroke-width='4'/%3E%3C/svg%3E">
+  <!-- The theme is set before first paint so the newsprint edition never flashes black. -->
+  <script>try { if (JSON.parse(localStorage.getItem("backboard.theme.v1")) === "light") document.documentElement.dataset.theme = "light"; } catch (e) {}</script>
   <!-- Street Zine type: Anton (headlines), Archivo (body), Courier Prime
        (typewriter labels and tables), Reenie Beanie (pen), Abril Fatface
        (ransom letters). Every family has a fallback stack in styles.css. -->
@@ -16,6 +20,7 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#app-main">Skip to content</a>
   <!-- Torn-paper edges: SVG filters used by pseudo-elements in styles.css. -->
   <svg class="tear-defs" aria-hidden="true" focusable="false"><defs>
     <filter id="tear-a" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.018 0.026" numOctaves="3" seed="4" result="lo"/><feDisplacementMap in="SourceGraphic" in2="lo" scale="17" xChannelSelector="R" yChannelSelector="G" result="d1"/><feTurbulence type="fractalNoise" baseFrequency="0.4" numOctaves="2" seed="9" result="hi"/><feDisplacementMap in="d1" in2="hi" scale="6" xChannelSelector="G" yChannelSelector="B"/></filter>
@@ -25,15 +30,18 @@
   </defs></svg>
 
   <header class="zhead">
-    <a class="zbrand" href="#/dashboard" aria-label="Backboard home">
+    <a class="zbrand" href="/dashboard" aria-label="Backboard home">
       <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="3" width="40" height="26" fill="none" stroke="#ecebe5" stroke-width="3"/><rect x="16" y="12" width="16" height="11" fill="none" stroke="#ee3a1f" stroke-width="3"/><ellipse cx="24" cy="33.2" rx="10.2" ry="2.8" fill="none" stroke="#ee3a1f" stroke-width="3.2"/><path d="M15 34 18.5 46M33 34 29.5 46M24 36v10" fill="none" stroke="#ecebe5" stroke-width="1.6" stroke-linecap="round"/></svg>
       Backboard
     </a>
     <nav class="zn" id="zn" aria-label="Main"></nav>
-    <div class="zstatus" id="sidebar-status" role="status"><span class="status-dot"></span> Checking engine…</div>
+    <div class="zright">
+      <div class="ztools" id="ztools"></div>
+      <div class="zstatus" id="sidebar-status" role="status"><span class="status-dot"></span> Checking engine…</div>
+    </div>
   </header>
 
-  <main class="app-main" id="app-main">
+  <main class="app-main" id="app-main" tabindex="-1">
     <!-- Pages that export renderHero() get a full-bleed cover here, and the
          cover's own <h1> replaces the page head below. -->
     <div id="app-hero" hidden></div>
@@ -48,6 +56,7 @@
   <footer class="zfoot">
     <div class="wrap">
       <p>Backboard · NBA analytics from historical data. Every number comes from the engine.</p>
+      <p class="zfoot-keys">Press <kbd>/</kbd> to search · <a href="/report-card">How good is the model?</a></p>
       <p>Probabilities are not guarantees.</p>
     </div>
   </footer>

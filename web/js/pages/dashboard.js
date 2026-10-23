@@ -3,24 +3,25 @@
 // live engine status, and the preserved "ask a question / run a raw tool"
 // panel (the original web/index.html capability).
 
-import { getHealth, getTools, ask, runTool, ingest } from "../api.js";
+import {
+  getHealth, getTools, ask, runTool, ingest, getScoreboard, getStandings, getTeamSchedule, getValidationReport,
+} from "../api.js";
 import { mountFreshness } from "../components/freshness.js";
+import { favoriteTeam } from "../components/prefs.js";
+import { teamColor } from "../teamColors.js";
+import { readableInk } from "../colorInk.js";
+import { escapeHtml, safe, unwrap } from "../components/format.js";
 
 export const meta = {
   title: "Backboard",
   subtitle: "NBA win probabilities, team and player analytics, and a what-if Sandbox.",
 };
 
-// Holdout accuracy of the production model (elo_boosted_ensemble) from
-// models/baseline_metrics.json: metrics.elo_boosted_ensemble.accuracy =
-// 0.6508 over test_games = 13,332 (chronological 20% holdout). The API
-// doesn't expose this file, so update these two values if the model changes.
-const HOLDOUT_ACCURACY = "65.1";
-const HOLDOUT_GAMES = "13,332";
-
 // Every card's big number is a fact about the engine or the data it covers.
 // `big: null` is filled from the live /tools registry.
 const TOOLBOX = [
+  { path: "/tonight", kick: "Tonight", big: null, id: "games-today", unit: "games today", h: "Tonight's slate", r: 1.1, cls: "r2",
+    p: "Every game today: the model's pick, the predicted score, live win probability and how the picks held up." },
   { path: "/matchups", kick: "Matchups", big: 870, unit: "", h: "Run any game", r: -1.6, cls: "",
     p: "Win chance, projected score and why it leans, for every home and away pairing of the 30 teams." },
   { path: "/players", kick: "Players", big: 1946, year: true, unit: "→ now", h: "Every player", r: 1.4, cls: "y",
@@ -31,8 +32,12 @@ const TOOLBOX = [
     p: "Record, recent form, Elo, projections and head-to-head history for every franchise." },
   { path: "/simulator", kick: "Season", big: 1000, unit: "sims", h: "Season and playoffs", r: -1.3, cls: "",
     p: "Monte Carlo seasons: standings, seeds, the play-in, the bracket and title odds." },
-  { path: "/assistant", kick: "Ask", big: null, unit: "tools", h: "Ask and audit", r: 1.6, cls: "y",
+  { path: "/assistant", kick: "Ask", big: null, id: "tool-count", unit: "tools", h: "Ask and audit", r: 1.6, cls: "y",
     p: "Ask in plain words. Every answer is traced to the tool call and the model that produced it." },
+  { path: "/report-card", kick: "Report card", big: null, id: "holdout-pct", unit: "% right", h: "Grade the model", r: -1.4, cls: "",
+    p: "Accuracy on held-out games, calibration, and every pregame pick of the season graded against the result." },
+  { path: "/compare", kick: "Compare", big: 2, unit: "players", h: "VS screen", r: 1.2, cls: "y",
+    p: "Pick two fighters from any era: ratings head to head, careers by age and their statistical doppelgängers." },
 ];
 
 /** Deterministic pseudo-random numbers for the torn letter tiles. */
@@ -115,10 +120,10 @@ export function renderHero(slot, { navigate } = {}) {
           <p class="say" aria-hidden="true">Know who <em>wins.</em></p>
           <p class="sub">Win probabilities for any NBA matchup, every player's story, and a sandbox for any what-if, from a model that shows its work.</p>
           <div class="go">
-            <a class="btn" href="#/matchups" data-go="/matchups">Predict a matchup ${ARROW}</a>
+            <a class="btn" href="/matchups">Predict a matchup ${ARROW}</a>
             <a class="link" href="#inside" id="cover-inside">See what is inside</a>
           </div>
-          <p class="cover-proof"><b>${HOLDOUT_ACCURACY}%</b> picks right on ${HOLDOUT_GAMES} held-out games</p>
+          <p class="cover-proof" id="cover-proof" hidden><b></b> picks right on <span></span> held-out games</p>
         </div>
       </div>
     </header>`;
@@ -149,6 +154,16 @@ export function renderHero(slot, { navigate } = {}) {
     })).observe(video);
   }
   wireGoLinks(slot, navigate);
+  // The claim on the cover is the stored holdout result, read live.
+  safe(getValidationReport("production_model")).then(unwrap).then((res) => {
+    const report = res.data?.report;
+    const accuracy = report?.metrics?.elo_boosted_ensemble?.accuracy;
+    const proof = slot.querySelector("#cover-proof");
+    if (!proof || accuracy == null) return;
+    proof.querySelector("b").textContent = `${(accuracy * 100).toFixed(1)}%`;
+    proof.querySelector("span").textContent = Number(report.test_games).toLocaleString("en-US");
+    proof.hidden = false;
+  });
   slot.querySelector("#cover-inside").addEventListener("click", (event) => {
     event.preventDefault();
     document.querySelector("#inside")?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth" });
@@ -157,15 +172,26 @@ export function renderHero(slot, { navigate } = {}) {
 
 export function render(container, { navigate } = {}) {
   container.innerHTML = `
+    <section class="home-band slate-band" aria-labelledby="slate-title">
+      <div class="wrap">
+        <div class="slate-band-head">
+          <h2 class="h2" id="slate-title">Tonight's <span class="hl">slate</span></h2>
+          <a class="link-btn" href="/tonight">Every game, live ▸</a>
+        </div>
+        <div id="home-your-team"></div>
+        <div class="home-slate" id="home-slate">${'<div class="skeleton" style="height:84px;"></div>'.repeat(3)}</div>
+      </div>
+    </section>
+
     <section class="home-band white" id="inside" aria-labelledby="inside-title">
       <div class="wrap">
         <h2 class="h2" id="inside-title">What's <span class="hl">inside</span></h2>
         <p class="lede">One engine, every page. Use the bar at the top to jump between them.</p>
         <div class="toolbox">
           ${TOOLBOX.map((card) => `
-            <a class="scrap tool ${card.cls}" href="#${card.path}" data-go="${card.path}" style="--r:${card.r}deg">
+            <a class="scrap tool ${card.cls}" href="${card.path}" style="--r:${card.r}deg">
               <span class="kick">${card.kick}</span>
-              <span class="big"><span data-count="${card.big ?? ""}" ${card.year ? "data-year" : ""} ${card.big == null ? 'id="tool-count"' : ""}>${card.big == null ? "—" : card.year ? card.big : card.big.toLocaleString("en-US")}</span>${card.unit ? ` <small>${card.unit}</small>` : ""}</span>
+              <span class="big"><span data-big="${card.big ?? ""}" ${card.year ? "data-year" : ""} ${card.id ? `id="${card.id}"` : ""}>${card.big == null ? "—" : card.year ? card.big : card.big.toLocaleString("en-US")}</span>${card.unit ? ` <small>${card.unit}</small>` : ""}</span>
               <h3>${card.h}</h3>
               <p>${card.p}</p>
               <span class="more">Open ${card.kick}</span>
@@ -236,19 +262,26 @@ export function render(container, { navigate } = {}) {
       <div class="wrap">
         <h2 class="h2" id="closer-title">Pick a game.<br>Argue with <span class="hl">it.</span></h2>
         <div class="go" style="margin-top:2.4rem">
-          <a class="btn" href="#/matchups" data-go="/matchups">Predict a matchup ${ARROW}</a>
-          <a class="link" href="#/sandbox" data-go="/sandbox">Or break the league in the Sandbox</a>
+          <a class="btn" href="/matchups">Predict a matchup ${ARROW}</a>
+          <a class="link" href="/sandbox">Or break the league in the Sandbox</a>
         </div>
       </div>
     </section>
   `;
 
   wireGoLinks(container, navigate);
-  container.querySelectorAll("[data-count]").forEach((el) => {
-    if (el.dataset.count) countUpOnView(el, Number(el.dataset.count), "year" in el.dataset);
+  container.querySelectorAll("[data-big]").forEach((el) => {
+    if (el.dataset.big) countUpOnView(el, Number(el.dataset.big), "year" in el.dataset);
   });
 
   loadHealth(container);
+  loadSlate(container);
+  loadYourTeam(container);
+  safe(getValidationReport("production_model")).then(unwrap).then((res) => {
+    const accuracy = res.data?.report?.metrics?.elo_boosted_ensemble?.accuracy;
+    const el = container.querySelector("#holdout-pct");
+    if (el && accuracy != null) countUpOnView(el, accuracy * 100);
+  });
   wireAssistantPanel(container);
 }
 
@@ -441,4 +474,71 @@ function wireAssistantPanel(container) {
       ingestOutput.textContent = `Error: ${err.message}`;
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Tonight's slate and "your team" (from the scoreboard, standings and
+// team_schedule tools)
+// ---------------------------------------------------------------------------
+
+function slateRow(game) {
+  const p = game.home_win_probability;
+  const final = game.status === "final";
+  const side = (team, prob, won) => {
+    const color = teamColor(team.teamId).primary;
+    return `<span class="slate-team ${won ? "is-winner" : ""}">
+      <span class="team-dot" style="background:${color}; color:${readableInk(color)};">${escapeHtml(team.abbreviation)}</span>
+      <b>${final ? (team === game.home ? game.home_score : game.away_score) : `${Math.round(prob * 100)}%`}</b></span>`;
+  };
+  return `<a class="slate-row lift" href="/matchups?home=${game.home.teamId}&away=${game.away.teamId}">
+    ${side(game.away, 1 - p, final && game.winner_team_id === game.away.teamId)}
+    <span class="slate-at">${final ? "final" : "@"}</span>
+    ${side(game.home, p, final && game.winner_team_id === game.home.teamId)}
+    <span class="slate-note">${final ? (game.upset ? "Upset" : game.model_correct ? "Pick ✓" : "Pick ✗") : escapeHtml(game.tip.slice(11))}</span>
+  </a>`;
+}
+
+async function loadSlate(container) {
+  const mount = container.querySelector("#home-slate");
+  let res = unwrap(await safe(getScoreboard()));
+  if (res.data && !res.data.games.length && res.data.next_date) res = unwrap(await safe(getScoreboard(res.data.next_date)));
+  if (!container.isConnected) return;
+  if (!res.data) {
+    mount.innerHTML = `<p class="text-muted">${escapeHtml(res.message)}</p>`;
+    return;
+  }
+  const board = res.data;
+  const count = container.querySelector("#games-today");
+  if (count) countUpOnView(count, board.games.length);
+  const title = container.querySelector("#slate-title");
+  if (board.date !== new Date().toISOString().slice(0, 10) && board.games.length) {
+    title.innerHTML = `Next <span class="hl">slate</span> <small class="slate-when">${escapeHtml(board.date)}</small>`;
+  }
+  const fav = favoriteTeam();
+  const games = [...board.games].sort((a, b) =>
+    Number(b.home.teamId === fav || b.away.teamId === fav) - Number(a.home.teamId === fav || a.away.teamId === fav));
+  mount.innerHTML = games.length
+    ? games.slice(0, 8).map(slateRow).join("") + (games.length > 8 ? `<a class="slate-row slate-more" href="/tonight">+${games.length - 8} more ▸</a>` : "")
+    : `<p class="text-muted">No games scheduled.</p>`;
+}
+
+async function loadYourTeam(container) {
+  const teamId = favoriteTeam();
+  const mount = container.querySelector("#home-your-team");
+  if (!teamId) {
+    mount.innerHTML = `<p class="your-team-hint">Tip: star your team on the <a href="/standings">Standings</a> page and it leads here and on Tonight.</p>`;
+    return;
+  }
+  const [standings, schedule] = await Promise.all([safe(getStandings()).then(unwrap), safe(getTeamSchedule({ teamId })).then(unwrap)]);
+  if (!container.isConnected) return;
+  const row = standings.data?.league.find((r) => r.teamId === teamId);
+  const next = schedule.data?.games.find((g) => !g.played);
+  const color = teamColor(teamId);
+  mount.innerHTML = `<a class="your-team lift" href="/teams?team=${teamId}" style="--team:${color.primary}; --team-alt:${color.secondary}; --team-ink:${readableInk(color.primary)};">
+    <span class="your-team-kick">Your team</span>
+    <span class="your-team-name">${escapeHtml(row?.teamName || schedule.data?.team_name || "")}</span>
+    ${row ? `<span class="your-team-fact"><b>${row.wins}-${row.losses}</b> ${row.conference_rank ? `#${row.conference_rank} ${escapeHtml(row.conference)}` : ""}${row.streak ? ` · ${escapeHtml(row.streak)}` : ""}</span>` : ""}
+    ${next ? `<span class="your-team-fact">Next: ${next.home ? "vs" : "@"} ${escapeHtml(next.opponent_abbreviation)} ${escapeHtml(next.date.slice(5))} · <b>${Math.round(next.win_probability * 100)}%</b> to win</span>` : ""}
+    ${schedule.data ? `<span class="your-team-fact">≈ <b>${schedule.data.remaining.expected_wins}</b> more wins expected</span>` : ""}
+  </a>`;
 }

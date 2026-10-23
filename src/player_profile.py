@@ -964,12 +964,12 @@ def _profile_tags(percentiles):
     return tags[:4]
 
 
-def _comps(frame, row, n_shown=COMPS_SHOWN, n_projection=COMPS_FOR_PROJECTION):
+def _comps(frame, row, n_shown=COMPS_SHOWN, n_projection=COMPS_FOR_PROJECTION, age_window=1):
     target = np.array([row[f"z_{s}"] for s in SIM_FEATURES] + [row["z_mpg"]], dtype=float)
     pool = frame[(frame["personId"] != row["personId"]) & (frame["minutes"] >= COMP_MIN_MINUTES)
                  & frame["age"].notna()]
-    if row["age"] is not None and np.isfinite(row["age"]):
-        pool = pool[(pool["age"] - row["age"]).abs() <= 1]
+    if age_window is not None and row["age"] is not None and np.isfinite(row["age"]):
+        pool = pool[(pool["age"] - row["age"]).abs() <= age_window]
     columns = [f"z_{s}" for s in SIM_FEATURES] + ["z_mpg"]
     matrix = pool[columns].to_numpy(dtype=float)
     finite_target = np.where(np.isfinite(target), target, 0.0)

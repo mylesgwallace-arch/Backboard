@@ -33,12 +33,12 @@ export function render(container) {
       </form>
       <div class="predict-actions">
         <button class="btn" id="pi-search" type="submit" form="pi-form">Search</button>
-        <span id="pi-status" class="text-muted"></span>
+        <span id="pi-status" class="text-muted" role="status"></span>
       </div>
-      <div id="pi-error" class="mt-1"></div>
+      <div id="pi-error" class="mt-1" aria-live="assertive"></div>
       <div id="pi-candidates" class="mt-1"></div>
     </div>
-    <div id="pi-result"></div>
+    <div id="pi-result" aria-live="polite" aria-busy="false"></div>
     <div class="card fade-in">
       <details class="collapsible">
         <summary>What this diagnostic is (and is not)</summary>
@@ -104,7 +104,8 @@ export function render(container) {
 
 async function showImpact(candidate, before, resultMount, errorMount) {
   errorMount.innerHTML = "";
-  resultMount.innerHTML = `<div class="card fade-in"><div class="skeleton" style="height:160px;"></div></div>`;
+  resultMount.setAttribute("aria-busy", "true");
+  resultMount.innerHTML = `<div class="card fade-in" aria-label="Loading"><div class="skeleton" style="height:160px;"></div></div>`;
   let res;
   try {
     res = await getPlayerImpact({ personId: candidate.person_id, before: before || null });
@@ -113,11 +114,13 @@ async function showImpact(candidate, before, resultMount, errorMount) {
   }
   const envelope = res.data;
   if (!res.ok || envelope?.status !== "success") {
+    resultMount.setAttribute("aria-busy", "false");
     resultMount.innerHTML = "";
     errorMount.innerHTML = errorBanner(envelope?.error?.message || "The diagnostic is unavailable.");
     return;
   }
   const { diagnostic, confidence } = envelope.data;
+  resultMount.setAttribute("aria-busy", "false");
   resultMount.innerHTML = `
     <div class="card fade-in">
       <div class="card-header">
@@ -183,7 +186,7 @@ function fixed(value, digits) {
 }
 
 function errorBanner(message) {
-  return `<div class="error-banner">⚠ ${escapeHtml(message)}</div>`;
+  return `<div class="error-banner" role="alert">⚠ ${escapeHtml(message)}</div>`;
 }
 
 function escapeHtml(value) {

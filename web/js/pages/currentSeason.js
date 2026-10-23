@@ -2,9 +2,9 @@
 // team's current strength as the production model sees it (plus the
 // experimental roster-adjusted version), each team's offseason arrivals and
 // departures, and — once the upcoming schedule is ingested — the preseason
-// projection and title odds. All numbers come from tool envelopes
-// (data_status, team_strength, team_roster, project_rest_of_season,
-// playoff_odds).
+// projection and title odds, plus the latest injury report. All numbers come
+// from tool envelopes (data_status, team_strength, team_roster,
+// project_rest_of_season, playoff_odds, injury_report).
 
 import {
   getDataStatus,
@@ -12,8 +12,11 @@ import {
   getTeamRoster,
   projectRestOfSeason,
   getPlayoffOdds,
+  getInjuryReport,
 } from "../api.js";
 import { mountFreshness } from "../components/freshness.js";
+import { teamColor } from "../teamColors.js";
+import { readableInk } from "../colorInk.js";
 
 export const meta = {
   title: "Current Season",
@@ -22,16 +25,21 @@ export const meta = {
 
 export function render(container) {
   container.innerHTML = `
-    <div class="card fade-in">
-      <div class="card-header"><div><h2>Data freshness</h2>
+    <section class="card fade-in" aria-labelledby="cs-status-title">
+      <div class="card-header"><div><h2 id="cs-status-title">Data freshness</h2>
         <p class="card-subtitle">Data changes only when the refresh runs; this is what the database holds right now.</p></div></div>
-      <div id="cs-status"><div class="skeleton" style="height:70px;"></div></div>
-    </div>
-    <div id="cs-projection"></div>
-    <div class="card fade-in">
+      <div id="cs-status" aria-live="polite"><div class="skeleton" style="height:70px;"></div></div>
+    </section>
+    <div id="cs-projection" aria-live="polite"></div>
+    <section class="card fade-in" aria-labelledby="cs-injury-title">
+      <div class="card-header"><div><h2 id="cs-injury-title">Injury report</h2>
+        <p class="card-subtitle" id="cs-injury-note">Who is out or day-to-day, from the latest stored report.</p></div></div>
+      <div id="cs-injuries" aria-live="polite"><div class="skeleton" style="height:120px;"></div></div>
+    </section>
+    <section class="card fade-in" aria-labelledby="cs-strength-title">
       <div class="card-header">
         <div>
-          <h2>Team strength today</h2>
+          <h2 id="cs-strength-title">Team strength today</h2>
           <p class="card-subtitle">
             Chance to beat an average opponent (mean of home and road win probabilities against every
             other team) from the frozen production model, using each team's latest data. The second
@@ -39,13 +47,39 @@ export function render(container) {
           </p>
         </div>
       </div>
-      <div id="cs-strength"><div class="skeleton" style="height:320px;"></div></div>
-    </div>
-    <div id="cs-roster"></div>
+      <div id="cs-strength" aria-live="polite"><div class="skeleton" style="height:320px;"></div></div>
+    </section>
+    <div id="cs-roster" aria-live="polite"></div>
   `;
   mountFreshness(container);
   loadStatus(container);
+  loadInjuries(container);
   loadStrength(container);
+}
+
+async function loadInjuries(container) {
+  const mount = container.querySelector("#cs-injuries");
+  const res = await safe(getInjuryReport());
+  if (!res.ok || res.data?.status !== "success") {
+    mount.innerHTML = errorBanner(res.data?.error?.message || "Injury report unavailable.");
+    return;
+  }
+  const report = res.data.data;
+  if (!report.reported_at) {
+    mount.innerHTML = `<div class="empty-state">No injury report stored yet. The daily refresh fetches it
+      (<code>python -m src.live_data refresh</code>).</div>`;
+    return;
+  }
+  container.querySelector("#cs-injury-note").textContent =
+    `${report.players_listed} players listed, as of ${report.reported_at.slice(0, 16)} ET. The model has no injury input: projections assume a normal roster.`;
+  mount.innerHTML = `<div class="injury-grid">${report.teams.map((team) => {
+    const color = teamColor(team.teamId).primary;
+    return `<div class="injury-team">
+      <a class="team-dot" href="/teams?team=${team.teamId}" style="background:${color}; color:${readableInk(color)};">${escapeHtml(team.teamName)}</a>
+      <ul>${team.players.map((p) => `<li class="${p.out ? "is-out" : ""}"><b>${escapeHtml(p.name)}</b>
+        <span>${escapeHtml(p.status)}${p.injury ? ` · ${escapeHtml(p.injury.toLowerCase())}` : ""}${p.return_date ? ` · back ${escapeHtml(p.return_date)}` : ""}</span></li>`).join("")}</ul>
+    </div>`;
+  }).join("")}</div>`;
 }
 
 async function loadStatus(container) {

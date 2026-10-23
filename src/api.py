@@ -10,6 +10,10 @@ response is produced by ``src.tools.execute_tool`` or
 Endpoints:
 
 * ``GET  /``  (and ``/app``, ``/index.html``) -> the browser front-end page
+* ``GET  /<page>``            -> a front-end page path (``APP_PAGES``, e.g.
+  ``/players?id=2544``) serves the same page with that page's title,
+  description and Open Graph tags, so links are shareable and indexable;
+  ``/sitemap.xml`` and ``/robots.txt`` list them
 * ``GET  /<path>``            -> any other static asset under ``web/`` (CSS,
   vanilla-JS ES modules, etc.), served with an explicit content-type map so
   the dashboard front end can be a normal multi-file static app with no
@@ -23,6 +27,17 @@ Endpoints:
   -> provenanced schedule ingestion (``src.live_data``); defaults to dry-run so
   the UI cannot mutate the database without an explicit opt-in.
 
+Serving details: text responses are gzip-compressed when the client accepts
+it; static files carry an ``ETag`` (``If-None-Match`` gets a 304); read-only
+tool results are memoised until the database or the feature file changes
+(``CACHEABLE_TOOLS``); and a per-client token bucket limits ``/ask``, the
+slow simulation tools and everything else (``RateLimiter``). Loopback clients
+are exempt unless ``BACKBOARD_TRUST_PROXY=1``, which keys clients by
+``X-Forwarded-For`` behind a reverse proxy; ``BACKBOARD_RATE_LIMIT=off``
+turns the limits off. LLM-mode questions are capped per day
+(``BACKBOARD_LLM_DAILY_LIMIT``, default 300); past the cap a question is
+answered by the deterministic planner, with a notice.
+
 The HTTP parsing is deliberately separated from ``handle_request``, a pure
 function that takes ``(method, path, body)`` and returns ``(status_code, dict)``,
 so the routing and error handling are fully testable without binding a socket.
@@ -31,19 +46,31 @@ integration tests, with CORS headers so a future browser front end can call it.
 """
 
 import argparse
+import gzip
+import hashlib
+import html
 import json
+import os
 import re
+import sqlite3
 import threading
+import time
 import urllib.parse
+from collections import OrderedDict
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 try:
-    from src.tools import PRODUCTION_MODEL, execute_tool, list_tools
+    from src.tools import (
+        FEATURES_PATH, PRODUCTION_MODEL, TEAM_DB_PATH, enable_disk_cache, execute_tool, list_tools,
+    )
     from src.nl_agent import answer as answer_question
     from src.live_data import ingest_schedule
 except ImportError:  # pragma: no cover - direct-script support
-    from tools import PRODUCTION_MODEL, execute_tool, list_tools
+    from tools import (
+        FEATURES_PATH, PRODUCTION_MODEL, TEAM_DB_PATH, enable_disk_cache, execute_tool, list_tools,
+    )
     from nl_agent import answer as answer_question
     from live_data import ingest_schedule
 
@@ -72,6 +99,67 @@ _STATIC_CONTENT_TYPES = {
     ".webp": "image/webp",
     ".mp4": "video/mp4",
     ".webm": "video/webm",
+    ".woff2": "font/woff2",
+    ".txt": "text/plain; charset=utf-8",
+    ".xml": "application/xml; charset=utf-8",
+    ".webmanifest": "application/manifest+json",
+}
+_COMPRESSIBLE = ("text/", "application/json", "application/xml", "image/svg+xml",
+                 "application/manifest+json")
+_COMPRESS_MIN_BYTES = 1024
+# Media is large and rarely changes: browsers may keep it for a week. Code and
+# styles revalidate every time (cheap with the ETag), so a deploy shows at once.
+_LONG_CACHE_SUFFIXES = {".mp4", ".webm", ".jpg", ".jpeg", ".png", ".webp", ".woff2", ".ico"}
+
+
+# ---------------------------------------------------------------------------
+# Front-end pages (keep in step with ROUTES in web/js/main.js)
+# ---------------------------------------------------------------------------
+
+SITE_NAME = "Backboard"
+DEFAULT_DESCRIPTION = (
+    "Backboard: NBA win probabilities, team and player analytics, season "
+    "simulations and a what-if Sandbox, from a validated prediction engine "
+    "that shows its work."
+)
+APP_PAGES = {
+    "/dashboard": ("Backboard — NBA Analytics", DEFAULT_DESCRIPTION),
+    "/tonight": ("Tonight", "Every game today with the model's pick, the predicted score, "
+                            "live win probability and the final results."),
+    "/matchups": ("Matchups", "Win probability, projected score and the case for each side "
+                              "in any NBA matchup."),
+    "/teams": ("Teams", "Elo, form, records, schedule, projections and head-to-head history "
+                        "for every NBA franchise."),
+    "/players": ("Players", "Choose a player: every season, game log, league percentiles, "
+                            "comparables and outlook."),
+    "/compare": ("Compare players", "Two players head to head: ratings, seasons, career arcs "
+                                    "and the most similar players in history."),
+    "/leaders": ("League leaders", "Who leads the NBA in scoring, rebounding, shooting and the "
+                                   "box-impact model."),
+    "/standings": ("Standings", "Conference standings with games behind, streaks, home and road "
+                                "records and schedule difficulty."),
+    "/sandbox": ("Sandbox", "Trade anyone, sign anyone from any era and simulate the season "
+                            "with and without the moves."),
+    "/gallery": ("Scenario gallery", "Ready-made Sandbox scenarios and the ones you saved, "
+                                     "one click to open."),
+    "/simulator": ("Season simulator", "Monte Carlo season simulations: projected standings, "
+                                       "seeds, the play-in and the bracket."),
+    "/playoffs": ("Playoffs", "Playoff and title odds from the real bracket or a simulated rest "
+                              "of season, and how they moved."),
+    "/report-card": ("Model report card", "How the model's pregame picks have done: accuracy, "
+                                          "calibration and its biggest misses."),
+    "/assistant": ("Ask", "Ask an NBA question in plain words; every number is traced to the "
+                          "tool and model that produced it."),
+    "/current-season": ("Current season", "Where every team stands now: strength, roster "
+                                          "changes, injuries and the season projection."),
+    "/head-to-head": ("Head-to-head", "Any two franchises' regular-season record, all-time and "
+                                      "season by season."),
+    "/league-predictions": ("League predictions", "The projected playoff picture and full "
+                                                  "standings for the season."),
+    "/player-impact": ("Player impact", "How a team has done with and without a player: an "
+                                        "association-only diagnostic."),
+    "/what-if": ("What-if lab", "Put any player's season, translated to another era, on any "
+                                "team and see the projected change."),
 }
 
 
@@ -127,6 +215,238 @@ def _static_asset_path(url_path):
     return None
 
 
+def _etag(path):
+    stat = path.stat()
+    return '"' + hashlib.sha1(f"{stat.st_mtime_ns}-{stat.st_size}".encode()).hexdigest()[:20] + '"'
+
+
+# ---------------------------------------------------------------------------
+# Page paths, titles and the sitemap
+# ---------------------------------------------------------------------------
+
+def page_route(url_path):
+    """The ``APP_PAGES`` key for a front-end page path, or None."""
+    route = urllib.parse.urlparse(url_path).path.rstrip("/") or "/"
+    return route if route in APP_PAGES else None
+
+
+def _lookup_name(sql, value, db_path=None):
+    try:
+        uri = f"file:{db_path or TEAM_DB_PATH}?mode=ro"
+        with sqlite3.connect(uri, uri=True) as connection:
+            row = connection.execute(sql, (int(value),)).fetchone()
+    except (sqlite3.Error, ValueError, TypeError):
+        return None
+    return " ".join(str(part) for part in row if part).strip() if row else None
+
+
+def page_meta(url_path, db_path=None):
+    """``(title, description)`` for a front-end page, naming the linked player or team."""
+    parsed = urllib.parse.urlparse(url_path)
+    route = page_route(url_path) or "/dashboard"
+    title, description = APP_PAGES[route]
+    if route == "/dashboard":
+        return title, description
+    query = urllib.parse.parse_qs(parsed.query)
+    subject = None
+    if route == "/players" and query.get("id"):
+        subject = _lookup_name("SELECT firstName, lastName FROM players WHERE personId = ?",
+                               query["id"][0], db_path)
+        if subject:
+            description = f"{subject}: every season, game log, league percentiles, comparables and outlook."
+    elif route == "/teams" and query.get("team"):
+        subject = _lookup_name("SELECT teamCity, teamName FROM team_histories "
+                               "WHERE teamId = ? AND seasonActiveTill >= 2100",
+                               query["team"][0], db_path)
+        if subject:
+            description = f"{subject}: Elo, form, records, schedule, projections and head-to-head history."
+    full = f"{subject} · {title}" if subject else title
+    return f"{full} · {SITE_NAME}", description
+
+
+def render_index(url_path="/", base_url="", db_path=None):
+    """index.html with the page's title, description and Open Graph tags filled in."""
+    page = WEB_HTML.read_text(encoding="utf-8")
+    title, description = page_meta(url_path, db_path)
+    title_html = html.escape(title)
+    description_html = html.escape(description, quote=True)
+    page = re.sub(r"<title>.*?</title>", lambda _: f"<title>{title_html}</title>", page, count=1, flags=re.S)
+    page = re.sub(r'<meta name="description" content="[^"]*">',
+                  lambda _: f'<meta name="description" content="{description_html}">', page, count=1)
+    parsed = urllib.parse.urlparse(url_path)
+    canonical = base_url + (parsed.path if page_route(url_path) else "/")
+    if parsed.query and page_route(url_path):
+        canonical += "?" + parsed.query
+    canonical_html = html.escape(canonical, quote=True)
+    tags = "\n  ".join([
+        f'<meta property="og:site_name" content="{SITE_NAME}">',
+        '<meta property="og:type" content="website">',
+        f'<meta property="og:title" content="{title_html}">',
+        f'<meta property="og:description" content="{description_html}">',
+        f'<meta property="og:image" content="{html.escape(base_url)}/media/zine/still-166.jpg">',
+        f'<meta property="og:url" content="{canonical_html}">',
+        '<meta name="twitter:card" content="summary_large_image">',
+        f'<link rel="canonical" href="{canonical_html}">',
+    ])
+    return page.replace("<!-- page-meta -->", tags, 1)
+
+
+def sitemap_xml(base_url):
+    today = date.today().isoformat()
+    urls = "".join(
+        f"  <url><loc>{html.escape(base_url + path)}</loc><lastmod>{today}</lastmod></url>\n"
+        for path in APP_PAGES
+    )
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + "</urlset>\n")
+
+
+# ---------------------------------------------------------------------------
+# Tool result memo, rate limits and the LLM budget
+# ---------------------------------------------------------------------------
+
+# Read-only tools whose result depends only on their parameters and the data
+# on disk. A result is kept until the database or the feature file changes,
+# or the day rolls over (several tools default to "today").
+CACHEABLE_TOOLS = {
+    "list_teams", "team_record", "head_to_head", "team_form", "team_elo_rating", "team_strength",
+    "standings", "scoreboard", "team_schedule", "strength_of_schedule", "model_report_card",
+    "stat_leaders", "player_cards", "similar_players", "player_profile", "player_game_log",
+    "player_outlook", "player_season_stats", "team_season_roster", "validation_report",
+    "playoff_odds", "simulate_season", "team_projection", "project_rest_of_season",
+    "odds_history", "injury_report", "predict_matchup", "predict_margin", "resolve_player",
+}
+TOOL_CACHE_SIZE = 256
+_TOOL_CACHE = OrderedDict()
+_TOOL_CACHE_LOCK = threading.Lock()
+
+
+def _data_version():
+    stamps = []
+    for path in (TEAM_DB_PATH, FEATURES_PATH):
+        try:
+            stamps.append(Path(path).stat().st_mtime_ns)
+        except OSError:
+            stamps.append(None)
+    return (*stamps, date.today().isoformat())
+
+
+def cached_execute(tool_name, parameters):
+    """``execute_tool`` with a memo for read-only tools (successful results only)."""
+    if tool_name not in CACHEABLE_TOOLS:
+        return execute_tool(tool_name, parameters)
+    try:
+        key = (tool_name, json.dumps(parameters, sort_keys=True), _data_version())
+    except (TypeError, ValueError):
+        return execute_tool(tool_name, parameters)
+    with _TOOL_CACHE_LOCK:
+        if key in _TOOL_CACHE:
+            _TOOL_CACHE.move_to_end(key)
+            return _TOOL_CACHE[key]
+    envelope = execute_tool(tool_name, parameters)
+    if envelope.get("status") == "success":
+        with _TOOL_CACHE_LOCK:
+            _TOOL_CACHE[key] = envelope
+            while len(_TOOL_CACHE) > TOOL_CACHE_SIZE:
+                _TOOL_CACHE.popitem(last=False)
+    return envelope
+
+
+def clear_tool_cache():
+    with _TOOL_CACHE_LOCK:
+        _TOOL_CACHE.clear()
+
+
+class RateLimiter:
+    """Token bucket per client: ``per_minute`` sustained, up to ``burst`` at once."""
+
+    def __init__(self, per_minute, burst=None):
+        self.rate = per_minute / 60.0
+        self.capacity = float(burst if burst is not None else max(1, per_minute // 2))
+        self.buckets = {}
+        self.lock = threading.Lock()
+
+    def allow(self, key, now=None):
+        """Returns ``(allowed, retry_after_seconds)``."""
+        now = time.monotonic() if now is None else now
+        with self.lock:
+            tokens, stamp = self.buckets.get(key, (self.capacity, now))
+            tokens = min(self.capacity, tokens + (now - stamp) * self.rate)
+            if tokens >= 1.0:
+                self.buckets[key] = (tokens - 1.0, now)
+                if len(self.buckets) > 10000:  # forget idle clients
+                    self.buckets = {k: v for k, v in self.buckets.items() if now - v[1] < 600}
+                return True, 0
+            self.buckets[key] = (tokens, now)
+            return False, max(1, int((1.0 - tokens) / self.rate + 0.999))
+
+
+HEAVY_TOOLS = {"simulate_season", "team_projection", "project_rest_of_season", "playoff_odds",
+               "sandbox_simulate", "simulate_era_swap", "player_scenario", "player_impact",
+               "strength_of_schedule", "query_database"}
+LIMITERS = {
+    "ask": RateLimiter(per_minute=20, burst=6),
+    "heavy": RateLimiter(per_minute=30, burst=10),
+    "default": RateLimiter(per_minute=300, burst=120),
+}
+
+
+def limiter_for(route):
+    """The limiter for a POST route."""
+    if route == "/ask":
+        return LIMITERS["ask"]
+    if route.startswith("/tools/") and route[len("/tools/"):] in HEAVY_TOOLS:
+        return LIMITERS["heavy"]
+    return LIMITERS["default"]
+
+
+def rate_limits_enabled():
+    return os.environ.get("BACKBOARD_RATE_LIMIT", "on").lower() not in ("off", "0", "false")
+
+
+def client_key(client_ip, forwarded_for=None):
+    """The rate-limit key for a client, or None when it is exempt (loopback, no proxy)."""
+    if os.environ.get("BACKBOARD_TRUST_PROXY") == "1":
+        return (forwarded_for or "").split(",")[0].strip() or client_ip
+    if client_ip in ("127.0.0.1", "::1"):
+        return None
+    return client_ip
+
+
+class DailyCounter:
+    """A count that starts over each calendar day (the LLM question budget)."""
+
+    def __init__(self):
+        self.day, self.count = None, 0
+        self.lock = threading.Lock()
+
+    def take(self, limit, today=None):
+        today = today or date.today().isoformat()
+        with self.lock:
+            if self.day != today:
+                self.day, self.count = today, 0
+            if self.count >= limit:
+                return False
+            self.count += 1
+            return True
+
+
+LLM_QUESTIONS = DailyCounter()
+LLM_LIMIT_NOTICE = ("Today's limit of plain-English (LLM) answers has been reached, so this "
+                    "answer comes from the deterministic planner.")
+
+
+def llm_daily_limit():
+    try:
+        return int(os.environ.get("BACKBOARD_LLM_DAILY_LIMIT", "300"))
+    except ValueError:
+        return 300
+
+
+# ---------------------------------------------------------------------------
+# Routing
+# ---------------------------------------------------------------------------
+
 def _parse_json_body(body):
     """Decode a bytes body to JSON, or return None for empty/missing bodies."""
     if not body:
@@ -180,7 +500,7 @@ def handle_request(method, path, body=None):
         except (json.JSONDecodeError, UnicodeDecodeError):
             return 400, {"error": "invalid_json",
                          "message": "Request body must be valid JSON."}
-        envelope = execute_tool(tool_name, parameters)
+        envelope = cached_execute(tool_name, parameters)
         # Envelope already carries its own status; map error -> HTTP 400.
         status = 400 if envelope.get("status") == "error" else 200
         return status, envelope
@@ -200,7 +520,15 @@ def handle_request(method, path, body=None):
             options["mode"] = data["mode"]
         if isinstance(data.get("context"), dict):
             options["context"] = data["context"]
-        return 200, answer_question(data["question"], **options)
+        notice = None
+        wants_llm = (options.get("mode") or os.environ.get("BACKBOARD_NL_MODE") or "").lower() == "llm"
+        if wants_llm and not LLM_QUESTIONS.take(llm_daily_limit()):
+            options["mode"] = "deterministic"
+            notice = LLM_LIMIT_NOTICE
+        result = answer_question(data["question"], **options)
+        if notice and isinstance(result, dict):
+            result["notice"] = notice
+        return 200, result
 
     # Source-provenanced live-data ingestion (defaults to a safe dry-run).
     if method == "POST" and route == "/ingest":
@@ -224,38 +552,68 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def _send(self, status, payload):
-        raw = json.dumps(payload).encode("utf-8")
+    def _accepts_gzip(self):
+        return "gzip" in (self.headers.get("Accept-Encoding") or "").lower()
+
+    def _write(self, status, body, content_type, extra_headers=None):
+        """Send a whole (non-range) response, gzip-compressed when worthwhile."""
+        headers = dict(extra_headers or {})
+        compressible = content_type.startswith(_COMPRESSIBLE)
+        if compressible and self._accepts_gzip() and len(body) >= _COMPRESS_MIN_BYTES:
+            body = gzip.compress(body, compresslevel=6)
+            headers["Content-Encoding"] = "gzip"
+        if compressible:
+            headers["Vary"] = "Accept-Encoding"
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        for name, value in headers.items():
+            self.send_header(name, value)
         self.end_headers()
-        self.wfile.write(raw)
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def _send(self, status, payload, extra_headers=None):
+        raw = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Cache-Control": "no-store",
+        }
+        headers.update(extra_headers or {})
+        self._write(status, raw, "application/json", headers)
 
     def do_OPTIONS(self):
         self._send(204, {})
+
+    def _base_url(self):
+        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "localhost"
+        scheme = self.headers.get("X-Forwarded-Proto") or "http"
+        return f"{scheme}://{host}"
 
     def _serve_html(self):
         if not WEB_HTML.exists():
             self._send(404, {"error": "not_found",
                              "message": "web/index.html not found."})
             return
-        body = WEB_HTML.read_bytes()
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(body)
+        body = render_index(self.path, self._base_url()).encode("utf-8")
+        self._write(200, body, "text/html; charset=utf-8", {"Cache-Control": "no-cache"})
 
     def _serve_static(self, path):
         content_type = _STATIC_CONTENT_TYPES.get(
             path.suffix.lower(), "application/octet-stream"
         )
         size = path.stat().st_size
+        etag = _etag(path)
+        cache = ("public, max-age=604800" if path.suffix.lower() in _LONG_CACHE_SUFFIXES
+                 else "no-cache")
+        if self.headers.get("If-None-Match") == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", cache)
+            self.end_headers()
+            return
         byte_range = _parse_byte_range(self.headers.get("Range"), size)
         if byte_range == "unsatisfiable":
             self.send_response(416)
@@ -265,18 +623,20 @@ class _Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         if byte_range is None:
-            start, end, status = 0, size - 1, 200
-        else:
-            (start, end), status = byte_range, 206
+            self._write(200, path.read_bytes(), content_type,
+                        {"Accept-Ranges": "bytes", "ETag": etag, "Cache-Control": cache})
+            return
+        start, end = byte_range
         with path.open("rb") as handle:
             handle.seek(start)
             body = handle.read(end - start + 1) if size else b""
-        self.send_response(status)
+        self.send_response(206)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Accept-Ranges", "bytes")
-        if status == 206:
-            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", cache)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
@@ -284,8 +644,16 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         route = parsed.path.rstrip("/") or "/"
-        if route in ("/", "/app", "/index.html"):
+        if route in ("/", "/app", "/index.html") or page_route(parsed.path):
             self._serve_html()
+            return
+        if route == "/sitemap.xml":
+            self._write(200, sitemap_xml(self._base_url()).encode("utf-8"),
+                        "application/xml; charset=utf-8", {"Cache-Control": "no-cache"})
+            return
+        if route == "/robots.txt":
+            text = f"User-agent: *\nAllow: /\nSitemap: {self._base_url()}/sitemap.xml\n"
+            self._write(200, text.encode("utf-8"), "text/plain; charset=utf-8")
             return
         static_path = _static_asset_path(parsed.path)
         if static_path is not None:
@@ -294,9 +662,22 @@ class _Handler(BaseHTTPRequestHandler):
         status, payload = handle_request("GET", self.path, None)
         self._send(status, payload)
 
+    def do_HEAD(self):
+        self.do_GET()
+
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0) or 0)
         body = self.rfile.read(length) if length else None
+        route = urllib.parse.urlparse(self.path).path.rstrip("/") or "/"
+        key = client_key(self.client_address[0], self.headers.get("X-Forwarded-For"))
+        if key is not None and rate_limits_enabled():
+            allowed, retry_after = limiter_for(route).allow(key)
+            if not allowed:
+                self._send(429, {"error": "rate_limited",
+                                 "message": f"Too many requests; try again in {retry_after} s.",
+                                 "retry_after": retry_after},
+                           {"Retry-After": str(retry_after)})
+                return
         status, payload = handle_request("POST", self.path, body)
         self._send(status, payload)
 
@@ -357,10 +738,11 @@ def main(argv=None):
     server = ThreadingHTTPServer((args.host, args.port), _Handler)
     print(f"{SERVICE_NAME} API listening on http://{args.host}:{args.port}")
     print(f"  production model: {PRODUCTION_MODEL}")
-    print("  endpoints: GET / (front end), GET /health, GET /tools, "
-          "POST /tools/<name>, POST /ask, POST /ingest")
+    print("  endpoints: GET / and the page paths (front end), GET /health, GET /tools, "
+          "POST /tools/<name>, POST /ask, POST /ingest, GET /sitemap.xml")
+    enable_disk_cache(ROOT / "data" / "cache")
     if not args.no_warm:
-        print("  warming caches in the background (about a minute)")
+        print("  warming caches in the background (about a minute; seconds when data/cache is current)")
         threading.Thread(target=warm_caches, daemon=True).start()
     try:
         server.serve_forever()

@@ -1,30 +1,24 @@
-// main.js — app shell: the Limelight nav, the page head, and route mounting.
+// main.js — app shell: the Limelight nav, the page head, route mounting, and
+// the site-wide conveniences (search, theme, keyboard shortcuts, motion).
 //
 // Scalability note: adding a new page means (1) creating a page module with
-// `render(container, ctx)` [+ optional `meta` and `renderHero`], and (2)
-// adding one entry to ROUTES below. Pages on the bar get `bar: true`; the
-// rest are listed under "More". No other file needs to change.
+// `render(container, ctx)` [+ optional `meta` and `renderHero`], (2) adding
+// one entry to ROUTES below, and (3) adding its path to APP_PAGES in
+// src/api.py (a test keeps the two lists equal). Pages on the bar get
+// `bar: true`; the rest are listed under "More" in their `group`. Page
+// modules load on first visit (and are prefetched on hover).
 
 import { startRouter, onRouteChange, navigate, currentQuery } from "./router.js";
 import { getHealth } from "./api.js";
-import * as dashboardPage from "./pages/dashboard.js";
-import * as matchupsPage from "./pages/matchups.js";
-import * as teamsPage from "./pages/teams.js";
-import * as simulatorPage from "./pages/simulator.js";
-import * as leaguePage from "./pages/league.js";
-import * as assistantPage from "./pages/assistant.js";
-import * as headToHeadPage from "./pages/headToHead.js";
-import * as playoffsPage from "./pages/playoffs.js";
-import * as playerImpactPage from "./pages/playerImpact.js";
-import * as currentSeasonPage from "./pages/currentSeason.js";
-import * as whatIfPage from "./pages/whatIf.js";
-import * as playersPage from "./pages/players.js";
-import * as sandboxPage from "./pages/sandbox.js";
+import { initSearch, openSearch } from "./components/search.js";
+import { applyTheme, setTheme, theme } from "./components/prefs.js";
+import { countUpAll, reduceMotion, reveal } from "./components/motion.js";
 
 const icon = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${d}</svg>`;
 
 const ICONS = {
   home: icon('<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>'),
+  tonight: icon('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/><path d="M15 3.5v3M13.5 5h3"/>'),
   matchups: icon('<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/>'),
   teams: icon('<circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.4"/><path d="M15.7 13.2A5.6 5.6 0 0 1 21.5 20"/>'),
   players: icon('<rect x="4" y="3" width="16" height="18" rx="1"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/>'),
@@ -38,27 +32,86 @@ const ICONS = {
   league: icon('<path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4M17 5h3a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/><path d="M12 13v3M9 20h6M10 17h4"/>'),
   playerImpact: icon('<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M18 8v6M15 11h6"/>'),
   whatIf: icon('<path d="M7 7h10l-3-3M17 17H7l3 3"/><circle cx="12" cy="12" r="1.4"/>'),
+  standings: icon('<path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="m17 16 2 2 3-4"/>'),
+  leaders: icon('<path d="M4 20V11h4v9M10 20V5h4v15M16 20v-6h4v6"/>'),
+  compare: icon('<path d="M8 3 3 8l5 5M16 11l5 5-5 5"/><path d="M3 8h13M21 16H8"/>'),
+  report: icon('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"/><path d="m9 10 2 2 4-4M9 15h6"/>'),
+  gallery: icon('<rect x="3" y="4" width="8" height="7"/><rect x="13" y="4" width="8" height="7"/><rect x="3" y="13" width="8" height="7"/><rect x="13" y="13" width="8" height="7"/>'),
+  search: icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/>'),
+  sun: icon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  moon: icon('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/>'),
 };
 
-// `short` is the label on the bar; `label` is used in the page kicker and menu.
+const lazy = (load) => {
+  let promise = null;
+  return () => (promise ||= load());
+};
+
+// `short` is the label on the bar; `label` is used in the page kicker, the
+// More slip and search; `description` says what the page is for (and how it
+// differs from its neighbours) in the More slip and in search.
 const ROUTES = [
-  { path: "/dashboard", label: "Home", short: "Home", icon: ICONS.home, page: dashboardPage, bar: true },
-  { path: "/matchups", label: "Matchups", short: "Matchups", icon: ICONS.matchups, page: matchupsPage, bar: true },
-  { path: "/teams", label: "Teams", short: "Teams", icon: ICONS.teams, page: teamsPage, bar: true },
-  { path: "/players", label: "Players", short: "Players", icon: ICONS.players, page: playersPage, bar: true },
-  { path: "/sandbox", label: "Sandbox", short: "Sandbox", icon: ICONS.sandbox, page: sandboxPage, bar: true },
-  { path: "/simulator", label: "Season Simulator", short: "Season", icon: ICONS.season, page: simulatorPage, bar: true },
-  { path: "/playoffs", label: "Playoffs", short: "Playoffs", icon: ICONS.playoffs, page: playoffsPage, bar: true },
-  { path: "/assistant", label: "Assistant", short: "Ask", icon: ICONS.ask, page: assistantPage, bar: true },
-  { path: "/current-season", label: "Current Season", icon: ICONS.currentSeason, page: currentSeasonPage },
-  { path: "/head-to-head", label: "Head-to-Head", icon: ICONS.headToHead, page: headToHeadPage },
-  { path: "/league-predictions", label: "League Predictions", icon: ICONS.league, page: leaguePage },
-  { path: "/player-impact", label: "Player Impact", icon: ICONS.playerImpact, page: playerImpactPage },
-  { path: "/what-if", label: "What-if Lab", icon: ICONS.whatIf, page: whatIfPage },
+  { path: "/dashboard", label: "Home", short: "Home", icon: ICONS.home, bar: true,
+    load: lazy(() => import("./pages/dashboard.js")) },
+  { path: "/tonight", label: "Tonight", short: "Tonight", icon: ICONS.tonight, bar: true,
+    description: "Every game today: the model's pick, live win probability, finals",
+    load: lazy(() => import("./pages/tonight.js")) },
+  { path: "/matchups", label: "Matchups", short: "Matchups", icon: ICONS.matchups, bar: true,
+    description: "Any two teams: win probability and projected score",
+    load: lazy(() => import("./pages/matchups.js")) },
+  { path: "/teams", label: "Teams", short: "Teams", icon: ICONS.teams, bar: true,
+    description: "A franchise's strength, schedule, projections and history",
+    load: lazy(() => import("./pages/teams.js")) },
+  { path: "/players", label: "Players", short: "Players", icon: ICONS.players, bar: true,
+    description: "Choose a player: seasons, game logs, percentiles, outlook",
+    load: lazy(() => import("./pages/players.js")) },
+  { path: "/sandbox", label: "Sandbox", short: "Sandbox", icon: ICONS.sandbox, bar: true,
+    description: "Full scenarios: any trades, signings and injuries, then the season",
+    load: lazy(() => import("./pages/sandbox.js")) },
+  { path: "/playoffs", label: "Playoffs", short: "Playoffs", icon: ICONS.playoffs, bar: true,
+    description: "Playoff and title odds, and how they moved",
+    load: lazy(() => import("./pages/playoffs.js")) },
+  { path: "/assistant", label: "Assistant", short: "Ask", icon: ICONS.ask, bar: true,
+    description: "Ask in plain words; every number traced to its tool",
+    load: lazy(() => import("./pages/assistant.js")) },
+  { path: "/standings", label: "Standings", icon: ICONS.standings, group: "League",
+    description: "Records, games behind, streaks and schedule difficulty",
+    load: lazy(() => import("./pages/standings.js")) },
+  { path: "/leaders", label: "League Leaders", icon: ICONS.leaders, group: "League",
+    description: "Who leads in scoring, shooting and box impact",
+    load: lazy(() => import("./pages/leaders.js")) },
+  { path: "/report-card", label: "Model Report Card", icon: ICONS.report, group: "League",
+    description: "How the model's pregame picks have actually done",
+    load: lazy(() => import("./pages/reportCard.js")) },
+  { path: "/current-season", label: "Current Season", icon: ICONS.currentSeason, group: "League",
+    description: "Strength now, roster changes and injuries",
+    load: lazy(() => import("./pages/currentSeason.js")) },
+  { path: "/league-predictions", label: "League Predictions", icon: ICONS.league, group: "League",
+    description: "The projected playoff picture at a glance",
+    load: lazy(() => import("./pages/league.js")) },
+  { path: "/simulator", label: "Season Simulator", icon: ICONS.season, group: "League",
+    description: "Run the season yourself: replay or project from a date",
+    load: lazy(() => import("./pages/simulator.js")) },
+  { path: "/compare", label: "Compare Players", icon: ICONS.compare, group: "Players",
+    description: "Two players, VS screen: ratings, numbers, career arcs",
+    load: lazy(() => import("./pages/compare.js")) },
+  { path: "/player-impact", label: "Player Impact", icon: ICONS.playerImpact, group: "Players",
+    description: "With and without a player (a diagnostic, not a forecast)",
+    load: lazy(() => import("./pages/playerImpact.js")) },
+  { path: "/what-if", label: "What-if Lab", icon: ICONS.whatIf, group: "Players",
+    description: "Quick swap: one player's season, any era, on one team",
+    load: lazy(() => import("./pages/whatIf.js")) },
+  { path: "/head-to-head", label: "Head-to-Head", icon: ICONS.headToHead, group: "Teams",
+    description: "A rivalry season by season (Teams has the summary)",
+    load: lazy(() => import("./pages/headToHead.js")) },
+  { path: "/gallery", label: "Scenario Gallery", icon: ICONS.gallery, group: "Sandbox",
+    description: "Ready-made scenarios and the ones you saved",
+    load: lazy(() => import("./pages/gallery.js")) },
 ];
 
 const BAR = ROUTES.filter((route) => route.bar);
 const MORE = ROUTES.filter((route) => !route.bar);
+const GROUPS = [...new Set(MORE.map((route) => route.group))];
 
 // ---------------------------------------------------------------------------
 // The Limelight nav: a light bar that slides to the active tab, with its beam
@@ -68,25 +121,37 @@ const MORE = ROUTES.filter((route) => !route.bar);
 function buildNav() {
   const nav = document.querySelector("#zn");
   nav.innerHTML = `
-    ${BAR.map((route) => `<a class="zi" href="#${route.path}" data-path="${route.path}" title="${route.label}">
+    ${BAR.map((route) => `<a class="zi" href="${route.path}" data-path="${route.path}" title="${route.label}">
       ${route.icon}<span>${route.short}</span></a>`).join("")}
     <div class="zmore-wrap">
       <button class="zi" type="button" id="zmore" aria-expanded="false" aria-controls="zmenu" title="More pages">
         ${ICONS.more}<span>More</span></button>
     </div>
     <div class="zlime" aria-hidden="true"></div>`;
-  document.body.insertAdjacentHTML("beforeend", `<ul class="zmenu" id="zmenu" hidden>
-    ${MORE.map((route) => `<li><a href="#${route.path}" data-path="${route.path}">${route.icon}${route.label}</a></li>`).join("")}
-  </ul>`);
+  document.body.insertAdjacentHTML("beforeend", `<div class="zmenu" id="zmenu" hidden>
+    <button type="button" class="zmenu-search" data-action="search">${ICONS.search}<span>Search players, teams, pages</span><kbd>/</kbd></button>
+    <button type="button" class="zmenu-search zmenu-theme" data-action="theme">${ICONS.sun}<span>Switch edition (day / night)</span></button>
+    <div class="zmenu-groups">
+      ${GROUPS.map((group) => `<section class="zmenu-group" aria-label="${group}">
+        <h3>${group}</h3>
+        <ul>${MORE.filter((r) => r.group === group).map((route) => `<li><a href="${route.path}" data-path="${route.path}">
+          ${route.icon}<span><b>${route.label}</b><small>${route.description}</small></span></a></li>`).join("")}</ul>
+      </section>`).join("")}
+    </div>
+  </div>`);
 
-  const go = (event, path) => {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-    event.preventDefault();
+  document.querySelectorAll(".zi[data-path], .zmenu a").forEach((el) => {
+    el.addEventListener("click", closeMenu);
+    el.addEventListener("pointerenter", () => ROUTES.find((r) => r.path === el.dataset.path)?.load(), { once: true });
+  });
+  document.querySelector('.zmenu-search[data-action="search"]').addEventListener("click", () => {
     closeMenu();
-    navigate(path);
-  };
-  document.querySelectorAll(".zi[data-path], .zmenu a").forEach((el) =>
-    el.addEventListener("click", (event) => go(event, el.dataset.path)));
+    openSearch();
+  });
+  document.querySelector('.zmenu-search[data-action="theme"]').addEventListener("click", () => {
+    closeMenu();
+    document.querySelector("#ztheme")?.click();
+  });
 
   const more = document.querySelector("#zmore");
   const menu = document.querySelector("#zmenu");
@@ -107,11 +172,32 @@ function buildNav() {
   if (document.fonts?.ready) document.fonts.ready.then(() => placeLime(false));
 }
 
+function buildTools() {
+  const tools = document.querySelector("#ztools");
+  tools.innerHTML = `
+    <button type="button" class="ztool" id="zsearch" title="Search (/ or Ctrl K)" aria-label="Search">
+      ${ICONS.search}<span class="ztool-label">Search</span><kbd>/</kbd></button>
+    <button type="button" class="ztool" id="ztheme" aria-label="Switch theme"></button>`;
+  tools.querySelector("#zsearch").addEventListener("click", openSearch);
+  const themeButton = tools.querySelector("#ztheme");
+  const paint = () => {
+    const light = theme() === "light";
+    themeButton.innerHTML = light ? ICONS.moon : ICONS.sun;
+    themeButton.title = light ? "Switch to the black (night) edition" : "Switch to the newsprint (day) edition";
+    themeButton.setAttribute("aria-pressed", String(light));
+  };
+  themeButton.addEventListener("click", () => {
+    setTheme(theme() === "light" ? "dark" : "light");
+    paint();
+  });
+  paint();
+}
+
 function positionMenu() {
   const more = document.querySelector("#zmore");
   const menu = document.querySelector("#zmenu");
   const rect = more.getBoundingClientRect();
-  const width = menu.offsetWidth || 240;
+  const width = menu.offsetWidth || 320;
   menu.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
 }
 
@@ -120,13 +206,15 @@ function openMenu() {
   menu.hidden = false;
   positionMenu();
   document.querySelector("#zmore").setAttribute("aria-expanded", "true");
-  menu.querySelector("a")?.focus();
+  requestAnimationFrame(() => menu.classList.add("is-open"));
+  menu.querySelector("button, a")?.focus();
 }
 
 function closeMenu() {
   const menu = document.querySelector("#zmenu");
   if (!menu || menu.hidden) return;
   menu.hidden = true;
+  menu.classList.remove("is-open");
   document.querySelector("#zmore").setAttribute("aria-expanded", "false");
 }
 
@@ -135,8 +223,7 @@ let activeItem = null;
 function placeLime(animate) {
   const lime = document.querySelector(".zlime");
   if (!lime || !activeItem) return;
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  lime.classList.toggle("ready", animate && !reduce);
+  lime.classList.toggle("ready", animate && !reduceMotion());
   // Measured against the nav (the More button sits inside its own wrapper).
   const nav = lime.parentElement;
   const item = activeItem.getBoundingClientRect();
@@ -167,14 +254,14 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-function setPageHead(route) {
-  const meta = route.page.meta || { title: route.label, subtitle: "" };
+function setPageHead(route, page) {
+  const meta = page.meta || { title: route.label, subtitle: "" };
   const words = String(meta.title).split(" ");
   const last = words.pop();
   const title = document.querySelector("#topbar-title");
   title.innerHTML = `${words.length ? `${escapeHtml(words.join(" "))} ` : ""}<span class="hl">${escapeHtml(last)}</span>`;
-  const index = ROUTES.indexOf(route) + 1;
-  document.querySelector("#topbar-kicker").textContent = `Page ${index} of ${ROUTES.length} · ${route.label}`;
+  document.querySelector("#topbar-kicker").textContent = route.group
+    ? `${route.group} · ${route.label}` : `Backboard · ${route.label}`;
   document.querySelector("#topbar-subtitle").textContent = meta.subtitle || "";
   // Pages may refine this once their data loads (e.g. a player's name).
   document.title = route.path === "/dashboard" ? "Backboard — NBA Analytics" : `${meta.title} · Backboard`;
@@ -182,24 +269,63 @@ function setPageHead(route) {
 
 // Optional cover: a page module may export `renderHero(slot, ctx)`. When it
 // does, the cover (with its own <h1>) stands in for the page head.
-function setHero(route, ctx) {
+function setHero(page, ctx) {
   const slot = document.querySelector("#app-hero");
   const head = document.querySelector("#page-head");
-  const hasHero = typeof route.page.renderHero === "function";
+  const hasHero = typeof page.renderHero === "function";
   slot.hidden = !hasHero;
   head.hidden = hasHero;
-  if (hasHero) route.page.renderHero(slot, ctx);
+  if (hasHero) page.renderHero(slot, ctx);
   else slot.innerHTML = "";
 }
 
-function mountRoute(path) {
+// A page can drop the page head for a full-screen layout of its own (the
+// character select, the VS screen): ctx.setHeadless(true) during render.
+function setHeadless(on) {
+  const head = document.querySelector("#page-head");
+  const main = document.querySelector("#app-main");
+  if (on) head.hidden = true;
+  else head.hidden = !document.querySelector("#app-hero").hidden;
+  main.classList.toggle("is-headless", Boolean(on));
+}
+
+let mountToken = 0;
+let mountedPath = null;
+
+async function mountRoute(path, kind) {
   const route = ROUTES.find((r) => r.path === path) || ROUTES[0];
-  const ctx = { navigate, query: currentQuery() };
+  const token = ++mountToken;
+  // A query-only change (picking a player, a team) keeps the scroll and skips
+  // the page transition.
+  const newPage = route.path !== mountedPath;
+  mountedPath = route.path;
   closeMenu();
   setActiveNav(route.path);
-  setPageHead(route);
-  setHero(route, ctx);
-  route.page.render(document.querySelector("#app-content"), ctx);
+  const content = document.querySelector("#app-content");
+  let page;
+  try {
+    page = await route.load();
+  } catch (err) {
+    content.innerHTML = `<div class="error-banner" role="alert">⚠ This page failed to load (${escapeHtml(err.message)}). Reload to try again.</div>`;
+    return;
+  }
+  if (token !== mountToken) return; // a newer navigation won
+  const ctx = { navigate, query: currentQuery(), setHeadless };
+  const swap = () => {
+    setPageHead(route, page);
+    setHero(page, ctx);
+    setHeadless(false);
+    page.render(content, ctx);
+    if (newPage && kind !== "replace" && kind !== "load") window.scrollTo({ top: 0, behavior: "instant" });
+  };
+  const animated = newPage && (kind === "push" || kind === "pop");
+  if (animated && document.startViewTransition && !reduceMotion()) {
+    document.documentElement.dataset.nav = kind === "pop" ? "back" : "forward";
+    document.startViewTransition(swap);
+  } else {
+    swap();
+  }
+  if (kind === "load" || animated) document.querySelector("#app-main")?.focus({ preventScroll: true });
 }
 
 async function loadStatus() {
@@ -214,17 +340,62 @@ async function loadStatus() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Site-wide motion: sheets drop in as they scroll into view, big numbers
+// marked data-count count up once. Pages render asynchronously, so new
+// sheets are picked up as they appear.
+// ---------------------------------------------------------------------------
+
+function watchContent() {
+  const content = document.querySelector("#app-content");
+  const pick = () => {
+    const sheets = content.querySelectorAll(":scope > .card, :scope > section > .card, :scope > div > .card, .reveal-me");
+    const below = [...sheets].filter((el) => el.getBoundingClientRect().top > window.innerHeight * 0.9);
+    reveal(below);
+    countUpAll(content);
+  };
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      pick();
+    });
+  }).observe(content, { childList: true, subtree: true });
+}
+
+function buildBackToTop() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "to-top";
+  button.title = "Back to the top";
+  button.setAttribute("aria-label", "Back to the top");
+  button.innerHTML = icon('<path d="M12 19V5M5 12l7-7 7 7"/>');
+  button.hidden = true;
+  button.addEventListener("click", () => window.scrollTo({ top: 0, behavior: reduceMotion() ? "instant" : "smooth" }));
+  document.body.appendChild(button);
+  let ticking = false;
+  window.addEventListener("scroll", () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      button.hidden = window.scrollY < window.innerHeight * 1.4;
+    });
+  }, { passive: true });
+}
+
 function init() {
+  applyTheme();
   buildNav();
+  buildTools();
+  buildBackToTop();
+  initSearch({ routes: ROUTES, navigate });
   loadStatus();
-  onRouteChange((path) => {
-    const previous = location.hash;
-    mountRoute(path);
-    // A new page starts at the top (query-only changes keep the scroll).
-    if (previous.split("?")[0] !== init.lastPath) window.scrollTo({ top: 0, behavior: "instant" });
-    init.lastPath = previous.split("?")[0];
-  });
-  startRouter("/dashboard");
+  watchContent();
+  onRouteChange((path, kind) => mountRoute(path, kind));
+  startRouter("/dashboard", ROUTES.map((route) => route.path));
 }
 
 document.addEventListener("DOMContentLoaded", init);
