@@ -1,5 +1,7 @@
 """Era translation and the what-if swap, on small synthetic league tables."""
 
+import sqlite3
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -147,6 +149,51 @@ def test_only_the_host_teams_games_move():
     assert values[0] > 0.6       # host at home: better
     assert values[1] < 0.6       # host away: home side worse
     assert values[2] == pytest.approx(0.6)
+
+
+BOX_COLUMNS = ["points", "fieldGoalsMade", "fieldGoalsAttempted", "threePointersMade",
+               "threePointersAttempted", "freeThrowsMade", "freeThrowsAttempted",
+               "reboundsOffensive", "reboundsDefensive", "assists", "steals", "blocks",
+               "turnovers", "foulsPersonal"]
+
+
+def missing_team_id_db(path):
+    """Two 2021-22 games between TEAM ('Bulls', home in game 1) and OTHER ('Celtics').
+
+    Player 1 (Bulls) has a team id in game 1 only; player 2 (Celtics) has none.
+    Game 2's rows have no team name either, so only the home flag is left.
+    """
+    with sqlite3.connect(path) as connection:
+        connection.execute("CREATE TABLE games (gameId INTEGER, gameType TEXT, hometeamId INTEGER, "
+                           "awayteamId INTEGER, hometeamName TEXT, awayteamName TEXT)")
+        connection.executemany("INSERT INTO games VALUES (?, ?, ?, ?, ?, ?)", [
+            (1, "Regular Season", TEAM, OTHER, "Bulls", "Celtics"),
+            (2, "Regular Season", OTHER, TEAM, "Celtics", "Bulls"),
+        ])
+        connection.execute(
+            "CREATE TABLE player_statistics (personId INTEGER, gameId INTEGER, gameDateTimeEst TEXT, "
+            "gameType TEXT, firstName TEXT, lastName TEXT, playerteamId INTEGER, playerteamName TEXT, "
+            f"home INTEGER, numMinutes TEXT, {', '.join(c + ' INTEGER' for c in BOX_COLUMNS)})")
+        rows = [
+            (1, 1, "2021-10-20 20:00:00", None, "A", "One", TEAM, "Bulls", 1, "30"),
+            (2, 1, "2021-10-20 20:00:00", None, "B", "Two", None, "Celtics", 0, "20"),
+            (1, 2, "2021-10-22 20:00:00", None, "A", "One", None, None, 0, "30"),
+            (2, 2, "2021-10-22 20:00:00", None, "B", "Two", None, None, 1, "20"),
+        ]
+        connection.executemany(
+            f"INSERT INTO player_statistics VALUES ({', '.join('?' * (10 + len(BOX_COLUMNS)))})",
+            [row + (10,) * len(BOX_COLUMNS) for row in rows])
+    return path
+
+
+def test_player_seasons_take_missing_team_ids_from_the_game(tmp_path):
+    team_seasons = pd.DataFrame([{"teamId": team, "season": 2021, "possessions": 200.0,
+                                  "team_minutes": 960.0, "pace": 100.0} for team in (TEAM, OTHER)])
+    players = es.build_player_seasons(missing_team_id_db(tmp_path / "nba.db"), team_seasons)
+    by_person = players.set_index("personId")
+    assert len(players) == 2
+    assert by_person.loc[1, "teamId"] == TEAM and by_person.loc[1, "games"] == 2
+    assert by_person.loc[2, "teamId"] == OTHER and by_person.loc[2, "minutes"] == 40.0
 
 
 def test_bubble_season_postseason_is_not_simulated():

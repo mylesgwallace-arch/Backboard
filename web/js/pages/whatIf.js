@@ -26,7 +26,7 @@ export function render(container) {
       <span class="note-label">Read this first</span>
       <p class="model-insight">
         These are model-based what-if estimates under stated assumptions, with <strong>low confidence</strong>.
-        They are not claims about what would really have happened. Only about a fifth of a box-score-valued
+        They are not claims about what would really have happened. Less than a fifth of a box-score-valued
         roster change showed up in real team results when this was checked on actual trades and signings,
         so the headline numbers are scaled accordingly.
       </p>
